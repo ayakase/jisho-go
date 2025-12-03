@@ -4,24 +4,18 @@
   type DictEntry = {
     w: string;
     h: string;
-    mazii?: {
-      mean: string;
-      detail: string;
-      example_kun?: Record<string, Array<{ w: string; m: string; p: string }>>;
-      examples?: Array<{ w: string; m: string; p: string; h: string }>;
-      kanji?: string;
-      kun?: string;
-      level?: string[];
-    };
+    detail?: string;
+    example_kun?: Record<string, Array<{ w: string; m: string; p: string }>>;
     grammar?: Array<{
       title: string;
       level: string;
       category: string;
     }>;
     examples?: Array<{
-      content: string;
-      transcription: string;
-      mean: string;
+      w: string;
+      m: string;
+      p: string;
+      h: string;
     }>;
   };
 
@@ -78,35 +72,41 @@
     <div class="result-container">
       <div class="kanji-header">
         <div class="kanji-char">{result.w}</div>
-        <div class="kanji-reading">{result.h}</div>
+        <div class="kanji-reading-header">{result.h}</div>
       </div>
 
-      {#if result.mazii}
+      {#if result.detail}
         <div class="section">
-          <h2>Meaning</h2>
-          <p class="meaning">{result.mazii.mean}</p>
+          <h2>Detail</h2>
+          <div class="detail">
+            {#each result.detail.split("##") as paragraph}
+              {#if paragraph.trim()}
+                <p>{paragraph.trim()}</p>
+              {/if}
+            {/each}
+          </div>
+        </div>
+      {/if}
 
-          {#if result.mazii.detail}
-            <div class="detail">
-              {#each result.mazii.detail.split("##") as paragraph}
-                {#if paragraph.trim()}
-                  <p>{paragraph.trim()}</p>
-                {/if}
-              {/each}
-            </div>
-          {/if}
-
-          {#if result.mazii.level}
-            <div class="level">
-              Level: {result.mazii.level.join(", ")}
-            </div>
-          {/if}
-
-          {#if result.mazii.kun}
-            <div class="kun-reading">
-              Kun: {result.mazii.kun}
-            </div>
-          {/if}
+      {#if result.example_kun}
+        <div class="section">
+          <h2>Example Kun</h2>
+          <div class="example-kun-list">
+            {#each Object.entries(result.example_kun) as [kun, words]}
+              <div class="kun-group">
+                <div class="kun-label">{kun}</div>
+                <div class="kun-words">
+                  {#each words as word}
+                    <div class="kun-word-item">
+                      <span class="kun-word">{word.w}</span>
+                      <span class="kun-reading">({word.p})</span>
+                      <span class="kun-mean">- {word.m}</span>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/each}
+          </div>
         </div>
       {/if}
 
@@ -132,34 +132,17 @@
           <div class="examples-list">
             {#each result.examples.slice(0, 10) as example}
               <div class="example-item">
-                <div class="example-content">{example.content}</div>
-                <div class="example-transcription">{example.transcription}</div>
-                <div class="example-mean">{example.mean}</div>
+                <span class="word-example-word">{example.w}</span>
+                <span class="word-example-reading">({example.p})</span>
+                <span class="word-example-mean">- {example.m}</span>
+                {#if example.h}
+                  <span class="word-example-han"> ({example.h})</span>
+                {/if}
               </div>
             {/each}
             {#if result.examples.length > 10}
               <div class="more-examples">
                 ... and {result.examples.length - 10} more
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/if}
-
-      {#if result.mazii?.examples && result.mazii.examples.length > 0}
-        <div class="section">
-          <h2>Word Examples ({result.mazii.examples.length})</h2>
-          <div class="word-examples-list">
-            {#each result.mazii.examples.slice(0, 10) as example}
-              <div class="word-example-item">
-                <span class="word-example-word">{example.w}</span>
-                <span class="word-example-reading">({example.p})</span>
-                <span class="word-example-mean">- {example.m}</span>
-              </div>
-            {/each}
-            {#if result.mazii.examples.length > 10}
-              <div class="more-examples">
-                ... and {result.mazii.examples.length - 10} more
               </div>
             {/if}
           </div>
@@ -253,7 +236,7 @@
     color: #000000;
   }
 
-  .kanji-reading {
+  .kanji-reading-header {
     font-size: 1.2rem;
     color: #666666;
   }
@@ -270,13 +253,6 @@
     padding-bottom: 0.5rem;
   }
 
-  .meaning {
-    font-size: 1.1rem;
-    font-weight: 500;
-    color: #2c3e50;
-    margin-bottom: 1rem;
-  }
-
   .detail {
     margin-top: 1rem;
     line-height: 1.6;
@@ -286,13 +262,6 @@
   .detail p {
     margin-bottom: 0.5rem;
     color: #555555;
-  }
-
-  .level,
-  .kun-reading {
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
-    color: #666666;
   }
 
   .grammar-list {
@@ -331,43 +300,58 @@
   }
 
   .example-item {
-    padding: 1rem;
+    padding: 0.75rem;
     background-color: #ffffff;
     border-radius: 4px;
     border-left: 3px solid #2196f3;
     color: #000000;
+    font-size: 0.95rem;
   }
 
-  .example-content {
-    font-size: 1.1rem;
-    font-weight: 500;
+  .example-kun-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .kun-group {
+    padding: 0.75rem;
+    background-color: #ffffff;
+    border-radius: 4px;
+    border-left: 3px solid #ff9800;
+  }
+
+  .kun-label {
+    font-weight: 600;
+    color: #ff9800;
     margin-bottom: 0.5rem;
-    color: #000000;
+    font-size: 1rem;
   }
 
-  .example-transcription {
-    font-size: 0.9rem;
-    color: #666666;
-    margin-bottom: 0.5rem;
-    font-style: italic;
-  }
-
-  .example-mean {
-    color: #555555;
-  }
-
-  .word-examples-list {
+  .kun-words {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
   }
 
-  .word-example-item {
-    padding: 0.5rem;
-    background-color: #ffffff;
-    border-radius: 4px;
+  .kun-word-item {
+    padding-left: 0.5rem;
     font-size: 0.95rem;
     color: #000000;
+  }
+
+  .kun-word {
+    font-weight: 500;
+    margin-right: 0.5rem;
+  }
+
+  .kun-reading {
+    color: #666666;
+    margin-right: 0.5rem;
+  }
+
+  .kun-mean {
+    color: #555555;
   }
 
   .word-example-word {
@@ -383,6 +367,11 @@
 
   .word-example-mean {
     color: #555555;
+  }
+
+  .word-example-han {
+    color: #888888;
+    font-size: 0.9rem;
   }
 
   .more-examples {
