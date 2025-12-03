@@ -1,5 +1,5 @@
 <script lang="ts">
-  import dict from "../../assets/lib/dict-ver-2.json";
+  import dict from "../../assets/lib/dict-ver-3.json";
 
   type DictEntry = {
     w: string;
