@@ -1,162 +1,189 @@
 <script lang="ts">
-  import dict from "../../assets/lib/dict-ver-3.json";
+  import { storage } from "#imports";
 
-  type DictEntry = {
-    w: string;
-    h: string;
-    detail?: string;
-    example_kun?: Record<string, Array<{ w: string; m: string; p: string }>>;
-    grammar?: Array<{
-      title: string;
-      level: string;
-      category: string;
-    }>;
-    examples?: Array<{
-      w: string;
-      m: string;
-      p: string;
-      h: string;
-    }>;
-  };
+  type PopupMode = "immediate" | "button";
 
-  let searchQuery = "";
-  let result: DictEntry | null = null;
-  let error: string | null = null;
+  let popupMode = $state<PopupMode>("immediate");
+  let hoverMode = $state<boolean>(false);
+  let showRomaji = $state<boolean>(false);
+  let isInitialized = $state(false);
 
-  function search() {
-    if (!searchQuery.trim()) {
-      result = null;
-      error = null;
-      return;
-    }
-
-    const found = (dict as DictEntry[]).find(
-      (entry) => entry.w === searchQuery.trim()
-    );
-
-    if (found) {
-      result = found;
-      error = null;
-    } else {
-      result = null;
-      error = `Kanji "${searchQuery}" not found`;
+  // Load settings on mount
+  async function loadSettings() {
+    try {
+      const storedMode = await storage.getItem<PopupMode>("local:popupMode");
+      if (storedMode) {
+        popupMode = storedMode;
+      }
+      const storedHover = await storage.getItem<boolean>("local:hoverMode");
+      if (storedHover !== null && storedHover !== undefined) {
+        hoverMode = storedHover;
+      }
+      const storedRomaji = await storage.getItem<boolean>("local:showRomaji");
+      if (storedRomaji !== null && storedRomaji !== undefined) {
+        showRomaji = storedRomaji;
+      }
+      isInitialized = true;
+    } catch (error) {
+      console.error("Failed to load settings:", error);
+      isInitialized = true;
     }
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") {
-      search();
+  // Save settings
+  async function saveSettings() {
+    try {
+      await storage.setItem("local:popupMode", popupMode);
+    } catch (error) {
+      console.error("Failed to save settings:", error);
     }
   }
+
+  // Save hover mode
+  async function saveHoverMode() {
+    try {
+      await storage.setItem("local:hoverMode", hoverMode);
+    } catch (error) {
+      console.error("Failed to save hover mode:", error);
+    }
+  }
+
+  // Save romaji mode
+  async function saveRomajiMode() {
+    try {
+      await storage.setItem("local:showRomaji", showRomaji);
+    } catch (error) {
+      console.error("Failed to save romaji mode:", error);
+    }
+  }
+
+  // Load settings when component mounts
+  loadSettings();
+
+  // Save settings when mode changes (but not on initial load)
+  $effect(() => {
+    if (isInitialized && popupMode) {
+      saveSettings();
+    }
+  });
+
+  // Save hover mode when it changes
+  $effect(() => {
+    if (isInitialized) {
+      saveHoverMode();
+    }
+  });
+
+  // Save romaji mode when it changes
+  $effect(() => {
+    if (isInitialized) {
+      saveRomajiMode();
+    }
+  });
 </script>
 
 <main>
-  <h1>Kanji Dictionary</h1>
+  <h1>Jisho Go Settings</h1>
 
-  <div class="search-container">
-    <input
-      type="text"
-      placeholder="Enter kanji to search..."
-      bind:value={searchQuery}
-      on:keydown={handleKeydown}
-      class="search-input"
-    />
-    <button on:click={search} class="search-button">Search</button>
-  </div>
-
-  {#if error}
-    <div class="error">{error}</div>
-  {/if}
-
-  {#if result}
-    <div class="result-container">
-      <div class="kanji-header">
-        <div class="kanji-char">{result.w}</div>
-        <div class="kanji-reading-header">{result.h}</div>
+  <div class="settings-container">
+    <div class="setting-item">
+      <div class="setting-label">
+        <h3>Popup Mode</h3>
+        <p class="setting-description">
+          Choose how the dictionary popup appears when you select Japanese text
+        </p>
       </div>
-
-      {#if result.detail}
-        <div class="section">
-          <h2>Detail</h2>
-          <div class="detail">
-            {#each result.detail.split("##") as paragraph}
-              {#if paragraph.trim()}
-                <p>{paragraph.trim()}</p>
-              {/if}
-            {/each}
-          </div>
-        </div>
-      {/if}
-
-      {#if result.example_kun}
-        <div class="section">
-          <h2>Example Kun</h2>
-          <div class="example-kun-list">
-            {#each Object.entries(result.example_kun) as [kun, words]}
-              <div class="kun-group">
-                <div class="kun-label">{kun}</div>
-                <div class="kun-words">
-                  {#each words as word}
-                    <div class="kun-word-item">
-                      <span class="kun-word">{word.w}</span>
-                      <span class="kun-reading">({word.p})</span>
-                      <span class="kun-mean">- {word.m}</span>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
-
-      {#if result.grammar && result.grammar.length > 0}
-        <div class="section">
-          <h2>Grammar ({result.grammar.length})</h2>
-          <div class="grammar-list">
-            {#each result.grammar as item}
-              <div class="grammar-item">
-                <div class="grammar-title">{item.title}</div>
-                {#if item.level}
-                  <span class="grammar-level">{item.level}</span>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
-
-      {#if result.examples && result.examples.length > 0}
-        <div class="section">
-          <h2>Examples ({result.examples.length})</h2>
-          <div class="examples-list">
-            {#each result.examples.slice(0, 10) as example}
-              <div class="example-item">
-                <span class="word-example-word">{example.w}</span>
-                <span class="word-example-reading">({example.p})</span>
-                <span class="word-example-mean">- {example.m}</span>
-                {#if example.h}
-                  <span class="word-example-han"> ({example.h})</span>
-                {/if}
-              </div>
-            {/each}
-            {#if result.examples.length > 10}
-              <div class="more-examples">
-                ... and {result.examples.length - 10} more
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/if}
+      <div class="setting-controls">
+        <label class="radio-option">
+          <input
+            type="radio"
+            name="popupMode"
+            value="immediate"
+            checked={popupMode === "immediate"}
+            onchange={() => (popupMode = "immediate")}
+          />
+          <span class="radio-label">
+            <strong>Immediate</strong>
+            <span class="radio-description"
+              >Show popup automatically when text is selected</span
+            >
+          </span>
+        </label>
+        <label class="radio-option">
+          <input
+            type="radio"
+            name="popupMode"
+            value="button"
+            checked={popupMode === "button"}
+            onchange={() => (popupMode = "button")}
+          />
+          <span class="radio-label">
+            <strong>Button Mode</strong>
+            <span class="radio-description"
+              >Show a button first, click to open popup</span
+            >
+          </span>
+        </label>
+      </div>
     </div>
-  {/if}
+
+    <div class="setting-item">
+      <div class="setting-label">
+        <h3>Hover Mode</h3>
+        <p class="setting-description">
+          Show kanji popup when hovering over individual kanji characters
+        </p>
+      </div>
+      <div class="setting-controls">
+        <label class="toggle-option">
+          <input
+            type="checkbox"
+            checked={hoverMode}
+            onchange={(e) =>
+              (hoverMode = (e.target as HTMLInputElement).checked)}
+          />
+          <span class="toggle-label">
+            <strong>Enable Hover Mode</strong>
+            <span class="toggle-description"
+              >Show popup automatically when hovering over kanji characters</span
+            >
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-item">
+      <div class="setting-label">
+        <h3>Show Romaji</h3>
+        <p class="setting-description">
+          Convert hiragana/katakana in readings (on/kun) and pronunciations (p)
+          to romaji
+        </p>
+      </div>
+      <div class="setting-controls">
+        <label class="toggle-option">
+          <input
+            type="checkbox"
+            checked={showRomaji}
+            onchange={(e) =>
+              (showRomaji = (e.target as HTMLInputElement).checked)}
+          />
+          <span class="toggle-label">
+            <strong>Enable Romaji Display</strong>
+            <span class="toggle-description"
+              >Show romaji instead of kana in readings and pronunciations</span
+            >
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
 </main>
 
 <style>
   main {
     padding: 1.5rem;
-    max-width: 800px;
-    margin: 0 auto;
+    width: 400px;
     font-family:
       system-ui,
       -apple-system,
@@ -169,215 +196,127 @@
     text-align: center;
     margin-bottom: 1.5rem;
     color: #333333;
+    font-size: 1.5rem;
   }
 
-  .search-container {
+  .settings-container {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    flex-direction: column;
+    gap: 1.5rem;
   }
 
-  .search-input {
-    flex: 1;
-    padding: 0.75rem;
-    font-size: 1rem;
-    border: 2px solid #dddddd;
-    border-radius: 4px;
-    outline: none;
-    background-color: #ffffff;
-    color: #000000;
+  .setting-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
 
-  .search-input:focus {
-    border-color: #4caf50;
-  }
-
-  .search-button {
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
-    background-color: #4caf50;
-    color: #ffffff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .search-button:hover {
-    background-color: #45a049;
-  }
-
-  .error {
-    padding: 1rem;
-    background-color: #ffebee;
-    color: #c62828;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-  }
-
-  .result-container {
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    padding: 1.5rem;
-    color: #000000;
-  }
-
-  .kanji-header {
-    text-align: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #dddddd;
-  }
-
-  .kanji-char {
-    font-size: 4rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    color: #000000;
-  }
-
-  .kanji-reading-header {
-    font-size: 1.2rem;
-    color: #666666;
-  }
-
-  .section {
-    margin-bottom: 2rem;
-  }
-
-  .section h2 {
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
+  .setting-label h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
     color: #333333;
-    border-bottom: 1px solid #dddddd;
-    padding-bottom: 0.5rem;
   }
 
-  .detail {
-    margin-top: 1rem;
-    line-height: 1.6;
-    color: #555555;
+  .setting-description {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666666;
+    line-height: 1.4;
   }
 
-  .detail p {
-    margin-bottom: 0.5rem;
-    color: #555555;
-  }
-
-  .grammar-list {
+  .setting-controls {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
   }
 
-  .grammar-item {
+  .radio-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
     padding: 0.75rem;
-    background-color: #ffffff;
-    border-radius: 4px;
-    border-left: 3px solid #4caf50;
-    color: #000000;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
   }
 
-  .grammar-title {
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-    color: #000000;
+  .radio-option:hover {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
   }
 
-  .grammar-level {
-    font-size: 0.85rem;
-    color: #666666;
-    background-color: #e8f5e9;
-    padding: 0.2rem 0.5rem;
-    border-radius: 3px;
-    display: inline-block;
+  .radio-option input[type="radio"] {
+    margin-top: 0.25rem;
+    cursor: pointer;
   }
 
-  .examples-list {
+  .radio-option input[type="radio"]:checked + .radio-label strong {
+    color: #f87171;
+  }
+
+  .radio-label {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.25rem;
+    flex: 1;
   }
 
-  .example-item {
-    padding: 0.75rem;
-    background-color: #ffffff;
-    border-radius: 4px;
-    border-left: 3px solid #2196f3;
-    color: #000000;
-    font-size: 0.95rem;
-  }
-
-  .example-kun-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .kun-group {
-    padding: 0.75rem;
-    background-color: #ffffff;
-    border-radius: 4px;
-    border-left: 3px solid #ff9800;
-  }
-
-  .kun-label {
-    font-weight: 600;
-    color: #ff9800;
-    margin-bottom: 0.5rem;
+  .radio-label strong {
     font-size: 1rem;
+    color: #111827;
+    transition: color 0.2s;
   }
 
-  .kun-words {
+  .radio-description {
+    font-size: 0.85rem;
+    color: #6b7280;
+    line-height: 1.4;
+  }
+
+  .toggle-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toggle-option:hover {
+    border-color: #d1d5db;
+    background-color: #f9fafb;
+  }
+
+  .toggle-option input[type="checkbox"] {
+    margin-top: 0.25rem;
+    cursor: pointer;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .toggle-option input[type="checkbox"]:checked + .toggle-label strong {
+    color: #f87171;
+  }
+
+  .toggle-label {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    flex: 1;
   }
 
-  .kun-word-item {
-    padding-left: 0.5rem;
-    font-size: 0.95rem;
-    color: #000000;
+  .toggle-label strong {
+    font-size: 1rem;
+    color: #111827;
+    transition: color 0.2s;
   }
 
-  .kun-word {
-    font-weight: 500;
-    margin-right: 0.5rem;
-  }
-
-  .kun-reading {
-    color: #666666;
-    margin-right: 0.5rem;
-  }
-
-  .kun-mean {
-    color: #555555;
-  }
-
-  .word-example-word {
-    font-weight: 500;
-    margin-right: 0.5rem;
-    color: #000000;
-  }
-
-  .word-example-reading {
-    color: #666666;
-    margin-right: 0.5rem;
-  }
-
-  .word-example-mean {
-    color: #555555;
-  }
-
-  .word-example-han {
-    color: #888888;
-    font-size: 0.9rem;
-  }
-
-  .more-examples {
-    text-align: center;
-    color: #999999;
-    font-style: italic;
-    margin-top: 0.5rem;
+  .toggle-description {
+    font-size: 0.85rem;
+    color: #6b7280;
+    line-height: 1.4;
   }
 </style>
