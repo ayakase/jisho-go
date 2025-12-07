@@ -161,12 +161,13 @@ function showButtonNear(rect: DOMRect, text: string) {
   let left = rect.left;
   let top = rect.bottom + GAP;
 
-  // Ensure button stays within viewport
-  if (left + 100 > viewportWidth - PADDING) {
-    left = viewportWidth - 100 - PADDING;
+  // Ensure button stays within viewport (button is ~36px with icon + padding)
+  const BUTTON_SIZE = 36;
+  if (left + BUTTON_SIZE > viewportWidth - PADDING) {
+    left = viewportWidth - BUTTON_SIZE - PADDING;
   }
-  if (top + 40 > viewportHeight - PADDING) {
-    top = rect.top - 40 - GAP;
+  if (top + BUTTON_SIZE > viewportHeight - PADDING) {
+    top = rect.top - BUTTON_SIZE - GAP;
   }
   left = Math.max(PADDING, left);
   top = Math.max(PADDING, top);
@@ -176,18 +177,23 @@ function showButtonNear(rect: DOMRect, text: string) {
 
   // Create button element
   const button = document.createElement('button');
-  button.textContent = 'Search';
+  button.innerHTML = `
+    <svg width="20px" height="20px" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.545 15.467l-3.779-3.779a6.15 6.15 0 0 0 .898-3.21c0-3.417-2.961-6.377-6.378-6.377A6.185 6.185 0 0 0 2.1 8.287c0 3.416 2.961 6.377 6.377 6.377a6.15 6.15 0 0 0 3.115-.844l3.799 3.801a.953.953 0 0 0 1.346 0l.943-.943c.371-.371.236-.84-.135-1.211zM4.004 8.287a4.282 4.282 0 0 1 4.282-4.283c2.366 0 4.474 2.107 4.474 4.474a4.284 4.284 0 0 1-4.283 4.283c-2.366-.001-4.473-2.109-4.473-4.474z" fill="white"/>
+    </svg>
+  `;
   button.style.cssText = `
-    padding: 0.5rem 1rem;
+    padding: 0.5rem;
     background-color: #f87171;
     color: white;
     border: none;
     border-radius: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 500;
     cursor: pointer;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   `;
 
   button.onmouseenter = () => {

@@ -83,16 +83,11 @@
 </script>
 
 <main>
-  <h1>Jisho Go Settings</h1>
+  <h1>Cài đặt Jisho Go</h1>
 
   <div class="settings-container">
     <div class="setting-item">
-      <div class="setting-label">
-        <h3>Popup Mode</h3>
-        <p class="setting-description">
-          Choose how the dictionary popup appears when you select Japanese text
-        </p>
-      </div>
+      <h3>Chế độ popup</h3>
       <div class="setting-controls">
         <label class="radio-option">
           <input
@@ -103,9 +98,9 @@
             onchange={() => (popupMode = "immediate")}
           />
           <span class="radio-label">
-            <strong>Immediate</strong>
+            <strong>Tức thì</strong>
             <span class="radio-description"
-              >Show popup automatically when text is selected</span
+              >Hiển thị popup tự động khi chọn văn bản</span
             >
           </span>
         </label>
@@ -118,9 +113,9 @@
             onchange={() => (popupMode = "button")}
           />
           <span class="radio-label">
-            <strong>Button Mode</strong>
+            <strong>Chế độ nút</strong>
             <span class="radio-description"
-              >Show a button first, click to open popup</span
+              >Hiển thị nút trước, nhấp để mở popup</span
             >
           </span>
         </label>
@@ -128,12 +123,7 @@
     </div>
 
     <div class="setting-item">
-      <div class="setting-label">
-        <h3>Hover Mode</h3>
-        <p class="setting-description">
-          Show kanji popup when hovering over individual kanji characters
-        </p>
-      </div>
+      <h3>Chế độ di chuột</h3>
       <div class="setting-controls">
         <label class="toggle-option">
           <input
@@ -143,9 +133,9 @@
               (hoverMode = (e.target as HTMLInputElement).checked)}
           />
           <span class="toggle-label">
-            <strong>Enable Hover Mode</strong>
+            <strong>Bật chế độ di chuột</strong>
             <span class="toggle-description"
-              >Show popup automatically when hovering over kanji characters</span
+              >Hiển thị popup khi di chuột qua ký tự kanji</span
             >
           </span>
         </label>
@@ -153,13 +143,7 @@
     </div>
 
     <div class="setting-item">
-      <div class="setting-label">
-        <h3>Show Romaji</h3>
-        <p class="setting-description">
-          Convert hiragana/katakana in readings (on/kun) and pronunciations (p)
-          to romaji
-        </p>
-      </div>
+      <h3>Hiển thị Romaji</h3>
       <div class="setting-controls">
         <label class="toggle-option">
           <input
@@ -169,9 +153,9 @@
               (showRomaji = (e.target as HTMLInputElement).checked)}
           />
           <span class="toggle-label">
-            <strong>Enable Romaji Display</strong>
+            <strong>Bật hiển thị Romaji</strong>
             <span class="toggle-description"
-              >Show romaji instead of kana in readings and pronunciations</span
+              >Hiển thị romaji kèm kana trong cách đọc và phát âm</span
             >
           </span>
         </label>
@@ -181,8 +165,19 @@
 </main>
 
 <style>
+  :global(body) {
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    outline: none;
+  }
+
+  :global(html) {
+    background-color: #ffffff;
+  }
+
   main {
-    padding: 1.5rem;
+    padding: 1rem;
     width: 400px;
     font-family:
       system-ui,
@@ -190,55 +185,58 @@
       sans-serif;
     background-color: #ffffff;
     color: #000000;
+    outline: none;
+    border: none;
+    margin: 0;
   }
 
   h1 {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     color: #333333;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .settings-container {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
   }
 
   .setting-item {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
-  .setting-label h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.1rem;
-    color: #333333;
-  }
-
-  .setting-description {
+  .setting-item h3 {
     margin: 0;
-    font-size: 0.9rem;
-    color: #666666;
-    line-height: 1.4;
+    font-size: 0.95rem;
+    color: #333333;
+    font-weight: 600;
   }
 
   .setting-controls {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .radio-option {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    gap: 0.5rem;
+    padding: 0.5rem;
     border: 2px solid #e5e7eb;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
+    outline: none;
+  }
+
+  .radio-option:focus,
+  .radio-option:focus-visible {
+    outline: none;
   }
 
   .radio-option:hover {
@@ -247,8 +245,14 @@
   }
 
   .radio-option input[type="radio"] {
-    margin-top: 0.25rem;
+    margin-top: 0.15rem;
     cursor: pointer;
+    outline: none;
+  }
+
+  .radio-option input[type="radio"]:focus,
+  .radio-option input[type="radio"]:focus-visible {
+    outline: none;
   }
 
   .radio-option input[type="radio"]:checked + .radio-label strong {
@@ -258,31 +262,37 @@
   .radio-label {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.15rem;
     flex: 1;
   }
 
   .radio-label strong {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: #111827;
     transition: color 0.2s;
   }
 
   .radio-description {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #6b7280;
-    line-height: 1.4;
+    line-height: 1.3;
   }
 
   .toggle-option {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    gap: 0.5rem;
+    padding: 0.5rem;
     border: 2px solid #e5e7eb;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
+    outline: none;
+  }
+
+  .toggle-option:focus,
+  .toggle-option:focus-visible {
+    outline: none;
   }
 
   .toggle-option:hover {
@@ -291,10 +301,16 @@
   }
 
   .toggle-option input[type="checkbox"] {
-    margin-top: 0.25rem;
+    margin-top: 0.15rem;
     cursor: pointer;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    outline: none;
+  }
+
+  .toggle-option input[type="checkbox"]:focus,
+  .toggle-option input[type="checkbox"]:focus-visible {
+    outline: none;
   }
 
   .toggle-option input[type="checkbox"]:checked + .toggle-label strong {
@@ -304,19 +320,19 @@
   .toggle-label {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.15rem;
     flex: 1;
   }
 
   .toggle-label strong {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: #111827;
     transition: color 0.2s;
   }
 
   .toggle-description {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #6b7280;
-    line-height: 1.4;
+    line-height: 1.3;
   }
 </style>
