@@ -5,6 +5,8 @@ export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-svelte'],
   manifest: {
+    name: 'Kanji Go',
+    description: 'Kanji Go - Tra kanji siêu tốc',
     permissions: ['storage'],
   },
 });

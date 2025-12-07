@@ -145,7 +145,7 @@ function showButtonNear(rect: DOMRect, text: string) {
 
   // Create button container
   buttonContainer = document.createElement('div');
-  buttonContainer.id = 'jisho-go-search-button';
+  buttonContainer.id = 'kanji-go-search-button';
   buttonContainer.style.cssText = `
     position: fixed;
     z-index: 2147483647;
@@ -474,7 +474,7 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
 
   // Create container for the hover popup
   hoverPopupContainer = document.createElement('div');
-  hoverPopupContainer.id = 'jisho-go-hover-popup-container';
+  hoverPopupContainer.id = 'kanji-go-hover-popup-container';
   document.body.appendChild(hoverPopupContainer);
 
   // Popup dimensions

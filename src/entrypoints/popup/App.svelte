@@ -83,7 +83,7 @@
 </script>
 
 <main>
-  <h1>Cài đặt Jisho Go</h1>
+  <h1>Cài đặt Kanji Go</h1>
 
   <div class="settings-container">
     <div class="setting-item">

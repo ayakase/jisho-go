@@ -145,7 +145,7 @@
 </script>
 
 <div
-  id="jisho-go-selection-popup"
+  id="kanji-go-selection-popup"
   class="popup"
   style="left: {position.left}px; top: {position.top}px;"
   role="dialog"
@@ -467,25 +467,6 @@
     padding: 1rem;
     background: #ffffff;
     border-top: 1px solid #e5e7eb;
-  }
-
-  .kanji-header {
-    text-align: center;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  .kanji-char {
-    font-size: 2.5rem;
-    font-weight: bold;
-    margin-bottom: 0.25rem;
-    color: #f87171;
-  }
-
-  .kanji-reading {
-    font-size: 1rem;
-    color: #6b7280;
   }
 
   .detail-section {
