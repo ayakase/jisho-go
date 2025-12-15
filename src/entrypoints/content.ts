@@ -3,11 +3,13 @@ import { storage } from '#imports';
 import SelectionPopup from './SelectionPopup.svelte';
 import HoverPopup from './HoverPopup.svelte';
 
+type PopupMode = 'off' | 'immediate' | 'button';
+
 let popupContainer: HTMLElement | null = null; // Click/selection popup
 let hoverPopupContainer: HTMLElement | null = null; // Hover popup (separate)
 let buttonContainer: HTMLElement | null = null;
 let popupText: string | null = null;
-let popupMode: 'immediate' | 'button' = 'immediate';
+let popupMode: PopupMode = 'immediate';
 let hoverMode = false;
 let hoverTimeout: number | null = null;
 
@@ -20,9 +22,13 @@ export default defineContentScript({
     await loadHoverMode();
 
     // Listen for storage changes using WXT storage watch
-    storage.watch<'immediate' | 'button'>('local:popupMode', (newMode, oldMode) => {
+    storage.watch<PopupMode>('local:popupMode', (newMode, oldMode) => {
       if (newMode) {
         popupMode = newMode;
+        if (popupMode === 'off') {
+          removePopup();
+          removeButton();
+        }
       }
     });
 
@@ -34,6 +40,13 @@ export default defineContentScript({
         (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
         (buttonContainer && buttonContainer.contains(event.target as Node))
       ) {
+        return;
+      }
+
+      // If popup mode is off, don't show anything
+      if (popupMode === 'off') {
+        removePopup();
+        removeButton();
         return;
       }
 
@@ -88,7 +101,7 @@ export default defineContentScript({
 
 async function loadPopupMode() {
   try {
-    const stored = await storage.getItem<'immediate' | 'button'>('local:popupMode');
+    const stored = await storage.getItem<PopupMode>('local:popupMode');
     if (stored) {
       popupMode = stored;
     }

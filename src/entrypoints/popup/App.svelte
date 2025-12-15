@@ -1,13 +1,15 @@
 <script lang="ts">
   import { storage } from "#imports";
 
-  type PopupMode = "immediate" | "button";
-
+  type PopupMode = "off" | "immediate" | "button";
   let popupMode = $state<PopupMode>("immediate");
   let hoverMode = $state<boolean>(false);
   let showRomaji = $state<boolean>(false);
   let isInitialized = $state(false);
-
+  let blacklist = $state<string[]>([]);
+  let newWebsite = $state<string>("");
+  let editingIndex = $state<number | null>(null);
+  let editingValue = $state<string>("");
   // Load settings on mount
   async function loadSettings() {
     try {
@@ -56,6 +58,47 @@
       console.error("Failed to save romaji mode:", error);
     }
   }
+  // Add website to blacklist
+  function addWebsite() {
+    if (newWebsite.trim() && !blacklist.includes(newWebsite.trim())) {
+      blacklist = [...blacklist, newWebsite.trim()];
+      newWebsite = "";
+    }
+  }
+
+  // Delete website from blacklist
+  function deleteWebsite(index: number) {
+    blacklist = blacklist.filter((_, i) => i !== index);
+  }
+
+  // Start editing a website
+  function startEdit(index: number) {
+    editingIndex = index;
+    editingValue = blacklist[index];
+  }
+
+  // Save edited website
+  function saveEdit() {
+    if (
+      editingIndex !== null &&
+      editingValue.trim() &&
+      !blacklist.some(
+        (site, i) => i !== editingIndex && site === editingValue.trim()
+      )
+    ) {
+      blacklist = blacklist.map((site, i) =>
+        i === editingIndex ? editingValue.trim() : site
+      );
+      editingIndex = null;
+      editingValue = "";
+    }
+  }
+
+  // Cancel editing
+  function cancelEdit() {
+    editingIndex = null;
+    editingValue = "";
+  }
 
   // Load settings when component mounts
   loadSettings();
@@ -83,12 +126,29 @@
 </script>
 
 <main>
-  <h1>Cài đặt Kanji Go</h1>
+  <div class="header-section">
+    <h1>Cài đặt Kanji Go</h1>
+  </div>
 
   <div class="settings-container">
     <div class="setting-item">
       <h3>Chế độ popup</h3>
       <div class="setting-controls">
+        <label class="radio-option">
+          <input
+            type="radio"
+            name="popupMode"
+            value="off"
+            checked={popupMode === "off"}
+            onchange={() => (popupMode = "off")}
+          />
+          <span class="radio-label">
+            <strong>Tắt</strong>
+            <span class="radio-description"
+              >Không hiển thị popup khi chọn văn bản</span
+            >
+          </span>
+        </label>
         <label class="radio-option">
           <input
             type="radio"
@@ -161,178 +221,75 @@
         </label>
       </div>
     </div>
+
+    <div class="setting-item">
+      <h3>Danh sách đen trang web</h3>
+      <div class="setting-controls">
+        <div class="blacklist-add">
+          <input
+            type="text"
+            class="blacklist-input"
+            placeholder="Nhập tên miền (ví dụ: example.com)"
+            value={newWebsite}
+            oninput={(e) => (newWebsite = (e.target as HTMLInputElement).value)}
+            onkeydown={(e) => {
+              if (e.key === "Enter") {
+                addWebsite();
+              }
+            }}
+          />
+          <button class="add-button" onclick={addWebsite}>Thêm</button>
+        </div>
+        <div class="blacklist-list">
+          {#if blacklist.length === 0}
+            <div class="blacklist-empty">
+              Chưa có trang web nào trong danh sách đen
+            </div>
+          {:else}
+            {#each blacklist as website, index}
+              <div class="blacklist-item">
+                {#if editingIndex === index}
+                  <input
+                    type="text"
+                    class="blacklist-edit-input"
+                    value={editingValue}
+                    oninput={(e) =>
+                      (editingValue = (e.target as HTMLInputElement).value)}
+                    onkeydown={(e) => {
+                      if (e.key === "Enter") {
+                        saveEdit();
+                      } else if (e.key === "Escape") {
+                        cancelEdit();
+                      }
+                    }}
+                  />
+                  <div class="blacklist-actions">
+                    <button class="save-button" onclick={saveEdit}>Lưu</button>
+                    <button class="cancel-button" onclick={cancelEdit}
+                      >Hủy</button
+                    >
+                  </div>
+                {:else}
+                  <button
+                    type="button"
+                    class="blacklist-website"
+                    onclick={() => startEdit(index)}>{website}</button
+                  >
+                  <div class="blacklist-actions">
+                    <button class="edit-button" onclick={() => startEdit(index)}
+                      >Sửa</button
+                    >
+                    <button
+                      class="delete-button"
+                      onclick={() => deleteWebsite(index)}>Xóa</button
+                    >
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          {/if}
+        </div>
+      </div>
+    </div>
   </div>
 </main>
-
-<style>
-  :global(body) {
-    margin: 0;
-    padding: 0;
-    background-color: #ffffff;
-    outline: none;
-  }
-
-  :global(html) {
-    background-color: #ffffff;
-  }
-
-  main {
-    padding: 1rem;
-    width: 400px;
-    font-family:
-      system-ui,
-      -apple-system,
-      sans-serif;
-    background-color: #ffffff;
-    color: #000000;
-    outline: none;
-    border: none;
-    margin: 0;
-  }
-
-  h1 {
-    text-align: center;
-    margin-bottom: 1rem;
-    color: #333333;
-    font-size: 1.25rem;
-  }
-
-  .settings-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .setting-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .setting-item h3 {
-    margin: 0;
-    font-size: 0.95rem;
-    color: #333333;
-    font-weight: 600;
-  }
-
-  .setting-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .radio-option {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    outline: none;
-  }
-
-  .radio-option:focus,
-  .radio-option:focus-visible {
-    outline: none;
-  }
-
-  .radio-option:hover {
-    border-color: #d1d5db;
-    background-color: #f9fafb;
-  }
-
-  .radio-option input[type="radio"] {
-    margin-top: 0.15rem;
-    cursor: pointer;
-    outline: none;
-  }
-
-  .radio-option input[type="radio"]:focus,
-  .radio-option input[type="radio"]:focus-visible {
-    outline: none;
-  }
-
-  .radio-option input[type="radio"]:checked + .radio-label strong {
-    color: #f87171;
-  }
-
-  .radio-label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    flex: 1;
-  }
-
-  .radio-label strong {
-    font-size: 0.9rem;
-    color: #111827;
-    transition: color 0.2s;
-  }
-
-  .radio-description {
-    font-size: 0.8rem;
-    color: #6b7280;
-    line-height: 1.3;
-  }
-
-  .toggle-option {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    outline: none;
-  }
-
-  .toggle-option:focus,
-  .toggle-option:focus-visible {
-    outline: none;
-  }
-
-  .toggle-option:hover {
-    border-color: #d1d5db;
-    background-color: #f9fafb;
-  }
-
-  .toggle-option input[type="checkbox"] {
-    margin-top: 0.15rem;
-    cursor: pointer;
-    width: 1.1rem;
-    height: 1.1rem;
-    outline: none;
-  }
-
-  .toggle-option input[type="checkbox"]:focus,
-  .toggle-option input[type="checkbox"]:focus-visible {
-    outline: none;
-  }
-
-  .toggle-option input[type="checkbox"]:checked + .toggle-label strong {
-    color: #f87171;
-  }
-
-  .toggle-label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    flex: 1;
-  }
-
-  .toggle-label strong {
-    font-size: 0.9rem;
-    color: #111827;
-    transition: color 0.2s;
-  }
-
-  .toggle-description {
-    font-size: 0.8rem;
-    color: #6b7280;
-    line-height: 1.3;
-  }
-</style>
