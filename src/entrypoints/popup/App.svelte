@@ -1,5 +1,6 @@
 <script lang="ts">
   import { storage } from "#imports";
+  import { validateUrl } from "../../lib/validateUrl";
 
   type PopupMode = "off" | "immediate" | "button";
   let popupMode = $state<PopupMode>("immediate");
@@ -10,6 +11,7 @@
   let newWebsite = $state<string>("");
   let editingIndex = $state<number | null>(null);
   let editingValue = $state<string>("");
+  let errorMessage = $state<string>("");
   // Load settings on mount
   async function loadSettings() {
     try {
@@ -24,6 +26,27 @@
       const storedRomaji = await storage.getItem<boolean>("local:showRomaji");
       if (storedRomaji !== null && storedRomaji !== undefined) {
         showRomaji = storedRomaji;
+      }
+      const storedBlacklist = await storage.getItem<unknown>("local:blacklist");
+      if (Array.isArray(storedBlacklist)) {
+        // Đã là array rồi
+        blacklist = storedBlacklist as string[];
+      } else if (
+        storedBlacklist &&
+        typeof storedBlacklist === "object" &&
+        !Array.isArray(storedBlacklist)
+      ) {
+        // Trường hợp Chrome/WXT show dạng {"0":"url1","1":"url2"}
+        const values = Object.values(storedBlacklist as Record<string, unknown>)
+          .map((v) => (typeof v === "string" ? v.trim() : ""))
+          .filter((v) => v.length > 0);
+        blacklist = values;
+      } else if (
+        typeof storedBlacklist === "string" &&
+        storedBlacklist.trim()
+      ) {
+        // Trường hợp cũ lưu 1 string
+        blacklist = [storedBlacklist.trim()];
       }
       isInitialized = true;
     } catch (error) {
@@ -58,11 +81,24 @@
       console.error("Failed to save romaji mode:", error);
     }
   }
+  // Save blacklist
+  async function saveBlacklist() {
+    try {
+      await storage.setItem("local:blacklist", blacklist);
+    } catch (error) {
+      console.error("Failed to save blacklist:", error);
+    }
+  }
   // Add website to blacklist
   function addWebsite() {
-    if (newWebsite.trim() && !blacklist.includes(newWebsite.trim())) {
+    if (
+      validateUrl(newWebsite.trim()) &&
+      !blacklist.includes(newWebsite.trim())
+    ) {
       blacklist = [...blacklist, newWebsite.trim()];
       newWebsite = "";
+    } else {
+      errorMessage = "URL không hợp lệ hoặc đã tồn tại trong danh sách đen";
     }
   }
 
@@ -121,6 +157,12 @@
   $effect(() => {
     if (isInitialized) {
       saveRomajiMode();
+    }
+  });
+  // Save blacklist when it changes
+  $effect(() => {
+    if (isInitialized) {
+      saveBlacklist();
     }
   });
 </script>
@@ -239,6 +281,9 @@
             }}
           />
           <button class="add-button" onclick={addWebsite}>Thêm</button>
+          {#if errorMessage}
+            <div class="error-message">{errorMessage}</div>
+          {/if}
         </div>
         <div class="blacklist-list">
           {#if blacklist.length === 0}

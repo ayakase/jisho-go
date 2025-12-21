@@ -12,14 +12,39 @@ let popupText: string | null = null;
 let popupMode: PopupMode = 'immediate';
 let hoverMode = false;
 let hoverTimeout: number | null = null;
+let blacklist: string[] = [];
 
 export default defineContentScript({
   // Run on all pages so selection works everywhere, not just on google.com
   matches: ['<all_urls>'],
   async main() {
-    // Load popup mode setting
+    // Load settings
     await loadPopupMode();
     await loadHoverMode();
+    await loadBlacklist();
+
+    // Watch blacklist changes so updates from the popup apply without reload
+    storage.watch<unknown>('local:blacklist', (value) => {
+      if (Array.isArray(value)) {
+        blacklist = value as string[];
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const values = Object.values(value as Record<string, unknown>)
+          .map((v) => (typeof v === 'string' ? v.trim() : ''))
+          .filter((v) => v.length > 0);
+        blacklist = values;
+      } else if (typeof value === 'string' && value.trim()) {
+        blacklist = [value.trim()];
+      } else {
+        blacklist = [];
+      }
+
+      // If this site just became blacklisted, clean up any UI
+      if (isBlacklistedLocation()) {
+        removePopup();
+        removeButton();
+        cleanupHoverMode();
+      }
+    });
 
     // Listen for storage changes using WXT storage watch
     storage.watch<PopupMode>('local:popupMode', (newMode, oldMode) => {
@@ -34,6 +59,12 @@ export default defineContentScript({
 
     // Show a small popup next to highlighted text on the page
     document.addEventListener('mouseup', (event) => {
+      // Do nothing on blacklisted sites
+      if (isBlacklistedLocation()) {
+        removePopup();
+        removeButton();
+        return;
+      }
       // Don't process if clicking inside the popup, hover popup, or button
       if (
         (popupContainer && popupContainer.contains(event.target as Node)) ||
@@ -119,6 +150,54 @@ async function loadHoverMode() {
   } catch (error) {
     console.error('Failed to load hover mode:', error);
   }
+}
+
+async function loadBlacklist() {
+  try {
+    const stored = await storage.getItem<unknown>('local:blacklist');
+    if (Array.isArray(stored)) {
+      // Đã là array rồi
+      blacklist = stored as string[];
+    } else if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+      // Trường hợp Chrome/WXT show dạng {"0":"url1","1":"url2"}
+      const values = Object.values(stored as Record<string, unknown>)
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .filter((v) => v.length > 0);
+      blacklist = values;
+    } else if (typeof stored === 'string' && stored.trim()) {
+      // Backward compatibility if a single string was stored before
+      blacklist = [stored.trim()];
+    } else {
+      blacklist = [];
+    }
+  } catch (error) {
+    console.error('Failed to load blacklist:', error);
+  }
+}
+
+function isBlacklistedLocation(): boolean {
+  const host = window.location.hostname.toLowerCase();
+  return blacklist.some((entry) => {
+    const trimmed = entry.trim().toLowerCase();
+    if (!trimmed) return false;
+
+    // Try to interpret entry as URL or plain domain and extract hostname
+    let domain = trimmed;
+    try {
+      const url = new URL(trimmed);
+      domain = url.hostname.toLowerCase();
+    } catch {
+      try {
+        const url = new URL(`https://${trimmed}`);
+        domain = url.hostname.toLowerCase();
+      } catch {
+        // If it still can't be parsed, fall back to raw string
+        domain = trimmed;
+      }
+    }
+
+    return host === domain || host.endsWith(`.${domain}`);
+  });
 }
 
 function removePopup() {
@@ -407,6 +486,11 @@ function setupHoverMode() {
   cleanupHoverMode();
 
   hoverMouseMoveHandler = (e: MouseEvent) => {
+    // Do nothing on blacklisted sites
+    if (isBlacklistedLocation()) {
+      removeHoverPopup();
+      return;
+    }
     // Priority: Selection mode popup/button takes precedence - skip hover if they exist
     // This ensures click/selection mode always has priority over hover mode
     if (popupContainer || buttonContainer) {
@@ -558,3 +642,63 @@ function cleanupHoverMode() {
   }
   removeHoverPopup();
 }
+
+window.addEventListener("message", (event) => {
+  if (event.data.type === "START_SELECTION") {
+    const overlay = document.createElement("div");
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.background = "rgba(0,0,0,0.2)";
+    overlay.style.cursor = "crosshair";
+    overlay.style.zIndex = "999999";
+    document.body.appendChild(overlay);
+
+    let startX = 0, startY = 0, rect: HTMLDivElement | null = null;
+
+    overlay.onmousedown = (e) => {
+      startX = e.clientX;
+      startY = e.clientY;
+      rect = document.createElement("div");
+      rect.style.position = "absolute";
+      rect.style.border = "2px dashed red";
+      rect.style.left = `${startX}px`;
+      rect.style.top = `${startY}px`;
+      overlay.appendChild(rect);
+    };
+
+    overlay.onmousemove = (e) => {
+      if (!rect) return;
+      const width = e.clientX - startX;
+      const height = e.clientY - startY;
+      rect.style.width = `${Math.abs(width)}px`;
+      rect.style.height = `${Math.abs(height)}px`;
+      rect.style.left = `${width < 0 ? e.clientX : startX}px`;
+      rect.style.top = `${height < 0 ? e.clientY : startY}px`;
+    };
+
+    overlay.onmouseup = (e) => {
+      if (!rect) return;
+      const rectBounds = rect.getBoundingClientRect();
+      console.log("Rect bounds:", rectBounds);
+      // Capture DOM region
+      // html2canvas(document.body, {
+      //   x: rectBounds.left,
+      //   y: rectBounds.top,
+      //   width: rectBounds.width,
+      //   height: rectBounds.height,
+      // }).then((canvas) => {
+      //   const croppedDataUrl = canvas.toDataURL("image/png");
+      //   console.log("Cropped selection:", croppedDataUrl);
+      // });
+      document.body.removeChild(overlay);
+    };
+    document.body.onkeydown = (e) => {
+      if (e.key === "Escape") {
+        document.body.removeChild(overlay);
+      }
+    };
+  }
+});

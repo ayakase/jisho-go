@@ -1,8 +1,8 @@
 {
   "name": "kanji-go",
-  "description": "Kanji Go - Tra kanji siêu tốc",
+  "description": "Kanji Go - Tra Kanji siêu tốc",
   "private": true,
-  "version": "1",
+  "version": "1.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",
