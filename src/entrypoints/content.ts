@@ -657,15 +657,28 @@ window.addEventListener("message", (event) => {
     document.body.appendChild(overlay);
 
     let startX = 0, startY = 0, rect: HTMLDivElement | null = null;
+    let isDrawing = false;
 
     overlay.onmousedown = (e) => {
+      console.log("Mouse down on overlay");
+      // Prevent creating multiple rectangles
+      if (isDrawing) return;
+
+      isDrawing = true;
       startX = e.clientX;
       startY = e.clientY;
+
+      // Remove any existing rect
+      if (rect && overlay.contains(rect)) {
+        overlay.removeChild(rect);
+      }
+
       rect = document.createElement("div");
       rect.style.position = "absolute";
       rect.style.border = "2px dashed red";
       rect.style.left = `${startX}px`;
       rect.style.top = `${startY}px`;
+      rect.style.pointerEvents = "none"; // Important: let events pass through
       overlay.appendChild(rect);
     };
 
@@ -679,22 +692,79 @@ window.addEventListener("message", (event) => {
       rect.style.top = `${height < 0 ? e.clientY : startY}px`;
     };
 
-    overlay.onmouseup = (e) => {
-      if (!rect) return;
+    overlay.onmouseup = async (e) => {
+      console.log("Mouse up triggered! isDrawing:", isDrawing);
+
+      if (!isDrawing) {
+        console.log("Not drawing, ignoring mouseup");
+        return;
+      }
+
+      isDrawing = false;
+
+      if (!rect) {
+        console.log("No rect found, removing overlay");
+        if (document.body.contains(overlay)) {
+          document.body.removeChild(overlay);
+        }
+        return;
+      }
+
       const rectBounds = rect.getBoundingClientRect();
       console.log("Rect bounds:", rectBounds);
-      // Capture DOM region
-      // html2canvas(document.body, {
-      //   x: rectBounds.left,
-      //   y: rectBounds.top,
-      //   width: rectBounds.width,
-      //   height: rectBounds.height,
-      // }).then((canvas) => {
-      //   const croppedDataUrl = canvas.toDataURL("image/png");
-      //   console.log("Cropped selection:", croppedDataUrl);
-      // });
-      document.body.removeChild(overlay);
+
+      // Remove overlay immediately to prevent blocking
+      if (document.body.contains(overlay)) {
+        document.body.removeChild(overlay);
+      }
+
+      // Capture the selected area
+      try {
+        console.log("Sending capture message...");
+        const response = await browser.runtime.sendMessage({
+          type: "CAPTURE_SCREENSHOT",
+          bounds: {
+            x: rectBounds.x,
+            y: rectBounds.y,
+            width: rectBounds.width,
+            height: rectBounds.height,
+            devicePixelRatio: window.devicePixelRatio
+          }
+        });
+
+        console.log("Response received:", response);
+
+        if (response && response.imageDataUrl) {
+          console.log("Captured image:", response.imageDataUrl.substring(0, 50) + "...");
+
+          // Show preview of captured image
+          const preview = document.createElement("img");
+          preview.src = response.imageDataUrl;
+          preview.style.position = "fixed";
+          preview.style.top = "10px";
+          preview.style.right = "10px";
+          preview.style.maxWidth = "300px";
+          preview.style.maxHeight = "300px";
+          preview.style.border = "2px solid red";
+          preview.style.zIndex = "999999";
+          document.body.appendChild(preview);
+
+          // Remove preview after 3 seconds
+          setTimeout(() => {
+            if (document.body.contains(preview)) {
+              document.body.removeChild(preview);
+            }
+          }, 3000);
+        } else if (response && response.error) {
+          console.error("Capture error from background:", response.error);
+          alert("Failed to capture: " + response.error);
+        }
+      } catch (error) {
+        console.error("Failed to capture screenshot:", error);
+        alert("Error capturing screenshot: " + error);
+      }
     };
+
     document.body.onkeydown = (e) => {
       if (e.key === "Escape") {
         document.body.removeChild(overlay);

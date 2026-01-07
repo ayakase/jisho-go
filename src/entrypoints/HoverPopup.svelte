@@ -107,7 +107,6 @@
         <div class="kanji-char">{kanjiResult.w}</div>
         <div class="kanji-reading">{kanjiResult.h}</div>
       </div>
-
       {#if kanjiResult.detail}
         <div class="detail-section">
           <div class="section-title">Chi tiết</div>
@@ -163,7 +162,9 @@
               {#each examples as example}
                 <div class="example-item">
                   <span class="example-word">{example.w}</span>
-                  <span class="example-reading">({convertIfRomaji(example.p)})</span>
+                  <span class="example-reading"
+                    >({convertIfRomaji(example.p)})</span
+                  >
                   <span class="example-mean">- {example.m}</span>
                 </div>
               {/each}
@@ -180,7 +181,9 @@
               {#each examples as example}
                 <div class="example-item">
                   <span class="example-word">{example.w}</span>
-                  <span class="example-reading">({convertIfRomaji(example.p)})</span>
+                  <span class="example-reading"
+                    >({convertIfRomaji(example.p)})</span
+                  >
                   <span class="example-mean">- {example.m}</span>
                 </div>
               {/each}
@@ -196,7 +199,9 @@
             {#each kanjiResult.examples as example}
               <div class="example-item">
                 <span class="example-word">{example.w}</span>
-                <span class="example-reading">({convertIfRomaji(example.p)})</span>
+                <span class="example-reading"
+                  >({convertIfRomaji(example.p)})</span
+                >
                 <span class="example-mean">- {example.m}</span>
               </div>
             {/each}
@@ -360,4 +365,3 @@
     color: #374151;
   }
 </style>
-

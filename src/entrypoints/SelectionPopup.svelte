@@ -174,7 +174,9 @@
                 type="button"
               >
                 <div class="kanji-summary">
-                  <div class="kanji-char-small">{kanjiEntry.w}</div>
+                  vcl
+                  <div class="kanji-char-small-111">{kanjiEntry.w}</div>
+                  asd
                   <div class="kanji-summary-info">
                     <div class="kanji-reading-summary">{kanjiEntry.h}</div>
                     {#if kanjiEntry.detail}
@@ -415,8 +417,8 @@
     min-width: 0;
   }
 
-  .kanji-char-small {
-    font-size: 2rem;
+  .kanji-char-small-111 {
+    font-size: 20px !important;
     font-weight: bold;
     color: #f87171;
     flex-shrink: 0;
