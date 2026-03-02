@@ -174,9 +174,7 @@
                 type="button"
               >
                 <div class="kanji-summary">
-                  vcl
                   <div class="kanji-char-small-111">{kanjiEntry.w}</div>
-                  asd
                   <div class="kanji-summary-info">
                     <div class="kanji-reading-summary">{kanjiEntry.h}</div>
                     {#if kanjiEntry.detail}

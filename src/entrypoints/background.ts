@@ -1,3 +1,16 @@
+import { createWorker } from "tesseract.js";
+
+let workerPromise: ReturnType<typeof createWorker> | null = null;
+
+export function getWorker() {
+  if (!workerPromise) {
+    workerPromise = createWorker("jpn", 1, {
+      logger: (m) => console.log(m),
+    });
+  }
+  return workerPromise;
+}
+
 export default defineBackground(() => {
   // create a menu item once the extension gets installed or loads
   browser.contextMenus.create({
@@ -66,7 +79,7 @@ export default defineBackground(() => {
 
             console.log("Background: Canvas drawn, converting to blob...");
 
-            // Convert canvas to data URL
+            // Convert canvas to blob and send the cropped image back to the content script
             const resultBlob = await canvas.convertToBlob({ type: "image/png" });
             const reader = new FileReader();
             reader.onloadend = () => {

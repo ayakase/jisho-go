@@ -2,6 +2,7 @@ import { mount } from 'svelte';
 import { storage } from '#imports';
 import SelectionPopup from './SelectionPopup.svelte';
 import HoverPopup from './HoverPopup.svelte';
+import { createWorker } from 'tesseract.js';
 
 type PopupMode = 'off' | 'immediate' | 'button';
 
@@ -13,6 +14,17 @@ let popupMode: PopupMode = 'immediate';
 let hoverMode = false;
 let hoverTimeout: number | null = null;
 let blacklist: string[] = [];
+
+let ocrWorkerPromise: ReturnType<typeof createWorker> | null = null;
+
+function getOcrWorker() {
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = createWorker('jpn', 1, {
+      logger: (m) => console.log('Tesseract:', m),
+    });
+  }
+  return ocrWorkerPromise;
+}
 
 export default defineContentScript({
   // Run on all pages so selection works everywhere, not just on google.com
@@ -736,6 +748,24 @@ window.addEventListener("message", (event) => {
 
         if (response && response.imageDataUrl) {
           console.log("Captured image:", response.imageDataUrl.substring(0, 50) + "...");
+
+          // Run OCR on the captured image and log only Japanese characters
+          try {
+            const responseUrl = response.imageDataUrl as string;
+            const res = await fetch(responseUrl);
+            const blob = await res.blob();
+            const worker = await getOcrWorker();
+            const {
+              data: { text },
+            } = await worker.recognize(blob);
+            const onlyJapanese = text.replace(
+              /[^\u3040-\u30FF\u4E00-\u9FFF。、・！？ー ]/g,
+              ""
+            );
+            console.log("Content: OCR (Japanese only):", onlyJapanese);
+          } catch (ocrError) {
+            console.error("Content: OCR failed:", ocrError);
+          }
 
           // Show preview of captured image
           const preview = document.createElement("img");
