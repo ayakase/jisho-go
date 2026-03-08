@@ -1,5 +1,5 @@
 <script lang="ts">
-  import dict from "../assets/lib/dict-ver-3.json";
+  import dict from "../assets/lib/kanji-dict.json";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
   interface Position {
@@ -16,11 +16,6 @@
     stroke_count?: string;
     example_kun?: Record<string, Array<{ w: string; m: string; p: string }>>;
     example_on?: Record<string, Array<{ w: string; m: string; p: string }>>;
-    grammar?: Array<{
-      title: string;
-      level: string;
-      category: string;
-    }>;
     examples?: Array<{
       w: string;
       m: string;
@@ -134,25 +129,6 @@
           <span class="meta-item">Số nét: {kanjiResult.stroke_count}</span>
         {/if}
       </div>
-
-      {#if kanjiResult.grammar && kanjiResult.grammar.length > 0}
-        <div class="grammar-section">
-          <div class="section-title">Ngữ pháp</div>
-          <div class="grammar-list">
-            {#each kanjiResult.grammar as grammar}
-              <div class="grammar-item">
-                <span class="grammar-title">{grammar.title}</span>
-                {#if grammar.level}
-                  <span class="grammar-level">({grammar.level})</span>
-                {/if}
-                {#if grammar.category}
-                  <span class="grammar-category">- {grammar.category}</span>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
 
       {#if kanjiResult.example_kun}
         <div class="examples-section">
@@ -290,7 +266,6 @@
   }
 
   .detail-section,
-  .grammar-section,
   .examples-section {
     margin-top: 0.5rem;
   }
@@ -318,14 +293,12 @@
     margin-bottom: 0;
   }
 
-  .grammar-list,
   .examples-list {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
   }
 
-  .grammar-item,
   .example-item {
     padding: 0.5rem;
     background: #f9fafb;
@@ -333,21 +306,6 @@
     font-size: 0.85rem;
     line-height: 1.4;
     border: 1px solid #e5e7eb;
-  }
-
-  .grammar-title {
-    font-weight: 500;
-    color: #111827;
-    margin-right: 0.25rem;
-  }
-
-  .grammar-level {
-    color: #6b7280;
-    margin-right: 0.25rem;
-  }
-
-  .grammar-category {
-    color: #374151;
   }
 
   .example-word {

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import dict from "../assets/lib/dict-ver-3.json";
+  import kanjiDictData from "../assets/lib/kanji-dict.json";
+  import vocabDictData from "../assets/lib/vocabulary-dict.json";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
   interface Position {
@@ -16,11 +17,6 @@
     stroke_count?: string;
     example_kun?: Record<string, Array<{ w: string; m: string; p: string }>>;
     example_on?: Record<string, Array<{ w: string; m: string; p: string }>>;
-    grammar?: Array<{
-      title: string;
-      level: string;
-      category: string;
-    }>;
     examples?: Array<{
       w: string;
       m: string;
@@ -28,8 +24,14 @@
       h: string;
     }>;
   };
+  type VocabEntry = {
+    word: string;
+    reading: string;
+    meaning: string;
+  };
   let { text, position }: { text: string; position: Position } = $props();
   let kanjiResults: DictEntry[] = $state([]);
+  let vocabResults: VocabEntry[] = $state([]);
   let error: string | null = $state(null);
   let loading = $state(true);
   let skipped = $state(false);
@@ -108,6 +110,7 @@
     loading = true;
     error = null;
     kanjiResults = [];
+    vocabResults = [];
     skipped = false;
     expandedKanji = new Set(); // Reset expanded state when starting new search
 
@@ -126,13 +129,47 @@
       return;
     }
 
+    // Find the word in the vocabulary dictionary
+    const vocabData = vocabDictData as Record<
+      string,
+      { reading: string; meaning: string }
+    >;
+    if (vocabData[trimmed]) {
+      vocabResults.push({
+        word: trimmed,
+        reading: vocabData[trimmed].reading,
+        meaning: vocabData[trimmed].meaning,
+      });
+    }
+
+    let matchCount = 0;
+    for (const key in vocabData) {
+      if (key === trimmed) continue;
+
+      const containsTrimmed = key.includes(trimmed); // Highlighted part of a word e.g "学" -> "学生"
+      const isContained = trimmed.includes(key) && key.length > 1; // Highlighted full sentence shows words contained in it
+
+      if (containsTrimmed || isContained) {
+        vocabResults.push({
+          word: key,
+          reading: vocabData[key].reading,
+          meaning: vocabData[key].meaning,
+        });
+        matchCount++;
+        // Limit the results so we do not flood the UI and to keep perf high
+        if (matchCount >= 10) break;
+      }
+    }
+
     // Extract all kanji from the string
     const kanjiList = extractKanji(trimmed);
 
     // Search for each kanji in the dictionary
     const foundKanji: DictEntry[] = [];
     for (const kanji of kanjiList) {
-      const found = (dict as DictEntry[]).find((entry) => entry.w === kanji);
+      const found = (kanjiDictData as DictEntry[]).find(
+        (entry) => entry.w === kanji,
+      );
       if (found) {
         foundKanji.push(found);
       }
@@ -159,6 +196,28 @@
     <div class="error">{error}</div>
   {:else}
     <div class="result">
+      {#if vocabResults.length > 0}
+        <div class="vocab-section">
+          <div class="section-title">Từ vựng</div>
+          <div class="vocab-list">
+            {#each vocabResults as v}
+              <div class="vocab-item">
+                <div class="vocab-header">
+                  <div class="vocab-word">{v.word}</div>
+                  <div class="vocab-reading">{v.reading}</div>
+                </div>
+                <div class="vocab-meaning">
+                  {v.meaning}
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+        {#if kanjiResults.length > 0}
+          <div class="divider"></div>
+        {/if}
+      {/if}
+
       {#if kanjiResults.length > 0}
         <div class="kanji-section">
           {#each kanjiResults as kanjiEntry, index}
@@ -229,29 +288,6 @@
                     </div>
                   {/if}
 
-                  {#if kanjiEntry.grammar && kanjiEntry.grammar.length > 0}
-                    <div class="grammar-section">
-                      <div class="section-title">Ngữ pháp</div>
-                      <div class="grammar-list">
-                        {#each kanjiEntry.grammar as grammar}
-                          <div class="grammar-item">
-                            <span class="grammar-title">{grammar.title}</span>
-                            {#if grammar.level}
-                              <span class="grammar-level"
-                                >({grammar.level})</span
-                              >
-                            {/if}
-                            {#if grammar.category}
-                              <span class="grammar-category"
-                                >- {grammar.category}</span
-                              >
-                            {/if}
-                          </div>
-                        {/each}
-                      </div>
-                    </div>
-                  {/if}
-
                   {#if kanjiEntry.example_kun}
                     <div class="examples-section">
                       <div class="section-title">Từ vựng (Kun)</div>
@@ -313,8 +349,8 @@
         </div>
       {/if}
 
-      {#if kanjiResults.length === 0}
-        <div class="no-results">Không tìm thấy Kanji</div>
+      {#if kanjiResults.length === 0 && vocabResults.length === 0}
+        <div class="no-results">Không tìm thấy Kanji hoặc Từ vựng</div>
       {/if}
     </div>
   {/if}
@@ -373,6 +409,58 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+  }
+
+  .vocab-section {
+    padding: 1rem;
+    background: #ffffff;
+    margin-bottom: 0.5rem;
+  }
+
+  .vocab-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .vocab-item {
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed #e5e7eb;
+  }
+
+  .vocab-item:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .vocab-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .vocab-word {
+    font-size: 24px;
+    font-weight: bold;
+    color: #f87171;
+  }
+
+  .vocab-reading {
+    font-size: 1rem;
+    color: #6b7280;
+  }
+
+  .vocab-meaning {
+    color: #374151;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .divider {
+    height: 1px;
+    background-color: #e5e7eb;
+    margin: 0;
   }
 
   .kanji-section {
@@ -486,41 +574,6 @@
 
   .detail-text p:last-child {
     margin-bottom: 0;
-  }
-
-  .grammar-section {
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .grammar-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .grammar-item {
-    padding: 0.5rem;
-    background: #f9fafb;
-    border-radius: 0.25rem;
-    font-size: 0.85rem;
-    line-height: 1.4;
-    border: 1px solid #e5e7eb;
-  }
-
-  .grammar-title {
-    font-weight: 500;
-    color: #111827;
-    margin-right: 0.25rem;
-  }
-
-  .grammar-level {
-    color: #6b7280;
-    margin-right: 0.25rem;
-  }
-
-  .grammar-category {
-    color: #374151;
   }
 
   .examples-section {
