@@ -763,6 +763,11 @@ window.addEventListener("message", (event) => {
               ""
             );
             console.log("Content: OCR (Japanese only):", onlyJapanese);
+
+            if (onlyJapanese.trim().length > 0) {
+              console.log("Content: OCR result:", onlyJapanese.trim());
+              showPopupNear(rectBounds, onlyJapanese.trim());
+            }
           } catch (ocrError) {
             console.error("Content: OCR failed:", ocrError);
           }

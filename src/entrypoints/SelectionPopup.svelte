@@ -196,6 +196,9 @@
     <div class="error">{error}</div>
   {:else}
     <div class="result">
+      <div class="extracted-text-section">
+        {text}
+      </div>
       {#if vocabResults.length > 0}
         <div class="vocab-section">
           <div class="section-title">Từ vựng</div>
@@ -409,6 +412,16 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+  }
+
+  .extracted-text-section {
+    padding: 1rem;
+    font-size: 1.25rem;
+    color: #1f2937;
+    background-color: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    line-height: 1.5;
+    word-break: break-word;
   }
 
   .vocab-section {
