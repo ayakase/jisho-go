@@ -298,7 +298,7 @@
                 <div class="kanji-accordion-content">
                   {#if kanjiEntry.detail}
                     <div class="detail-section">
-                      <div class="section-title">Chi tiết</div>
+                      <div class="section-title">Chi tiết {kanjiEntry.w}</div>
                       <div class="detail-text">
                         {#each kanjiEntry.detail.split("##") as paragraph}
                           {#if paragraph.trim()}

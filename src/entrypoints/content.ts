@@ -31,6 +31,17 @@ function setOcrLoading(visible: boolean, progress?: number) {
   }
 
   if (!ocrLoadingEl) {
+    const prefersDark =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const bg = prefersDark ? 'rgba(17, 24, 39, 0.92)' : 'rgba(255, 255, 255, 0.92)';
+    const fg = prefersDark ? 'rgba(255, 255, 255, 0.95)' : 'rgba(17, 24, 39, 0.95)';
+    const border = prefersDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.10)';
+    const shadow = prefersDark
+      ? '0 10px 15px -3px rgba(0,0,0,0.35), 0 4px 6px -4px rgba(0,0,0,0.30)'
+      : '0 10px 15px -3px rgba(0,0,0,0.12), 0 4px 6px -4px rgba(0,0,0,0.10)';
+
     ocrLoadingEl = document.createElement('div');
     ocrLoadingEl.id = 'kanji-go-ocr-loading';
     ocrLoadingEl.style.cssText = `
@@ -41,19 +52,20 @@ function setOcrLoading(visible: boolean, progress?: number) {
       max-width: 280px;
       padding: 10px 12px;
       border-radius: 10px;
-      background: rgba(17, 24, 39, 0.92);
-      color: white;
+      background: ${bg};
+      color: ${fg};
+      border: 1px solid ${border};
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 13px;
       line-height: 1.3;
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.25), 0 4px 6px -4px rgba(0,0,0,0.25);
+      box-shadow: ${shadow};
       backdrop-filter: blur(6px);
     `;
     document.body.appendChild(ocrLoadingEl);
   }
 
   const pct = Math.max(0, Math.min(100, Math.round((progress ?? ocrLastProgress) * 100)));
-  ocrLoadingEl.textContent = pct > 0 ? `OCR running… ${pct}%` : 'OCR running…';
+  ocrLoadingEl.textContent = pct > 0 ? `Đang nhận dạng (OCR)… ${pct}%` : 'Đang nhận dạng (OCR)…';
 }
 
 function handleTesseractLog(m: any) {
