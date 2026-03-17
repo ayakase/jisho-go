@@ -1,11 +1,562 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
 <Layout>
-	<Welcome />
+	<main class="page">
+		<header class="hero">
+			<div class="hero__bg" aria-hidden="true"></div>
+			<div class="container hero__inner">
+				<div class="hero__copy">
+					<p class="eyebrow">Tiện ích trình duyệt</p>
+					<h1 class="title">Jisho Go</h1>
+					<p class="subtitle">
+						Tra từ Nhật nhanh ngay trên trang bạn đang đọc. Chỉ cần bôi đen hoặc rê chuột — nghĩa,
+						cách đọc, và ví dụ hiện ra tức thì.
+					</p>
+					<div class="cta">
+						<a class="btn btn--primary" href="#cai-dat">Cài đặt</a>
+						<a class="btn btn--ghost" href="#tinh-nang">Xem tính năng</a>
+					</div>
+					<ul class="meta">
+						<li>Tra nhanh bằng bôi đen / hover</li>
+						<li>Gọn nhẹ, không làm gián đoạn việc đọc</li>
+						<li>Tôn trọng quyền riêng tư</li>
+					</ul>
+				</div>
+
+				<div class="hero__card" role="img" aria-label="Minh hoạ popup tra từ">
+					<div class="card">
+						<div class="card__top">
+							<span class="pill">選択 / Hover</span>
+							<span class="pill pill--muted">Jisho Go</span>
+						</div>
+						<div class="card__body">
+							<div class="jp">勉強</div>
+							<div class="reading">べんきょう</div>
+							<div class="meaning">học tập; học hành</div>
+							<div class="divider"></div>
+							<div class="ex">
+								<span class="ex__jp">毎日、日本語を勉強しています。</span>
+								<span class="ex__vi">Mỗi ngày mình đều học tiếng Nhật.</span>
+							</div>
+						</div>
+						<div class="card__bottom">
+							<span class="hint">Nhấn Esc để đóng</span>
+							<span class="hint">Enter để ghim</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</header>
+
+		<section id="tinh-nang" class="section">
+			<div class="container">
+				<h2 class="h2">Tính năng nổi bật</h2>
+				<div class="grid">
+					<article class="feature">
+						<h3 class="h3">Tra ngay tại chỗ</h3>
+						<p class="p">
+							Bôi đen từ/cụm từ hoặc rê chuột để xem popup. Không cần chuyển tab, không mất nhịp đọc.
+						</p>
+					</article>
+					<article class="feature">
+						<h3 class="h3">Thông tin rõ ràng</h3>
+						<p class="p">
+							Hiển thị cách đọc, nghĩa, và ví dụ theo bố cục dễ nhìn — phù hợp cả người mới học lẫn nâng cao.
+						</p>
+					</article>
+					<article class="feature">
+						<h3 class="h3">Tuỳ chọn linh hoạt</h3>
+						<p class="p">
+							Bật/tắt hover, điều chỉnh hành vi popup, và chọn cách tra phù hợp với thói quen của bạn.
+						</p>
+					</article>
+					<article class="feature">
+						<h3 class="h3">Nhanh & gọn</h3>
+						<p class="p">
+							Giao diện tối giản, phản hồi nhanh. Ưu tiên trải nghiệm: ít “phiền”, nhiều thông tin đúng lúc.
+						</p>
+					</article>
+					<article class="feature">
+						<h3 class="h3">Tôn trọng quyền riêng tư</h3>
+						<p class="p">
+							Không thu thập dữ liệu cá nhân một cách không cần thiết. Bạn chủ động trong việc sử dụng và chia sẻ.
+						</p>
+					</article>
+					<article class="feature">
+						<h3 class="h3">Phù hợp mọi trang</h3>
+						<p class="p">
+							Dùng tốt khi đọc báo, tài liệu, blog, hoặc bất kỳ nội dung tiếng Nhật nào trên web.
+						</p>
+					</article>
+				</div>
+			</div>
+		</section>
+
+		<section id="cai-dat" class="section section--alt">
+			<div class="container">
+				<h2 class="h2">Cài đặt</h2>
+				<div class="steps">
+					<div class="step">
+						<div class="step__num">1</div>
+						<div class="step__content">
+							<h3 class="h3">Thêm tiện ích</h3>
+							<p class="p">Cài từ cửa hàng tiện ích của trình duyệt (Chrome/Firefox).</p>
+						</div>
+					</div>
+					<div class="step">
+						<div class="step__num">2</div>
+						<div class="step__content">
+							<h3 class="h3">Mở trang tiếng Nhật</h3>
+							<p class="p">Ví dụ: bài báo, truyện, tài liệu học tập.</p>
+						</div>
+					</div>
+					<div class="step">
+						<div class="step__num">3</div>
+						<div class="step__content">
+							<h3 class="h3">Bôi đen hoặc hover</h3>
+							<p class="p">Popup hiện ra với nghĩa, cách đọc, và ví dụ.</p>
+						</div>
+					</div>
+				</div>
+				<div class="cta cta--center">
+					<a class="btn btn--primary" href="#su-dung">Cách dùng nhanh</a>
+					<a class="btn btn--ghost" href="#quyen-rieng-tu">Quyền riêng tư</a>
+				</div>
+			</div>
+		</section>
+
+		<section id="su-dung" class="section">
+			<div class="container">
+				<h2 class="h2">Cách dùng nhanh</h2>
+				<div class="twoCol">
+					<div class="box">
+						<h3 class="h3">Bôi đen để tra</h3>
+						<p class="p">
+							Khi gặp từ mới, hãy bôi đen. Popup sẽ hiện ngay cạnh vùng chọn để bạn xem nghĩa và cách đọc.
+						</p>
+					</div>
+					<div class="box">
+						<h3 class="h3">Hover để tra</h3>
+						<p class="p">
+							Nếu bạn thích tra “nhẹ nhàng” hơn, bật chế độ hover để xem nhanh khi rê chuột qua từ.
+						</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="quyen-rieng-tu" class="section section--alt">
+			<div class="container">
+				<h2 class="h2">Quyền riêng tư</h2>
+				<p class="p">
+					Jisho Go được thiết kế để hỗ trợ việc học mà không gây lo lắng về dữ liệu. Nếu dự án của bạn có trang
+					chính sách riêng tư/nguồn mở, bạn có thể liên kết tại đây.
+				</p>
+				<div class="note">
+					<p class="p p--small">
+						Gợi ý: thêm link tới trang GitHub, chính sách quyền riêng tư, và trang cửa hàng tiện ích để tăng độ tin cậy.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<footer class="footer">
+			<div class="container footer__inner">
+				<p class="footer__brand"><span class="dot" aria-hidden="true"></span> Jisho Go</p>
+				<p class="footer__copy">Tra từ Nhật nhanh ngay trên web.</p>
+			</div>
+		</footer>
+	</main>
 </Layout>
+
+<style>
+	:global(body) {
+		background: #070a12;
+		color: rgba(255, 255, 255, 0.88);
+		font-family:
+			ui-sans-serif,
+			system-ui,
+			-apple-system,
+			Segoe UI,
+			Roboto,
+			Helvetica,
+			Arial,
+			"Apple Color Emoji",
+			"Segoe UI Emoji";
+	}
+
+	.page {
+		min-height: 100vh;
+	}
+
+	.container {
+		width: min(1100px, calc(100% - 48px));
+		margin: 0 auto;
+	}
+
+	.hero {
+		position: relative;
+		padding: 72px 0 40px;
+		overflow: hidden;
+	}
+
+	.hero__bg {
+		position: absolute;
+		inset: -40% -20% auto -20%;
+		height: 520px;
+		background:
+			radial-gradient(closest-side at 25% 45%, rgba(99, 102, 241, 0.40), rgba(99, 102, 241, 0) 70%),
+			radial-gradient(closest-side at 70% 30%, rgba(16, 185, 129, 0.30), rgba(16, 185, 129, 0) 65%),
+			radial-gradient(closest-side at 55% 75%, rgba(236, 72, 153, 0.25), rgba(236, 72, 153, 0) 60%);
+		filter: blur(18px);
+		pointer-events: none;
+	}
+
+	.hero__inner {
+		display: grid;
+		gap: 28px;
+		grid-template-columns: 1.15fr 0.85fr;
+		align-items: center;
+	}
+
+	.eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		font-size: 12px;
+		color: rgba(255, 255, 255, 0.70);
+		margin: 0 0 14px;
+	}
+
+	.title {
+		font-size: clamp(42px, 4.8vw, 64px);
+		line-height: 1.03;
+		margin: 0;
+		letter-spacing: -0.03em;
+	}
+
+	.subtitle {
+		margin: 14px 0 0;
+		font-size: 16px;
+		line-height: 1.6;
+		color: rgba(255, 255, 255, 0.78);
+		max-width: 58ch;
+	}
+
+	.cta {
+		display: flex;
+		gap: 12px;
+		margin-top: 22px;
+		flex-wrap: wrap;
+	}
+
+	.cta--center {
+		justify-content: center;
+		margin-top: 22px;
+	}
+
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 10px 14px;
+		border-radius: 12px;
+		text-decoration: none;
+		font-weight: 650;
+		font-size: 14px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		color: rgba(255, 255, 255, 0.9);
+		background: rgba(255, 255, 255, 0.04);
+		backdrop-filter: blur(8px);
+	}
+
+	.btn--primary {
+		background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(16, 185, 129, 0.85));
+		border-color: rgba(255, 255, 255, 0.14);
+		box-shadow:
+			0 16px 40px rgba(0, 0, 0, 0.45),
+			0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+	}
+
+	.btn--ghost:hover,
+	.btn--primary:hover {
+		transform: translateY(-1px);
+		transition: transform 120ms ease;
+	}
+
+	.meta {
+		list-style: none;
+		padding: 0;
+		margin: 18px 0 0;
+		display: grid;
+		gap: 10px;
+		color: rgba(255, 255, 255, 0.72);
+		font-size: 14px;
+	}
+
+	.meta li {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+	}
+
+	.meta li::before {
+		content: "";
+		width: 10px;
+		height: 10px;
+		border-radius: 999px;
+		background: linear-gradient(135deg, rgba(99, 102, 241, 1), rgba(16, 185, 129, 1));
+		box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+		flex: 0 0 auto;
+	}
+
+	.hero__card {
+		justify-self: end;
+	}
+
+	.card {
+		width: min(420px, 100%);
+		border-radius: 18px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+		box-shadow:
+			0 40px 90px rgba(0, 0, 0, 0.55),
+			0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+		overflow: hidden;
+	}
+
+	.card__top,
+	.card__bottom {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 12px 14px;
+		background: rgba(0, 0, 0, 0.18);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+	}
+
+	.card__bottom {
+		border-top: 1px solid rgba(255, 255, 255, 0.10);
+		border-bottom: none;
+	}
+
+	.pill {
+		font-size: 12px;
+		font-weight: 650;
+		padding: 6px 10px;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(255, 255, 255, 0.05);
+		color: rgba(255, 255, 255, 0.88);
+	}
+
+	.pill--muted {
+		color: rgba(255, 255, 255, 0.70);
+	}
+
+	.card__body {
+		padding: 16px 16px 14px;
+	}
+
+	.jp {
+		font-size: 30px;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+	}
+
+	.reading {
+		margin-top: 6px;
+		color: rgba(255, 255, 255, 0.72);
+	}
+
+	.meaning {
+		margin-top: 10px;
+		font-size: 15px;
+		color: rgba(255, 255, 255, 0.86);
+	}
+
+	.divider {
+		height: 1px;
+		background: rgba(255, 255, 255, 0.12);
+		margin: 14px 0;
+	}
+
+	.ex {
+		display: grid;
+		gap: 6px;
+		font-size: 13px;
+		color: rgba(255, 255, 255, 0.74);
+	}
+
+	.ex__jp {
+		color: rgba(255, 255, 255, 0.82);
+	}
+
+	.ex__vi {
+		color: rgba(255, 255, 255, 0.68);
+	}
+
+	.hint {
+		font-size: 12px;
+		color: rgba(255, 255, 255, 0.62);
+	}
+
+	.section {
+		padding: 54px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	.section--alt {
+		background: rgba(255, 255, 255, 0.02);
+	}
+
+	.h2 {
+		margin: 0 0 18px;
+		font-size: 26px;
+		letter-spacing: -0.02em;
+	}
+
+	.h3 {
+		margin: 0 0 8px;
+		font-size: 16px;
+		letter-spacing: -0.01em;
+	}
+
+	.p {
+		margin: 0;
+		color: rgba(255, 255, 255, 0.74);
+		line-height: 1.65;
+	}
+
+	.p--small {
+		font-size: 13px;
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 14px;
+	}
+
+	.feature {
+		border-radius: 16px;
+		border: 1px solid rgba(255, 255, 255, 0.10);
+		background: rgba(255, 255, 255, 0.03);
+		padding: 16px;
+	}
+
+	.steps {
+		display: grid;
+		gap: 12px;
+		margin-top: 16px;
+	}
+
+	.step {
+		display: grid;
+		grid-template-columns: 40px 1fr;
+		gap: 12px;
+		align-items: start;
+		padding: 14px;
+		border-radius: 16px;
+		border: 1px solid rgba(255, 255, 255, 0.10);
+		background: rgba(0, 0, 0, 0.12);
+	}
+
+	.step__num {
+		width: 36px;
+		height: 36px;
+		border-radius: 999px;
+		display: grid;
+		place-items: center;
+		font-weight: 800;
+		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		color: rgba(255, 255, 255, 0.9);
+	}
+
+	.twoCol {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 14px;
+		margin-top: 16px;
+	}
+
+	.box {
+		border-radius: 16px;
+		border: 1px solid rgba(255, 255, 255, 0.10);
+		background: rgba(255, 255, 255, 0.03);
+		padding: 16px;
+	}
+
+	.note {
+		margin-top: 14px;
+		border-radius: 16px;
+		border: 1px dashed rgba(255, 255, 255, 0.18);
+		background: rgba(255, 255, 255, 0.02);
+		padding: 14px;
+	}
+
+	.footer {
+		padding: 34px 0 44px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	.footer__inner {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 12px;
+		flex-wrap: wrap;
+	}
+
+	.footer__brand {
+		margin: 0;
+		font-weight: 800;
+		letter-spacing: -0.01em;
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 999px;
+		background: linear-gradient(135deg, rgba(99, 102, 241, 1), rgba(16, 185, 129, 1));
+		box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+	}
+
+	.footer__copy {
+		margin: 0;
+		color: rgba(255, 255, 255, 0.64);
+		font-size: 13px;
+	}
+
+	@media (max-width: 920px) {
+		.hero__inner {
+			grid-template-columns: 1fr;
+		}
+		.hero__card {
+			justify-self: start;
+		}
+		.grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (max-width: 620px) {
+		.hero {
+			padding-top: 56px;
+		}
+		.grid {
+			grid-template-columns: 1fr;
+		}
+		.twoCol {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
