@@ -19,6 +19,17 @@ export default defineConfig({
     name: 'Kanji Go - Tra Kanji siêu tốc',
     description: 'Kanji Go - Tra Kanji siêu tốc',
     permissions: ["activeTab", "tabs", "scripting", "storage", "contextMenus"],
+    web_accessible_resources: [
+      {
+        resources: [
+          "tesseract/worker.min.js",
+          "tesseract/tesseract-core.wasm",
+          "tesseract/tesseract-core.wasm.js",
+          "tesseract/lang/jpn.traineddata.gz",
+        ],
+        matches: ["<all_urls>"],
+      },
+    ],
 
   },
 });

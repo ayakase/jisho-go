@@ -6,6 +6,9 @@ export function getWorker() {
   if (!workerPromise) {
     workerPromise = createWorker("jpn", 1, {
       logger: (m) => console.log(m),
+      workerPath: browser.runtime.getURL("/tesseract/worker.min.js"),
+      corePath: browser.runtime.getURL("/tesseract/tesseract-core.wasm.js"),
+      langPath: browser.runtime.getURL("/tesseract/lang" as any) + "/",
     });
   }
   return workerPromise;

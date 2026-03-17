@@ -17,10 +17,60 @@ let blacklist: string[] = [];
 
 let ocrWorkerPromise: ReturnType<typeof createWorker> | null = null;
 
+let ocrLoadingEl: HTMLDivElement | null = null;
+let ocrLastProgress = 0;
+
+function setOcrLoading(visible: boolean, progress?: number) {
+  if (!visible) {
+    if (ocrLoadingEl) {
+      ocrLoadingEl.remove();
+      ocrLoadingEl = null;
+    }
+    ocrLastProgress = 0;
+    return;
+  }
+
+  if (!ocrLoadingEl) {
+    ocrLoadingEl = document.createElement('div');
+    ocrLoadingEl.id = 'kanji-go-ocr-loading';
+    ocrLoadingEl.style.cssText = `
+      position: fixed;
+      z-index: 2147483647;
+      right: 16px;
+      bottom: 16px;
+      max-width: 280px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(17, 24, 39, 0.92);
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1.3;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.25), 0 4px 6px -4px rgba(0,0,0,0.25);
+      backdrop-filter: blur(6px);
+    `;
+    document.body.appendChild(ocrLoadingEl);
+  }
+
+  const pct = Math.max(0, Math.min(100, Math.round((progress ?? ocrLastProgress) * 100)));
+  ocrLoadingEl.textContent = pct > 0 ? `OCR running… ${pct}%` : 'OCR running…';
+}
+
+function handleTesseractLog(m: any) {
+  // Keep console logs off; use UI instead.
+  if (m && typeof m === 'object' && m.status === 'recognizing text' && typeof m.progress === 'number') {
+    ocrLastProgress = m.progress;
+    setOcrLoading(true, m.progress);
+  }
+}
+
 function getOcrWorker() {
   if (!ocrWorkerPromise) {
     ocrWorkerPromise = createWorker('jpn', 1, {
-      logger: (m) => console.log('Tesseract:', m),
+      logger: handleTesseractLog,
+      workerPath: browser.runtime.getURL('/tesseract/worker.min.js'),
+      corePath: browser.runtime.getURL('/tesseract/tesseract-core.wasm.js'),
+      langPath: browser.runtime.getURL('/tesseract/lang' as any) + '/',
     });
   }
   return ocrWorkerPromise;
@@ -751,6 +801,7 @@ window.addEventListener("message", (event) => {
 
           // Run OCR on the captured image and log only Japanese characters
           try {
+            setOcrLoading(true, 0);
             const responseUrl = response.imageDataUrl as string;
             const res = await fetch(responseUrl);
             const blob = await res.blob();
@@ -762,14 +813,13 @@ window.addEventListener("message", (event) => {
               /[^\u3040-\u30FF\u4E00-\u9FFF。、・！？ー ]/g,
               ""
             );
-            console.log("Content: OCR (Japanese only):", onlyJapanese);
-
             if (onlyJapanese.trim().length > 0) {
-              console.log("Content: OCR result:", onlyJapanese.trim());
               showPopupNear(rectBounds, onlyJapanese.trim());
             }
           } catch (ocrError) {
             console.error("Content: OCR failed:", ocrError);
+          } finally {
+            setOcrLoading(false);
           }
 
           // Show preview of captured image
