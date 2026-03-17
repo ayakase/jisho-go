@@ -722,7 +722,6 @@ window.addEventListener("message", (event) => {
     let isDrawing = false;
 
     overlay.onmousedown = (e) => {
-      console.log("Mouse down on overlay");
       // Prevent creating multiple rectangles
       if (isDrawing) return;
 
@@ -755,26 +754,19 @@ window.addEventListener("message", (event) => {
     };
 
     overlay.onmouseup = async (e) => {
-      console.log("Mouse up triggered! isDrawing:", isDrawing);
-
       if (!isDrawing) {
-        console.log("Not drawing, ignoring mouseup");
         return;
       }
 
       isDrawing = false;
 
       if (!rect) {
-        console.log("No rect found, removing overlay");
         if (document.body.contains(overlay)) {
           document.body.removeChild(overlay);
         }
         return;
       }
-
       const rectBounds = rect.getBoundingClientRect();
-      console.log("Rect bounds:", rectBounds);
-
       // Remove overlay immediately to prevent blocking
       if (document.body.contains(overlay)) {
         document.body.removeChild(overlay);
@@ -782,7 +774,6 @@ window.addEventListener("message", (event) => {
 
       // Capture the selected area
       try {
-        console.log("Sending capture message...");
         const response = await browser.runtime.sendMessage({
           type: "CAPTURE_SCREENSHOT",
           bounds: {
@@ -794,11 +785,7 @@ window.addEventListener("message", (event) => {
           }
         });
 
-        console.log("Response received:", response);
-
         if (response && response.imageDataUrl) {
-          console.log("Captured image:", response.imageDataUrl.substring(0, 50) + "...");
-
           // Run OCR on the captured image and log only Japanese characters
           try {
             setOcrLoading(true, 0);
@@ -813,8 +800,9 @@ window.addEventListener("message", (event) => {
               /[^\u3040-\u30FF\u4E00-\u9FFF。、・！？ー ]/g,
               ""
             );
-            if (onlyJapanese.trim().length > 0) {
-              showPopupNear(rectBounds, onlyJapanese.trim());
+            const compactJapanese = onlyJapanese.replace(/\s+/g, "");
+            if (compactJapanese.length > 0) {
+              showPopupNear(rectBounds, compactJapanese);
             }
           } catch (ocrError) {
             console.error("Content: OCR failed:", ocrError);

@@ -38,6 +38,8 @@
   let expandedKanji = $state<Set<number>>(new Set());
   let isSearching = false;
   let showRomaji = $state<boolean>(false);
+  type ResultTab = "vocab" | "kanji";
+  let activeTab = $state<ResultTab>("kanji");
 
   function toggleKanji(index: number) {
     const newSet = new Set(expandedKanji);
@@ -176,6 +178,10 @@
     }
     kanjiResults = foundKanji;
 
+    // Choose default tab based on available results (kanji first)
+    if (kanjiResults.length > 0) activeTab = "kanji";
+    else if (vocabResults.length > 0) activeTab = "vocab";
+
     loading = false;
     isSearching = false;
   }
@@ -199,9 +205,29 @@
       <div class="extracted-text-section">
         {text}
       </div>
-      {#if vocabResults.length > 0}
+      {#if vocabResults.length > 0 || kanjiResults.length > 0}
+        <div class="tabs">
+          <button
+            type="button"
+            class="tab {activeTab === 'kanji' ? 'active' : ''}"
+            disabled={kanjiResults.length === 0}
+            onclick={() => (activeTab = "kanji")}
+          >
+            Kanji ({kanjiResults.length})
+          </button>
+          <button
+            type="button"
+            class="tab {activeTab === 'vocab' ? 'active' : ''}"
+            disabled={vocabResults.length === 0}
+            onclick={() => (activeTab = "vocab")}
+          >
+            Từ vựng ({vocabResults.length})
+          </button>
+        </div>
+      {/if}
+
+      {#if activeTab === "vocab" && vocabResults.length > 0}
         <div class="vocab-section">
-          <div class="section-title">Từ vựng</div>
           <div class="vocab-list">
             {#each vocabResults as v}
               <div class="vocab-item">
@@ -216,12 +242,9 @@
             {/each}
           </div>
         </div>
-        {#if kanjiResults.length > 0}
-          <div class="divider"></div>
-        {/if}
       {/if}
 
-      {#if kanjiResults.length > 0}
+      {#if activeTab === "kanji" && kanjiResults.length > 0}
         <div class="kanji-section">
           {#each kanjiResults as kanjiEntry, index}
             {@const isExpanded = expandedKanji.has(index)}
@@ -273,11 +296,6 @@
 
               {#if isExpanded}
                 <div class="kanji-accordion-content">
-                  <!-- <div class="kanji-header">
-                    <div class="kanji-char">{kanjiEntry.w}</div>
-                    <div class="kanji-reading">{kanjiEntry.h}</div>
-                  </div> -->
-
                   {#if kanjiEntry.detail}
                     <div class="detail-section">
                       <div class="section-title">Chi tiết</div>
@@ -430,6 +448,44 @@
     margin-bottom: 0.5rem;
   }
 
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+  }
+
+  .tab {
+    appearance: none;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.4rem 0.65rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    user-select: none;
+  }
+
+  .tab:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+  }
+
+  .tab.active {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #991b1b;
+  }
+
+  .tab:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .vocab-list {
     display: flex;
     flex-direction: column;
@@ -468,12 +524,6 @@
     color: #374151;
     font-size: 0.95rem;
     line-height: 1.5;
-  }
-
-  .divider {
-    height: 1px;
-    background-color: #e5e7eb;
-    margin: 0;
   }
 
   .kanji-section {
