@@ -615,14 +615,14 @@
   }
 
   .kanji-accordion-content {
-    padding: 1rem;
+    padding: 0.75rem;
     background: #ffffff;
     border-top: 1px solid #e5e7eb;
   }
 
   .detail-section {
     /* margin-top: 1rem; */
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
   }
 
   .detail-text {
@@ -632,7 +632,7 @@
   }
 
   .detail-text p {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
   }
 
   .detail-text p:last-child {
@@ -640,22 +640,22 @@
   }
 
   .examples-section {
-    margin-top: 1rem;
-    margin-bottom: 1rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
   }
 
   .examples-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
   }
 
   .example-item {
-    padding: 0.5rem;
+    padding: 0.35rem 0.45rem;
     background: #f9fafb;
     border-radius: 0.25rem;
-    font-size: 0.85rem;
-    line-height: 1.4;
+    font-size: 0.82rem;
+    line-height: 1.25;
     border: 1px solid #e5e7eb;
   }
 
@@ -688,5 +688,11 @@
     color: #6b7280;
     text-align: center;
     font-style: italic;
+  }
+
+  @media (max-width: 520px) {
+    .examples-list {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
