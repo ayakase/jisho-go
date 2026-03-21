@@ -1,6 +1,5 @@
 <script lang="ts">
-  import kanjiDictData from "../assets/lib/kanji-dict.json";
-  import vocabDictData from "../assets/lib/vocabulary-dict.json";
+  import { loadKanjiDict, loadVocabDict } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
   interface Position {
@@ -130,6 +129,11 @@
       isSearching = false;
       return;
     }
+
+    const [kanjiDictData, vocabDictData] = await Promise.all([
+      loadKanjiDict(),
+      loadVocabDict(),
+    ]);
 
     // Find the word in the vocabulary dictionary
     const vocabData = vocabDictData as Record<

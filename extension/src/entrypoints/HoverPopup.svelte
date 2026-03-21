@@ -1,5 +1,5 @@
 <script lang="ts">
-  import dict from "../assets/lib/kanji-dict.json";
+  import { loadKanjiDict } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
   interface Position {
@@ -73,8 +73,10 @@
       return;
     }
 
+    const dict = (await loadKanjiDict()) as DictEntry[];
+
     // Find the kanji in the dictionary
-    const found = (dict as DictEntry[]).find((entry) => entry.w === trimmed);
+    const found = dict.find((entry) => entry.w === trimmed);
     if (found) {
       kanjiResult = found;
     } else {
