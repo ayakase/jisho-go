@@ -19,6 +19,10 @@ export default defineConfig({
     name: 'Kanji Go - Tra Kanji siêu tốc',
     description: 'Kanji Go - Tra Kanji siêu tốc',
     permissions: ["activeTab", "tabs", "scripting", "storage", "contextMenus"],
+    host_permissions: [
+      "http://localhost/*",
+      "http://127.0.0.1/*",
+    ],
     web_accessible_resources: [
       {
         resources: [

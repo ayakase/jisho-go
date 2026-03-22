@@ -37,8 +37,42 @@
   let expandedKanji = $state<Set<number>>(new Set());
   let isSearching = false;
   let showRomaji = $state<boolean>(false);
-  type ResultTab = "vocab" | "kanji";
+  type ResultTab = "vocab" | "kanji" | "explain";
   let activeTab = $state<ResultTab>("kanji");
+
+  type ExplainVocab = {
+    word?: string;
+    hiragana?: string;
+    reading?: string;
+    meaning_vi?: string;
+  };
+  type GrammarExample = {
+    japanese?: string;
+    hiragana?: string;
+    meaning_vi?: string;
+  };
+  type ExplainGrammar = {
+    point?: string;
+    explanation_vi?: string;
+    example?: GrammarExample;
+  };
+  let explainLoading = $state(false);
+  let explainError = $state<string | null>(null);
+  let explainPayload = $state<{
+    sentence_hiragana?: string;
+    sentence_meaning_vi?: string;
+    notes?: string;
+    vocabularies: ExplainVocab[];
+    grammar: ExplainGrammar[];
+  } | null>(null);
+  let explainFetchedText = $state<string | null>(null);
+
+  $effect(() => {
+    void text;
+    explainPayload = null;
+    explainError = null;
+    explainFetchedText = null;
+  });
 
   function toggleKanji(index: number) {
     const newSet = new Set(expandedKanji);
@@ -185,10 +219,68 @@
     // Choose default tab based on available results (kanji first)
     if (kanjiResults.length > 0) activeTab = "kanji";
     else if (vocabResults.length > 0) activeTab = "vocab";
+    else activeTab = "explain";
 
     loading = false;
     isSearching = false;
   }
+
+  $effect(() => {
+    if (activeTab !== "explain" || skipped || !text?.trim()) return;
+    if (explainFetchedText === text) return;
+
+    let cancelled = false;
+
+    (async () => {
+      explainLoading = true;
+      explainError = null;
+      try {
+        const base =
+          import.meta.env.WXT_API_URL?.replace(/\/$/, "") ??
+          "http://localhost:8787";
+        const url = `${base}/explain?q=${encodeURIComponent(text.trim())}`;
+        const res = await fetch(url);
+        const data = (await res.json()) as Record<string, unknown>;
+        if (cancelled) return;
+        if (!res.ok) {
+          explainError =
+            typeof data.error === "string"
+              ? data.error
+              : res.statusText || "Request failed";
+          return;
+        }
+        explainPayload = {
+          sentence_hiragana:
+            typeof data.sentence_hiragana === "string"
+              ? data.sentence_hiragana
+              : "",
+          sentence_meaning_vi:
+            typeof data.sentence_meaning_vi === "string"
+              ? data.sentence_meaning_vi
+              : "",
+          notes: typeof data.notes === "string" ? data.notes : "",
+          vocabularies: Array.isArray(data.vocabularies)
+            ? (data.vocabularies as ExplainVocab[])
+            : [],
+          grammar: Array.isArray(data.grammar)
+            ? (data.grammar as ExplainGrammar[])
+            : [],
+        };
+        explainFetchedText = text;
+      } catch (e) {
+        if (!cancelled) {
+          explainError =
+            e instanceof Error ? e.message : "Không gọi được API giải thích";
+        }
+      } finally {
+        if (!cancelled) explainLoading = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  });
 </script>
 
 <div
@@ -209,7 +301,7 @@
       <div class="extracted-text-section">
         {text}
       </div>
-      {#if vocabResults.length > 0 || kanjiResults.length > 0}
+      {#if vocabResults.length > 0 || kanjiResults.length > 0 || !skipped}
         <div class="tabs">
           <button
             type="button"
@@ -226,6 +318,13 @@
             onclick={() => (activeTab = "vocab")}
           >
             Từ vựng ({vocabResults.length})
+          </button>
+          <button
+            type="button"
+            class="tab {activeTab === 'explain' ? 'active' : ''}"
+            onclick={() => (activeTab = "explain")}
+          >
+            Giải thích AI
           </button>
         </div>
       {/if}
@@ -374,7 +473,109 @@
         </div>
       {/if}
 
-      {#if kanjiResults.length === 0 && vocabResults.length === 0}
+      {#if activeTab === "explain"}
+        <div class="explain-section">
+          {#if explainLoading}
+            <div class="explain-loading">Đang tải giải thích…</div>
+          {:else if explainError}
+            <div class="explain-error">{explainError}</div>
+          {:else if explainPayload}
+            {@const hasAny =
+              !!explainPayload.sentence_hiragana?.trim() ||
+              !!explainPayload.sentence_meaning_vi?.trim() ||
+              !!explainPayload.notes?.trim() ||
+              explainPayload.vocabularies.length > 0 ||
+              explainPayload.grammar.length > 0}
+            {#if explainPayload.sentence_hiragana?.trim() || explainPayload.sentence_meaning_vi?.trim()}
+              <div class="explain-block explain-sentence-block">
+                <div class="section-title">Nghĩa cả câu / đoạn chọn</div>
+                {#if explainPayload.sentence_hiragana?.trim()}
+                  <div class="ev-hiragana-line sentence-hiragana">
+                    <span class="ev-label">Hiragana</span>
+                    <span class="ev-hiragana"
+                      >{explainPayload.sentence_hiragana}</span
+                    >
+                  </div>
+                {/if}
+                {#if explainPayload.sentence_meaning_vi?.trim()}
+                  <div class="ev-mean sentence-meaning-vi">
+                    {explainPayload.sentence_meaning_vi}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+            {#if explainPayload.notes?.trim()}
+              <div class="explain-block explain-notes-block">
+                <div class="section-title">Ghi chú</div>
+                <div class="explain-notes-text">{explainPayload.notes}</div>
+              </div>
+            {/if}
+            {#if explainPayload.vocabularies.length > 0}
+              <div class="explain-block">
+                <div class="section-title">Từ vựng</div>
+                <ul class="explain-vocab-list">
+                  {#each explainPayload.vocabularies as item}
+                    {@const hira = item.hiragana?.trim() || item.reading?.trim()}
+                    <li class="explain-vocab-item">
+                      <div class="ev-head">
+                        <span class="ev-word">{item.word ?? ""}</span>
+                      </div>
+                      {#if hira}
+                        <div class="ev-hiragana-line">
+                          <span class="ev-label">Hiragana</span>
+                          <span class="ev-hiragana">{hira}</span>
+                        </div>
+                      {/if}
+                      {#if item.meaning_vi}
+                        <div class="ev-mean">{item.meaning_vi}</div>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+            {#if explainPayload.grammar.length > 0}
+              <div class="explain-block">
+                <div class="section-title">Ngữ pháp</div>
+                <ul class="explain-grammar-list">
+                  {#each explainPayload.grammar as g}
+                    <li class="explain-grammar-item">
+                      <div class="ev-grammar-point">{g.point ?? ""}</div>
+                      {#if g.explanation_vi}
+                        <div class="ev-mean">{g.explanation_vi}</div>
+                      {/if}
+                      {#if g.example && (g.example.japanese?.trim() || g.example.hiragana?.trim() || g.example.meaning_vi?.trim())}
+                        <div class="grammar-example-wrap">
+                          <div class="grammar-example-label">Ví dụ</div>
+                          {#if g.example.japanese?.trim()}
+                            <div class="ev-jp grammar-example-jp">
+                              {g.example.japanese}
+                            </div>
+                          {/if}
+                          {#if g.example.hiragana?.trim()}
+                            <div class="ev-hiragana-line">
+                              <span class="ev-label">Hiragana</span>
+                              <span class="ev-hiragana">{g.example.hiragana}</span>
+                            </div>
+                          {/if}
+                          {#if g.example.meaning_vi?.trim()}
+                            <div class="ev-mean">{g.example.meaning_vi}</div>
+                          {/if}
+                        </div>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+            {#if !hasAny}
+              <div class="explain-empty">Không có mục nào trong phản hồi AI.</div>
+            {/if}
+          {/if}
+        </div>
+      {/if}
+
+      {#if kanjiResults.length === 0 && vocabResults.length === 0 && activeTab !== "explain"}
         <div class="no-results">Không tìm thấy Kanji hoặc Từ vựng</div>
       {/if}
     </div>
@@ -692,6 +893,164 @@
     color: #6b7280;
     text-align: center;
     font-style: italic;
+  }
+
+  .explain-section {
+    padding: 1rem;
+    background: #ffffff;
+    min-height: 4rem;
+  }
+
+  .explain-loading {
+    color: #6b7280;
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .explain-error {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .explain-empty {
+    color: #6b7280;
+    text-align: center;
+    font-style: italic;
+    padding: 0.5rem;
+  }
+
+  .explain-block {
+    margin-bottom: 1rem;
+  }
+
+  .explain-block:last-child {
+    margin-bottom: 0;
+  }
+
+  .explain-sentence-block {
+    padding: 0.65rem 0.75rem;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 0.35rem;
+  }
+
+  .sentence-hiragana {
+    margin-top: 0.25rem;
+  }
+
+  .sentence-meaning-vi {
+    margin-top: 0.35rem;
+    font-size: 0.95rem;
+  }
+
+  .explain-notes-block {
+    padding: 0.5rem 0.65rem;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 0.35rem;
+  }
+
+  .explain-notes-text {
+    color: #166534;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .grammar-example-wrap {
+    margin-top: 0.55rem;
+    padding: 0.45rem 0.55rem;
+    background: #ffffff;
+    border-left: 3px solid #fca5a5;
+    border-radius: 0.25rem;
+  }
+
+  .grammar-example-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+    margin-bottom: 0.35rem;
+  }
+
+  .grammar-example-jp {
+    margin-bottom: 0.15rem;
+  }
+
+  .explain-vocab-list,
+  .explain-grammar-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .explain-vocab-item,
+  .explain-grammar-item {
+    padding: 0.5rem 0.65rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.35rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .ev-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .ev-word {
+    font-weight: 600;
+    color: #111827;
+    font-size: 1.05rem;
+  }
+
+  .ev-hiragana-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0.15rem 0 0.35rem;
+  }
+
+  .ev-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+  }
+
+  .ev-hiragana {
+    color: #4b5563;
+    font-size: 0.95rem;
+  }
+
+  .ev-mean {
+    color: #374151;
+  }
+
+  .ev-grammar-point {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.2rem;
+  }
+
+  .ev-jp {
+    font-weight: 500;
+    color: #111827;
+    margin-bottom: 0.2rem;
   }
 
   @media (max-width: 520px) {
