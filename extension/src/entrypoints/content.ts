@@ -14,6 +14,12 @@ let popupMode: PopupMode = 'immediate';
 let hoverMode = false;
 let hoverTimeout: number | null = null;
 let blacklist: string[] = [];
+let popupOpacity = 1;
+
+function clampPopupOpacity(val: number): number {
+  if (Number.isNaN(val)) return 1;
+  return Math.max(0.1, Math.min(1, val));
+}
 
 let ocrWorkerPromise: ReturnType<typeof createWorker> | null = null;
 
@@ -96,6 +102,7 @@ export default defineContentScript({
     await loadPopupMode();
     await loadHoverMode();
     await loadBlacklist();
+    await loadPopupOpacity();
 
     // Watch blacklist changes so updates from the popup apply without reload
     storage.watch<unknown>('local:blacklist', (value) => {
@@ -129,6 +136,15 @@ export default defineContentScript({
           removeButton();
         }
       }
+    });
+
+    // Watch for popup opacity changes
+    storage.watch<number>('local:popupOpacity', (newOpacity) => {
+      popupOpacity =
+        typeof newOpacity === "number" ? clampPopupOpacity(newOpacity) : 1;
+      if (popupContainer) popupContainer.style.opacity = popupOpacity.toString();
+      if (hoverPopupContainer)
+        hoverPopupContainer.style.opacity = popupOpacity.toString();
     });
 
     // Show a small popup next to highlighted text on the page
@@ -246,6 +262,17 @@ async function loadBlacklist() {
     }
   } catch (error) {
     console.error('Failed to load blacklist:', error);
+  }
+}
+
+async function loadPopupOpacity() {
+  try {
+    const stored = await storage.getItem<number>('local:popupOpacity');
+    popupOpacity =
+      typeof stored === 'number' ? clampPopupOpacity(stored) : 1;
+  } catch (error) {
+    console.error('Failed to load popup opacity:', error);
+    popupOpacity = 1;
   }
 }
 
@@ -398,6 +425,7 @@ function showPopupNear(rect: DOMRect, text: string) {
   // Create container for the Svelte component
   popupContainer = document.createElement('div');
   document.body.appendChild(popupContainer);
+  popupContainer.style.opacity = popupOpacity.toString();
 
   // Store the text so we can keep the popup even if selection is cleared
   popupText = text;
@@ -647,6 +675,7 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   hoverPopupContainer = document.createElement('div');
   hoverPopupContainer.id = 'kanji-go-hover-popup-container';
   document.body.appendChild(hoverPopupContainer);
+  hoverPopupContainer.style.opacity = popupOpacity.toString();
 
   // Popup dimensions
   const POPUP_WIDTH = 500;

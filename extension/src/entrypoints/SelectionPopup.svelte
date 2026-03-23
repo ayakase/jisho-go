@@ -67,6 +67,45 @@
   } | null>(null);
   let explainFetchedText = $state<string | null>(null);
 
+  // Drag the whole popup (fixed-position panel).
+  let popupLeft = $state(position.left);
+  let popupTop = $state(position.top);
+  let popupDragging = $state(false);
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+
+  function startDragPopup(e: PointerEvent) {
+    const target = e.target as HTMLElement | null;
+
+    // Don't steal the interaction from form controls / buttons.
+    if (target?.closest("button, input, textarea, select, a")) return;
+
+    e.stopPropagation();
+    e.preventDefault();
+
+    popupDragging = true;
+    dragOffsetX = e.clientX - popupLeft;
+    dragOffsetY = e.clientY - popupTop;
+
+    const onMove = (ev: PointerEvent) => {
+      popupLeft = ev.clientX - dragOffsetX;
+      popupTop = ev.clientY - dragOffsetY;
+    };
+
+    const onUp = () => {
+      popupDragging = false;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+
+    (e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId);
+  }
+
   $effect(() => {
     void text;
     explainPayload = null;
@@ -285,10 +324,11 @@
 
 <div
   id="kanji-go-selection-popup"
-  class="popup"
-  style="left: {position.left}px; top: {position.top}px;"
+  class="popup {popupDragging ? 'dragging' : ''}"
+  style="left: {popupLeft}px; top: {popupTop}px;"
   role="dialog"
   aria-label="Dictionary popup"
+  onpointerdown={startDragPopup}
 >
   {#if loading}
     <div class="loading">Searching...</div>
@@ -635,6 +675,14 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+  }
+
+  .popup {
+    cursor: grab;
+  }
+
+  .popup.dragging {
+    cursor: grabbing;
   }
 
   .extracted-text-section {
