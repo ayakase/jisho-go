@@ -424,6 +424,9 @@ function showPopupNear(rect: DOMRect, text: string) {
 
   // Create container for the Svelte component
   popupContainer = document.createElement('div');
+  popupContainer.id = 'kanji-go-selection-popup-container';
+  popupContainer.style.position = 'absolute';
+  popupContainer.style.zIndex = '2147483647';
   document.body.appendChild(popupContainer);
   popupContainer.style.opacity = popupOpacity.toString();
 
@@ -674,6 +677,8 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   // Create container for the hover popup
   hoverPopupContainer = document.createElement('div');
   hoverPopupContainer.id = 'kanji-go-hover-popup-container';
+  hoverPopupContainer.style.position = 'absolute';
+  hoverPopupContainer.style.zIndex = '2147483647';
   document.body.appendChild(hoverPopupContainer);
   hoverPopupContainer.style.opacity = popupOpacity.toString();
 
