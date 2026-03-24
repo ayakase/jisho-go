@@ -74,7 +74,70 @@
   let dragOffsetX = 0;
   let dragOffsetY = 0;
 
+  let positionMode = $state<"highlight" | "remember" | "static">("highlight");
+  let staticConfig = $state<{
+    corner: string;
+    offsetX: number;
+    offsetY: number;
+  }>({
+    corner: "top-right",
+    offsetX: 20,
+    offsetY: 20,
+  });
+  let isPositionLoaded = $state(false);
+
+  (async () => {
+    try {
+      const mode = await storage.getItem<"highlight" | "remember" | "static">(
+        "local:popupPositionMode",
+      );
+      if (mode) positionMode = mode;
+
+      if (positionMode === "remember") {
+        const storedRemember = await storage.getItem<{
+          left: number;
+          top: number;
+        }>("local:popupRememberPosition");
+        if (storedRemember) {
+          popupLeft = storedRemember.left;
+          popupTop = storedRemember.top;
+        }
+      } else if (positionMode === "static") {
+        const storedStatic = await storage.getItem<any>(
+          "local:popupStaticConfig",
+        );
+        if (storedStatic) {
+          staticConfig = storedStatic;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load position config:", e);
+    } finally {
+      isPositionLoaded = true;
+    }
+  })();
+
+  let popupStyle = $derived.by(() => {
+    let base = isPositionLoaded
+      ? ""
+      : "visibility: hidden; pointer-events: none; ";
+    if (positionMode === "static") {
+      const { corner, offsetX, offsetY } = staticConfig;
+      let s = base;
+      if (corner.includes("top")) s += `top: ${offsetY}px; `;
+      else s += `bottom: ${offsetY}px; `;
+
+      if (corner.includes("left")) s += `left: ${offsetX}px; `;
+      else s += `right: ${offsetX}px; `;
+
+      return s;
+    }
+    return base + `left: ${popupLeft}px; top: ${popupTop}px;`;
+  });
+
   function startDragPopup(e: PointerEvent) {
+    if (positionMode === "static") return;
+
     const target = e.target as HTMLElement | null;
 
     // Don't steal the interaction from form controls / buttons.
@@ -97,6 +160,12 @@
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
+      if (positionMode === "remember") {
+        storage.setItem("local:popupRememberPosition", {
+          left: popupLeft,
+          top: popupTop,
+        });
+      }
     };
 
     window.addEventListener("pointermove", onMove);
@@ -143,9 +212,33 @@
     }
   })();
 
-  // Watch for romaji setting changes
-  storage.watch<boolean>("local:showRomaji", (newMode) => {
-    showRomaji = newMode ?? false;
+  $effect(() => {
+    const unwatchRomaji = storage.watch<boolean>(
+      "local:showRomaji",
+      (newMode) => {
+        showRomaji = newMode ?? false;
+      },
+    );
+
+    const unwatchPosition = storage.watch<"highlight" | "remember" | "static">(
+      "local:popupPositionMode",
+      (newMode) => {
+        if (newMode) positionMode = newMode;
+      },
+    );
+
+    const unwatchStatic = storage.watch<any>(
+      "local:popupStaticConfig",
+      (newConfig) => {
+        if (newConfig) staticConfig = newConfig;
+      },
+    );
+
+    return () => {
+      unwatchRomaji();
+      unwatchPosition();
+      unwatchStatic();
+    };
   });
 
   function convertIfRomaji(text: string | undefined): string {
@@ -258,12 +351,13 @@
     // Choose default tab based on available results (kanji first)
     if (kanjiResults.length > 0) activeTab = "kanji";
     else if (vocabResults.length > 0) activeTab = "vocab";
-    else activeTab = "explain";
+    // else activeTab = "explain";
 
     loading = false;
     isSearching = false;
   }
 
+  /*
   $effect(() => {
     if (activeTab !== "explain" || skipped || !text?.trim()) return;
     if (explainFetchedText === text) return;
@@ -320,12 +414,13 @@
       cancelled = true;
     };
   });
+  */
 </script>
 
 <div
   id="kanji-go-selection-popup"
   class="popup {popupDragging ? 'dragging' : ''}"
-  style="left: {popupLeft}px; top: {popupTop}px;"
+  style={popupStyle}
   role="dialog"
   aria-label="Dictionary popup"
   onpointerdown={startDragPopup}
@@ -359,13 +454,13 @@
           >
             Từ vựng ({vocabResults.length})
           </button>
-          <button
+          <!-- <button
             type="button"
             class="tab {activeTab === 'explain' ? 'active' : ''}"
             onclick={() => (activeTab = "explain")}
           >
             Giải thích AI
-          </button>
+          </button> -->
         </div>
       {/if}
 
@@ -513,7 +608,7 @@
         </div>
       {/if}
 
-      {#if activeTab === "explain"}
+      {#if false && activeTab === "explain"}
         <div class="explain-section">
           {#if explainLoading}
             <div class="explain-loading">Đang tải giải thích…</div>
@@ -555,7 +650,8 @@
                 <div class="section-title">Từ vựng</div>
                 <ul class="explain-vocab-list">
                   {#each explainPayload.vocabularies as item}
-                    {@const hira = item.hiragana?.trim() || item.reading?.trim()}
+                    {@const hira =
+                      item.hiragana?.trim() || item.reading?.trim()}
                     <li class="explain-vocab-item">
                       <div class="ev-head">
                         <span class="ev-word">{item.word ?? ""}</span>
@@ -595,7 +691,9 @@
                           {#if g.example.hiragana?.trim()}
                             <div class="ev-hiragana-line">
                               <span class="ev-label">Hiragana</span>
-                              <span class="ev-hiragana">{g.example.hiragana}</span>
+                              <span class="ev-hiragana"
+                                >{g.example.hiragana}</span
+                              >
                             </div>
                           {/if}
                           {#if g.example.meaning_vi?.trim()}
@@ -609,7 +707,9 @@
               </div>
             {/if}
             {#if !hasAny}
-              <div class="explain-empty">Không có mục nào trong phản hồi AI.</div>
+              <div class="explain-empty">
+                Không có mục nào trong phản hồi AI.
+              </div>
             {/if}
           {/if}
         </div>
@@ -719,7 +819,10 @@
     padding: 0.4rem 0.65rem;
     border-radius: 999px;
     cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      color 0.15s;
     user-select: none;
   }
 
