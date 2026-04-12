@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { loadKanjiDict, loadVocabDict } from "../lib/dict-loaders";
+  import { searchSelectionDicts } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
   interface Position {
@@ -25,8 +25,8 @@
   };
   type VocabEntry = {
     word: string;
-    reading: string;
-    meaning: string;
+    r: string;
+    m: string;
   };
   let { text, position }: { text: string; position: Position } = $props();
   let kanjiResults: DictEntry[] = $state([]);
@@ -256,21 +256,6 @@
       await search(text);
     }
   })();
-  // Check if string contains Japanese characters (kanji, hiragana, katakana)
-  function hasJapaneseChars(str: string): boolean {
-    const kanjiRegex = /[\u4E00-\u9FAF]/;
-    const hiraganaRegex = /[\u3040-\u309F]/;
-    const katakanaRegex = /[\u30A0-\u30FF]/;
-    return (
-      kanjiRegex.test(str) || hiraganaRegex.test(str) || katakanaRegex.test(str)
-    );
-  }
-  // Extract all kanji from a string
-  function extractKanji(str: string): string[] {
-    const kanjiRegex = /[\u4E00-\u9FAF]/g;
-    const matches = str.match(kanjiRegex);
-    return matches ? [...new Set(matches)] : []; // Remove duplicates
-  }
   async function search(query: string) {
     if (isSearching) return; // Prevent concurrent searches
     isSearching = true;
@@ -288,65 +273,29 @@
       return;
     }
 
-    // Skip if no Japanese characters
-    if (!hasJapaneseChars(trimmed)) {
+    const {
+      skipped: bgSkipped,
+      kanjiResults: bgKanji,
+      vocabResults: bgVocab,
+      error: bgError,
+    } = await searchSelectionDicts(trimmed);
+
+    if (bgError) {
+      error = bgError;
       loading = false;
-      skipped = true;
       isSearching = false;
       return;
     }
 
-    const [kanjiDictData, vocabDictData] = await Promise.all([
-      loadKanjiDict(),
-      loadVocabDict(),
-    ]);
-
-    // Find the word in the vocabulary dictionary
-    const vocabData = vocabDictData as Record<
-      string,
-      { reading: string; meaning: string }
-    >;
-    if (vocabData[trimmed]) {
-      vocabResults.push({
-        word: trimmed,
-        reading: vocabData[trimmed].reading,
-        meaning: vocabData[trimmed].meaning,
-      });
+    if (bgSkipped) {
+      skipped = true;
+      loading = false;
+      isSearching = false;
+      return;
     }
 
-    let matchCount = 0;
-    for (const key in vocabData) {
-      if (key === trimmed) continue;
-
-      const containsTrimmed = key.includes(trimmed); // Highlighted part of a word e.g "学" -> "学生"
-      const isContained = trimmed.includes(key) && key.length > 1; // Highlighted full sentence shows words contained in it
-
-      if (containsTrimmed || isContained) {
-        vocabResults.push({
-          word: key,
-          reading: vocabData[key].reading,
-          meaning: vocabData[key].meaning,
-        });
-        matchCount++;
-        // Limit the results so we do not flood the UI and to keep perf high
-        if (matchCount >= 10) break;
-      }
-    }
-
-    // Extract all kanji from the string
-    const kanjiList = extractKanji(trimmed);
-
-    // Search for each kanji in the dictionary
-    const foundKanji: DictEntry[] = [];
-    for (const kanji of kanjiList) {
-      const found = (kanjiDictData as DictEntry[]).find(
-        (entry) => entry.w === kanji,
-      );
-      if (found) {
-        foundKanji.push(found);
-      }
-    }
-    kanjiResults = foundKanji;
+    kanjiResults = bgKanji;
+    vocabResults = bgVocab;
 
     // Choose default tab based on available results (kanji first)
     if (kanjiResults.length > 0) activeTab = "kanji";
@@ -471,10 +420,10 @@
               <div class="vocab-item">
                 <div class="vocab-header">
                   <div class="vocab-word">{v.word}</div>
-                  <div class="vocab-reading">{v.reading}</div>
+                  <div class="vocab-reading">{v.r}</div>
                 </div>
                 <div class="vocab-meaning">
-                  {v.meaning}
+                  {v.m}
                 </div>
               </div>
             {/each}
@@ -880,6 +829,7 @@
     color: #374151;
     font-size: 0.95rem;
     line-height: 1.5;
+    white-space: pre-line;
   }
 
   .kanji-section {

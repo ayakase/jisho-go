@@ -1,27 +1,65 @@
-const KANJI_DICT_URL = browser.runtime.getURL('assets/kanji-dict.min.json');
-const VOCAB_DICT_URL = browser.runtime.getURL('assets/vocabulary-dict.min.json');
+import type { DictEntry, VocabEntry } from "./dict-types";
 
-let kanjiDictPromise: Promise<unknown> | null = null;
-let vocabDictPromise: Promise<unknown> | null = null;
+type FindKanjiResponse =
+  | { ok: true; entry: DictEntry | null }
+  | { ok: false; error: string };
 
-async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url);
+type SearchSelectionResponse =
+  | {
+      ok: true;
+      skipped: boolean;
+      kanjiResults: DictEntry[];
+      vocabResults: VocabEntry[];
+    }
+  | { ok: false; error: string };
+
+export async function findKanjiDictEntry(
+  query: string,
+): Promise<{ entry: DictEntry | null; error?: string }> {
+  const res = (await browser.runtime.sendMessage({
+    type: "DICT_FIND_KANJI",
+    query,
+  })) as FindKanjiResponse | undefined;
+
+  if (!res) {
+    return { entry: null, error: "No response from background" };
+  }
   if (!res.ok) {
-    throw new Error(`Failed to load dictionary (${res.status}): ${url}`);
+    return { entry: null, error: res.error };
   }
-  return res.json() as Promise<unknown>;
+  return { entry: res.entry };
 }
 
-export function loadKanjiDict() {
-  if (!kanjiDictPromise) {
-    kanjiDictPromise = fetchJson(KANJI_DICT_URL);
-  }
-  return kanjiDictPromise;
-}
+export async function searchSelectionDicts(query: string): Promise<{
+  skipped: boolean;
+  kanjiResults: DictEntry[];
+  vocabResults: VocabEntry[];
+  error?: string;
+}> {
+  const res = (await browser.runtime.sendMessage({
+    type: "DICT_SEARCH_SELECTION",
+    query,
+  })) as SearchSelectionResponse | undefined;
 
-export function loadVocabDict() {
-  if (!vocabDictPromise) {
-    vocabDictPromise = fetchJson(VOCAB_DICT_URL);
+  if (!res) {
+    return {
+      skipped: false,
+      kanjiResults: [],
+      vocabResults: [],
+      error: "No response from background",
+    };
   }
-  return vocabDictPromise;
+  if (!res.ok) {
+    return {
+      skipped: false,
+      kanjiResults: [],
+      vocabResults: [],
+      error: res.error,
+    };
+  }
+  return {
+    skipped: res.skipped,
+    kanjiResults: res.kanjiResults,
+    vocabResults: res.vocabResults,
+  };
 }

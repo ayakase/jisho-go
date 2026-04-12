@@ -1,4 +1,8 @@
 import { createWorker } from "tesseract.js";
+import {
+  backgroundFindKanji,
+  backgroundSearchSelection,
+} from "../lib/dict-background";
 
 let workerPromise: ReturnType<typeof createWorker> | null = null;
 
@@ -18,7 +22,7 @@ export default defineBackground(() => {
   // create a menu item once the extension gets installed or loads
   browser.contextMenus.create({
     id: "capture-selection",
-    title: "Capture Selection",
+    title: "Chụp màn hình",
     contexts: ["page"], // show on page right‑click
   });
 
@@ -36,6 +40,46 @@ export default defineBackground(() => {
 
   // Listen for screenshot capture requests from content script
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "DICT_FIND_KANJI") {
+      (async () => {
+        try {
+          const { entry } = await backgroundFindKanji(
+            (message as { query: string }).query,
+          );
+          sendResponse({ ok: true as const, entry });
+        } catch (e) {
+          sendResponse({
+            ok: false as const,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
+      return true;
+    }
+
+    if (message.type === "DICT_SEARCH_SELECTION") {
+      (async () => {
+        try {
+          const { skipped, kanjiResults, vocabResults } =
+            await backgroundSearchSelection(
+              (message as { query: string }).query,
+            );
+          sendResponse({
+            ok: true as const,
+            skipped,
+            kanjiResults,
+            vocabResults,
+          });
+        } catch (e) {
+          sendResponse({
+            ok: false as const,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
+      return true;
+    }
+
     if (message.type === "CAPTURE_SCREENSHOT") {
       const bounds = message.bounds;
 
