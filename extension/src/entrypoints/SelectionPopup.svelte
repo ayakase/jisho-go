@@ -10,13 +10,25 @@
     w: string;
     h: string;
     detail?: string;
+    d?: string;
     on?: string;
+    o?: string;
     kun?: string;
+    k?: string;
     level?: string[];
+    l?: string[];
     stroke_count?: string;
+    sc?: string;
     example_kun?: Record<string, Array<{ w: string; m: string; p: string }>>;
+    ek?: Record<string, Array<{ w: string; m: string; p: string }>>;
     example_on?: Record<string, Array<{ w: string; m: string; p: string }>>;
     examples?: Array<{
+      w: string;
+      m: string;
+      p: string;
+      h: string;
+    }>;
+    e?: Array<{
       w: string;
       m: string;
       p: string;
@@ -200,6 +212,19 @@
       : firstParagraph;
   }
 
+  function normalizeKanjiEntry(entry: DictEntry): DictEntry {
+    return {
+      ...entry,
+      detail: entry.detail ?? entry.d,
+      on: entry.on ?? entry.o,
+      kun: entry.kun ?? entry.k,
+      level: entry.level ?? entry.l,
+      stroke_count: entry.stroke_count ?? entry.sc,
+      example_kun: entry.example_kun ?? entry.ek,
+      examples: entry.examples ?? entry.e,
+    };
+  }
+
   // Load romaji setting
   (async () => {
     try {
@@ -294,7 +319,7 @@
       return;
     }
 
-    kanjiResults = bgKanji;
+    kanjiResults = bgKanji.map(normalizeKanjiEntry);
     vocabResults = bgVocab;
 
     // Choose default tab based on available results (kanji first)

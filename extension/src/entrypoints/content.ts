@@ -15,6 +15,7 @@ let hoverMode = false;
 let hoverTimeout: number | null = null;
 let blacklist: string[] = [];
 let popupOpacity = 1;
+let suppressSelectionPopupUntil = 0;
 
 function clampPopupOpacity(val: number): number {
   if (Number.isNaN(val)) return 1;
@@ -95,7 +96,6 @@ function getOcrWorker() {
 }
 
 export default defineContentScript({
-  // Run on all pages so selection works everywhere, not just on google.com
   matches: ['<all_urls>'],
   async main() {
     // Load settings
@@ -149,6 +149,9 @@ export default defineContentScript({
 
     // Show a small popup next to highlighted text on the page
     document.addEventListener('mouseup', (event) => {
+      if (Date.now() < suppressSelectionPopupUntil) {
+        return;
+      }
       // Do nothing on blacklisted sites
       if (isBlacklistedLocation()) {
         removePopup();
@@ -500,6 +503,8 @@ function showPopupNear(rect: DOMRect, text: string) {
       !popupContainer.contains(ev.target as Node) &&
       !(hoverPopupContainer && hoverPopupContainer.contains(ev.target as Node))
     ) {
+      // Prevent immediate reopen from the same click's mouseup event.
+      suppressSelectionPopupUntil = Date.now() + 250;
       removePopup();
       document.removeEventListener('mousedown', handleClickOutside);
     }

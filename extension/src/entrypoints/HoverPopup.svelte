@@ -10,13 +10,25 @@
     w: string;
     h: string;
     detail?: string;
+    d?: string;
     on?: string;
+    o?: string;
     kun?: string;
+    k?: string;
     level?: string[];
+    l?: string[];
     stroke_count?: string;
+    sc?: string;
     example_kun?: Record<string, Array<{ w: string; m: string; p: string }>>;
+    ek?: Record<string, Array<{ w: string; m: string; p: string }>>;
     example_on?: Record<string, Array<{ w: string; m: string; p: string }>>;
     examples?: Array<{
+      w: string;
+      m: string;
+      p: string;
+      h: string;
+    }>;
+    e?: Array<{
       w: string;
       m: string;
       p: string;
@@ -55,6 +67,19 @@
     return text;
   }
 
+  function normalizeKanjiEntry(entry: DictEntry): DictEntry {
+    return {
+      ...entry,
+      detail: entry.detail ?? entry.d,
+      on: entry.on ?? entry.o,
+      kun: entry.kun ?? entry.k,
+      level: entry.level ?? entry.l,
+      stroke_count: entry.stroke_count ?? entry.sc,
+      example_kun: entry.example_kun ?? entry.ek,
+      examples: entry.examples ?? entry.e,
+    };
+  }
+
   // Search immediately when component is created
   (async () => {
     if (text) {
@@ -78,7 +103,7 @@
     if (lookupError) {
       error = lookupError;
     } else if (found) {
-      kanjiResult = found;
+      kanjiResult = normalizeKanjiEntry(found as DictEntry);
     } else {
       error = "Kanji not found";
     }
