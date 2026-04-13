@@ -51,6 +51,9 @@
   let showRomaji = $state<boolean>(false);
   type ResultTab = "vocab" | "kanji" | "explain";
   let activeTab = $state<ResultTab>("kanji");
+  let translatedText = $state<string | null>(null);
+  let translateLoading = $state(false);
+  let translateError = $state<string | null>(null);
 
   type ExplainVocab = {
     word?: string;
@@ -194,6 +197,57 @@
     explainFetchedText = null;
   });
 
+  async function translateSelectedText(query: string) {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      translatedText = null;
+      translateError = null;
+      translateLoading = false;
+      return;
+    }
+
+    translateLoading = true;
+    translateError = null;
+    translatedText = null;
+
+    const parseTranslatePayload = (data: unknown): string | null => {
+      if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
+      const firstRow = data[0] as unknown[];
+      if (typeof firstRow[0] === "string") return firstRow[0];
+      if (Array.isArray(firstRow[0]) && typeof (firstRow[0] as unknown[])[0] === "string") {
+        return (firstRow[0] as unknown[])[0] as string;
+      }
+      return null;
+    };
+
+    try {
+      const params = new URLSearchParams({
+        client: "gtx",
+        sl: "auto",
+        tl: "vi",
+        dt: "t",
+        q: trimmed,
+      });
+
+      const res = await fetch(
+        `https://translate.googleapis.com/translate_a/single?${params.toString()}`,
+      );
+      if (!res.ok) throw new Error(`Translate failed: ${res.status}`);
+
+      const data = (await res.json()) as unknown;
+      const translated = parseTranslatePayload(data);
+
+      translatedText = translated;
+      if (!translated) {
+        translateError = "Không lấy được bản dịch.";
+      }
+    } catch (e) {
+      translateError = e instanceof Error ? e.message : "Lỗi dịch văn bản.";
+    } finally {
+      translateLoading = false;
+    }
+  }
+
   function toggleKanji(index: number) {
     const newSet = new Set(expandedKanji);
     if (newSet.has(index)) {
@@ -278,6 +332,7 @@
   // Search immediately when component is created (component is remounted each time)
   (async () => {
     if (text) {
+      void translateSelectedText(text);
       await search(text);
     }
   })();
@@ -409,6 +464,15 @@
     <div class="result">
       <div class="extracted-text-section">
         {text}
+        <div class="translated-text-section">
+          {#if translateLoading}
+            <span class="translated-text-loading">Đang dịch...</span>
+          {:else if translatedText}
+            <span class="translated-text">{translatedText}</span>
+          {:else if translateError}
+            <span class="translated-text-error">{translateError}</span>
+          {/if}
+        </div>
       </div>
       {#if vocabResults.length > 0 || kanjiResults.length > 0 || !skipped}
         <div class="tabs">
@@ -767,6 +831,26 @@
     border-bottom: 1px solid #e5e7eb;
     line-height: 1.5;
     word-break: break-word;
+  }
+
+  .translated-text-section {
+    margin-top: 0.35rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  .translated-text {
+    color: #4b5563;
+  }
+
+  .translated-text-loading {
+    color: #6b7280;
+    font-style: italic;
+  }
+
+  .translated-text-error {
+    color: #b91c1c;
+    font-size: 0.85rem;
   }
 
   .vocab-section {

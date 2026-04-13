@@ -3,9 +3,12 @@
 
   const OPACITY_MIN = 0.1;
   const OPACITY_MAX = 1;
+  type SearchButtonSize = "small" | "medium" | "big";
 
   let popupOpacity = $state<number>(1);
   let isOpacityInitialized = $state<boolean>(false);
+  let searchButtonSize = $state<SearchButtonSize>("medium");
+  let isSearchButtonInitialized = $state<boolean>(false);
 
   function clampOpacity(val: number): number {
     if (Number.isNaN(val)) return OPACITY_MAX;
@@ -29,11 +32,35 @@
     }
   }
 
+  async function loadSearchButtonSettings() {
+    try {
+      const storedSize = await storage.getItem<SearchButtonSize>(
+        "local:searchButtonSize",
+      );
+      if (storedSize === "small" || storedSize === "medium" || storedSize === "big") {
+        searchButtonSize = storedSize;
+      }
+      isSearchButtonInitialized = true;
+    } catch (error) {
+      console.error("Failed to load search button settings:", error);
+      isSearchButtonInitialized = true;
+    }
+  }
+
   async function savePopupOpacity() {
     try {
       await storage.setItem("local:popupOpacity", popupOpacity);
     } catch (error) {
       console.error("Failed to save popup opacity:", error);
+    }
+  }
+
+  async function saveSearchButtonSettings() {
+    try {
+      if (!isSearchButtonInitialized) return;
+      await storage.setItem("local:searchButtonSize", searchButtonSize);
+    } catch (error) {
+      console.error("Failed to save search button settings:", error);
     }
   }
 
@@ -98,10 +125,14 @@
   }
 
   loadPopupOpacity();
+  loadSearchButtonSettings();
   loadPositionSettings();
 
   $effect(() => {
     if (isOpacityInitialized) savePopupOpacity();
+  });
+  $effect(() => {
+    saveSearchButtonSettings();
   });
   $effect(() => {
     savePositionMode();
@@ -224,6 +255,44 @@
       />
     </div>
   </div>
+
+  <div class="setting-item">
+    <h3>Nút ở Chế độ nút</h3>
+    <div class="setting-controls">
+      <div class="button-size-group">
+        <label class="position-radio-card" class:active={searchButtonSize === "small"}>
+          <input
+            type="radio"
+            name="searchButtonSize"
+            value="small"
+            bind:group={searchButtonSize}
+            class="custom-radio"
+          />
+          <span class="position-radio-text">Nhỏ</span>
+        </label>
+        <label class="position-radio-card" class:active={searchButtonSize === "medium"}>
+          <input
+            type="radio"
+            name="searchButtonSize"
+            value="medium"
+            bind:group={searchButtonSize}
+            class="custom-radio"
+          />
+          <span class="position-radio-text">Vừa</span>
+        </label>
+        <label class="position-radio-card" class:active={searchButtonSize === "big"}>
+          <input
+            type="radio"
+            name="searchButtonSize"
+            value="big"
+            bind:group={searchButtonSize}
+            class="custom-radio"
+          />
+          <span class="position-radio-text">Lớn</span>
+        </label>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -309,6 +378,13 @@
   }
 
   .position-radio-group {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .button-size-group {
     display: flex;
     flex-direction: row;
     gap: 0.5rem;

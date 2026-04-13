@@ -5,6 +5,8 @@ import HoverPopup from './HoverPopup.svelte';
 import { createWorker } from 'tesseract.js';
 
 type PopupMode = 'off' | 'immediate' | 'button';
+type HoverGrabMode = 'single-kanji' | 'paragraph';
+type SearchButtonSize = 'small' | 'medium' | 'big';
 
 let popupContainer: HTMLElement | null = null; // Click/selection popup
 let hoverPopupContainer: HTMLElement | null = null; // Hover popup (separate)
@@ -12,9 +14,11 @@ let buttonContainer: HTMLElement | null = null;
 let popupText: string | null = null;
 let popupMode: PopupMode = 'immediate';
 let hoverMode = false;
+let hoverGrabMode: HoverGrabMode = 'single-kanji';
 let hoverTimeout: number | null = null;
 let blacklist: string[] = [];
 let popupOpacity = 1;
+let searchButtonSize: SearchButtonSize = 'medium';
 let suppressSelectionPopupUntil = 0;
 
 function clampPopupOpacity(val: number): number {
@@ -101,8 +105,10 @@ export default defineContentScript({
     // Load settings
     await loadPopupMode();
     await loadHoverMode();
+    await loadHoverGrabMode();
     await loadBlacklist();
     await loadPopupOpacity();
+    await loadSearchButtonSettings();
 
     // Watch blacklist changes so updates from the popup apply without reload
     storage.watch<unknown>('local:blacklist', (value) => {
@@ -145,6 +151,14 @@ export default defineContentScript({
       if (popupContainer) popupContainer.style.opacity = popupOpacity.toString();
       if (hoverPopupContainer)
         hoverPopupContainer.style.opacity = popupOpacity.toString();
+    });
+
+    storage.watch<SearchButtonSize>('local:searchButtonSize', (newSize) => {
+      if (newSize === 'small' || newSize === 'medium' || newSize === 'big') {
+        searchButtonSize = newSize;
+      } else {
+        searchButtonSize = 'medium';
+      }
     });
 
     // Show a small popup next to highlighted text on the page
@@ -216,6 +230,14 @@ export default defineContentScript({
       }
     });
 
+    storage.watch<HoverGrabMode>('local:hoverGrabMode', (newMode) => {
+      if (newMode === 'paragraph' || newMode === 'single-kanji') {
+        hoverGrabMode = newMode;
+      } else {
+        hoverGrabMode = 'single-kanji';
+      }
+    });
+
     // Initialize hover mode if enabled
     if (hoverMode) {
       setupHoverMode();
@@ -242,6 +264,17 @@ async function loadHoverMode() {
     }
   } catch (error) {
     console.error('Failed to load hover mode:', error);
+  }
+}
+
+async function loadHoverGrabMode() {
+  try {
+    const stored = await storage.getItem<HoverGrabMode>('local:hoverGrabMode');
+    if (stored === 'paragraph' || stored === 'single-kanji') {
+      hoverGrabMode = stored;
+    }
+  } catch (error) {
+    console.error('Failed to load hover grab mode:', error);
   }
 }
 
@@ -276,6 +309,19 @@ async function loadPopupOpacity() {
   } catch (error) {
     console.error('Failed to load popup opacity:', error);
     popupOpacity = 1;
+  }
+}
+
+async function loadSearchButtonSettings() {
+  try {
+    const storedSize = await storage.getItem<SearchButtonSize>('local:searchButtonSize');
+    if (storedSize === 'small' || storedSize === 'medium' || storedSize === 'big') {
+      searchButtonSize = storedSize;
+    }
+
+  } catch (error) {
+    console.error('Failed to load search button settings:', error);
+    searchButtonSize = 'medium';
   }
 }
 
@@ -348,6 +394,13 @@ function showButtonNear(rect: DOMRect, text: string) {
     font-family: system-ui, -apple-system, sans-serif;
   `;
 
+  const sizeConfig =
+    searchButtonSize === 'small'
+      ? { buttonSize: 30, iconSize: 16, paddingRem: 0.35 }
+      : searchButtonSize === 'big'
+        ? { buttonSize: 44, iconSize: 24, paddingRem: 0.65 }
+        : { buttonSize: 36, iconSize: 20, paddingRem: 0.5 };
+
   const GAP = 8;
   const PADDING = 12;
   const viewportWidth = window.innerWidth;
@@ -358,7 +411,7 @@ function showButtonNear(rect: DOMRect, text: string) {
   let top = rect.bottom + GAP;
 
   // Ensure button stays within viewport (button is ~36px with icon + padding)
-  const BUTTON_SIZE = 36;
+  const BUTTON_SIZE = sizeConfig.buttonSize;
   if (left + BUTTON_SIZE > viewportWidth - PADDING) {
     left = viewportWidth - BUTTON_SIZE - PADDING;
   }
@@ -374,12 +427,12 @@ function showButtonNear(rect: DOMRect, text: string) {
   // Create button element
   const button = document.createElement('button');
   button.innerHTML = `
-    <svg width="20px" height="20px" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+    <svg width="${sizeConfig.iconSize}px" height="${sizeConfig.iconSize}px" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
       <path d="M17.545 15.467l-3.779-3.779a6.15 6.15 0 0 0 .898-3.21c0-3.417-2.961-6.377-6.378-6.377A6.185 6.185 0 0 0 2.1 8.287c0 3.416 2.961 6.377 6.377 6.377a6.15 6.15 0 0 0 3.115-.844l3.799 3.801a.953.953 0 0 0 1.346 0l.943-.943c.371-.371.236-.84-.135-1.211zM4.004 8.287a4.282 4.282 0 0 1 4.282-4.283c2.366 0 4.474 2.107 4.474 4.474a4.284 4.284 0 0 1-4.283 4.283c-2.366-.001-4.473-2.109-4.473-4.474z" fill="white"/>
     </svg>
   `;
   button.style.cssText = `
-    padding: 0.5rem;
+    padding: ${sizeConfig.paddingRem}rem;
     background-color: #f87171;
     color: white;
     border: none;
@@ -592,6 +645,57 @@ function getCharAtPosition(x: number, y: number): { char: string; rect: DOMRect 
 let hoverMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 let hoverMouseLeaveHandler: ((e: MouseEvent) => void) | null = null;
 
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function isLikelyBlockElement(el: Element): boolean {
+  const tag = el.tagName.toUpperCase();
+  if (/^H[1-6]$/.test(tag)) return true;
+  const display = window.getComputedStyle(el).display;
+  return (
+    display === 'block' ||
+    display === 'list-item' ||
+    display === 'table-cell' ||
+    display === 'table-row' ||
+    display === 'flex' ||
+    display === 'grid'
+  );
+}
+
+function getTextChunkFromTarget(target: EventTarget | null): string {
+  if (!(target instanceof Element)) return '';
+
+  // Prefer explicit text containers first.
+  const preferred = target.closest(
+    'h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,figcaption,label',
+  );
+  if (preferred) {
+    const preferredText = normalizeWhitespace(preferred.textContent || '');
+    if (preferredText) return preferredText;
+  }
+
+  // Fallback: find nearest block-like ancestor that has meaningful text.
+  let current: Element | null = target;
+  while (current && current !== document.body) {
+    const text = normalizeWhitespace(current.textContent || '');
+    if (text && isLikelyBlockElement(current)) {
+      return text;
+    }
+    current = current.parentElement;
+  }
+
+  // Last resort for inline-only fragments.
+  return normalizeWhitespace(target.textContent || '');
+}
+
+function getTargetRect(target: EventTarget | null): DOMRect | null {
+  if (!(target instanceof Element)) return null;
+  const rect = target.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return null;
+  return rect;
+}
+
 function setupHoverMode() {
   cleanupHoverMode();
 
@@ -633,6 +737,20 @@ function setupHoverMode() {
 
     // Add small delay to avoid flickering
     hoverTimeout = window.setTimeout(() => {
+      if (hoverGrabMode === 'paragraph') {
+        removeHoverPopup();
+        const textChunk = getTextChunkFromTarget(e.target);
+        const targetRect = getTargetRect(e.target);
+        if (textChunk) {
+          if (targetRect) {
+            showPopupNear(targetRect, textChunk);
+          }
+        } else {
+          removePopup();
+        }
+        return;
+      }
+
       const { char, rect } = getCharAtPosition(e.clientX, e.clientY);
 
       if (char && isKanji(char) && rect) {

@@ -3,8 +3,10 @@
   import { validateUrl } from "../../../lib/validateUrl";
 
   type PopupMode = "off" | "immediate" | "button";
+  type HoverGrabMode = "single-kanji" | "paragraph";
   let popupMode = $state<PopupMode>("immediate");
   let hoverMode = $state<boolean>(false);
+  let hoverGrabMode = $state<HoverGrabMode>("single-kanji");
   let showRomaji = $state<boolean>(false);
   let isInitialized = $state(false);
   let blacklist = $state<string[]>([]);
@@ -24,6 +26,16 @@
       const storedHover = await storage.getItem<boolean>("local:hoverMode");
       if (storedHover !== null && storedHover !== undefined) {
         hoverMode = storedHover;
+      }
+
+      const storedHoverGrabMode = await storage.getItem<HoverGrabMode>(
+        "local:hoverGrabMode",
+      );
+      if (
+        storedHoverGrabMode === "single-kanji" ||
+        storedHoverGrabMode === "paragraph"
+      ) {
+        hoverGrabMode = storedHoverGrabMode;
       }
 
       const storedRomaji = await storage.getItem<boolean>("local:showRomaji");
@@ -85,6 +97,14 @@
     }
   }
 
+  async function saveHoverGrabMode() {
+    try {
+      await storage.setItem("local:hoverGrabMode", hoverGrabMode);
+    } catch (error) {
+      console.error("Failed to save hover grab mode:", error);
+    }
+  }
+
   async function saveBlacklist() {
     try {
       await storage.setItem("local:blacklist", blacklist);
@@ -135,6 +155,20 @@
     editingValue = "";
   }
 
+  function isPopupEnabled(): boolean {
+    return popupMode !== "off";
+  }
+
+  function togglePopupEnabled(enabled: boolean) {
+    if (!enabled) {
+      popupMode = "off";
+      return;
+    }
+    if (popupMode === "off") {
+      popupMode = "immediate";
+    }
+  }
+
   // Load settings when component mounts
   loadSettings();
 
@@ -148,6 +182,10 @@
   });
 
   $effect(() => {
+    if (isInitialized) saveHoverGrabMode();
+  });
+
+  $effect(() => {
     if (isInitialized) saveRomajiMode();
   });
 
@@ -158,53 +196,57 @@
 
 <div class="settings-container">
   <div class="setting-item">
-    <h3>Chế độ popup</h3>
+    <h3>Chế độ bôi đen</h3>
     <div class="setting-controls">
-      <label class="radio-option">
+      <label class="toggle-option">
         <input
-          type="radio"
-          name="popupMode"
-          value="off"
-          checked={popupMode === "off"}
-          onchange={() => (popupMode = "off")}
+          type="checkbox"
+          checked={isPopupEnabled()}
+          onchange={(e) =>
+            togglePopupEnabled((e.target as HTMLInputElement).checked)}
         />
-        <span class="radio-label">
-          <strong>Tắt</strong>
-          <span class="radio-description"
-            >Không hiển thị popup khi chọn văn bản</span
+        <span class="toggle-label">
+          <strong>Bật chế độ bôi đen</strong>
+          <span class="toggle-description"
+            >Hiển thị popup khi bôi đen văn bản</span
           >
         </span>
       </label>
-      <label class="radio-option">
-        <input
-          type="radio"
-          name="popupMode"
-          value="immediate"
-          checked={popupMode === "immediate"}
-          onchange={() => (popupMode = "immediate")}
-        />
-        <span class="radio-label">
-          <strong>Tức thì</strong>
-          <span class="radio-description"
-            >Hiển thị popup tự động khi chọn văn bản</span
-          >
-        </span>
-      </label>
-      <label class="radio-option">
-        <input
-          type="radio"
-          name="popupMode"
-          value="button"
-          checked={popupMode === "button"}
-          onchange={() => (popupMode = "button")}
-        />
-        <span class="radio-label">
-          <strong>Chế độ nút</strong>
-          <span class="radio-description"
-            >Hiển thị nút trước, nhấp để mở popup</span
-          >
-        </span>
-      </label>
+
+      {#if isPopupEnabled()}
+        <div class="popup-mode-options">
+          <label class="radio-option">
+            <input
+              type="radio"
+              name="popupMode"
+              value="immediate"
+              checked={popupMode === "immediate"}
+              onchange={() => (popupMode = "immediate")}
+            />
+            <span class="radio-label">
+              <strong>Tức thì</strong>
+              <span class="radio-description"
+                >Hiển thị popup tự động khi chọn văn bản</span
+              >
+            </span>
+          </label>
+          <label class="radio-option">
+            <input
+              type="radio"
+              name="popupMode"
+              value="button"
+              checked={popupMode === "button"}
+              onchange={() => (popupMode = "button")}
+            />
+            <span class="radio-label">
+              <strong>Chế độ nút</strong>
+              <span class="radio-description"
+                >Hiển thị nút trước, nhấp để mở popup</span
+              >
+            </span>
+          </label>
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -221,10 +263,45 @@
         <span class="toggle-label">
           <strong>Bật chế độ di chuột</strong>
           <span class="toggle-description"
-            >Hiển thị popup khi di chuột qua ký tự kanji (Chỉ dành cho từng kanji một)</span
+            >Bật chức năng tra cứu khi di chuột</span
           >
         </span>
       </label>
+
+      {#if hoverMode}
+        <div class="hover-mode-options">
+          <label class="radio-option">
+            <input
+              type="radio"
+              name="hoverGrabMode"
+              value="single-kanji"
+              checked={hoverGrabMode === "single-kanji"}
+              onchange={() => (hoverGrabMode = "single-kanji")}
+            />
+            <span class="radio-label">
+              <strong>Từng kanji</strong>
+              <span class="radio-description"
+                >Giữ hành vi hiện tại: di chuột vào 1 kanji để hiện popup</span
+              >
+            </span>
+          </label>
+          <label class="radio-option">
+            <input
+              type="radio"
+              name="hoverGrabMode"
+              value="paragraph"
+              checked={hoverGrabMode === "paragraph"}
+              onchange={() => (hoverGrabMode = "paragraph")}
+            />
+            <span class="radio-label">
+              <strong>Cả đoạn</strong>
+              <span class="radio-description"
+                >Lấy toàn bộ đoạn văn đang trỏ và log ra console (tạm thời)</span
+              >
+            </span>
+          </label>
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -325,3 +402,13 @@
     </div>
   </div>
 </div>
+
+<style>
+  .popup-mode-options,
+  .hover-mode-options {
+    display: flex;
+    flex-direction: row;
+    gap: 0.65rem;
+    margin-top: 0;
+  }
+</style>
