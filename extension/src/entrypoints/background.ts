@@ -22,8 +22,8 @@ export default defineBackground(() => {
   // create a menu item once the extension gets installed or loads
   browser.contextMenus.create({
     id: "capture-selection",
-    title: "Chụp màn hình",
-    contexts: ["page"], // show on page right‑click
+    title: "Xử lý",
+    contexts: ["all"], // show on all right-click contexts
   });
 
   // listen for menu item clicks

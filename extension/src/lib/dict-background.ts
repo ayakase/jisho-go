@@ -23,6 +23,20 @@ type CompactKanjiEntry = Omit<
   sc?: string;
 };
 
+function normalizeKanjiEntry(entry: DictEntry | CompactKanjiEntry): DictEntry {
+  const raw = entry as DictEntry & CompactKanjiEntry;
+  return {
+    ...entry,
+    detail: raw.detail ?? raw.d,
+    example_kun: raw.example_kun ?? raw.ek,
+    examples: raw.examples ?? raw.e,
+    level: raw.level ?? raw.l,
+    kun: raw.kun ?? raw.k,
+    on: raw.on ?? raw.o,
+    stroke_count: raw.stroke_count ?? raw.sc,
+  };
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -35,18 +49,7 @@ function ensureKanjiDict(): Promise<DictEntry[]> {
   if (!kanjiDictPromise) {
     kanjiDictPromise = fetchJson<Array<DictEntry | CompactKanjiEntry>>(
       KANJI_DICT_URL,
-    ).then((entries) =>
-      entries.map((entry) => ({
-        ...entry,
-        detail: entry.detail ?? entry.d,
-        example_kun: entry.example_kun ?? entry.ek,
-        examples: entry.examples ?? entry.e,
-        level: entry.level ?? entry.l,
-        kun: entry.kun ?? entry.k,
-        on: entry.on ?? entry.o,
-        stroke_count: entry.stroke_count ?? entry.sc,
-      })),
-    );
+    ).then((entries) => entries.map(normalizeKanjiEntry));
   }
   return kanjiDictPromise;
 }
