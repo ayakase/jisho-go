@@ -5,10 +5,42 @@
   const OPACITY_MAX = 1;
   type SearchButtonSize = "small" | "medium" | "big";
 
+  let popupMode = $state<"off" | "immediate" | "button">("immediate");
+  let isPopupModeInitialized = $state(false);
+
   let popupOpacity = $state<number>(1);
   let isOpacityInitialized = $state<boolean>(false);
+
+  let positionMode = $state<"highlight" | "remember" | "static">("highlight");
+  let isPositionInitialized = $state<boolean>(false);
   let searchButtonSize = $state<SearchButtonSize>("medium");
   let isSearchButtonInitialized = $state<boolean>(false);
+
+  let staticConfig = $state<{
+    corner: string;
+    offsetX: number;
+    offsetY: number;
+  }>({
+    corner: "top-right",
+    offsetX: 20,
+    offsetY: 20,
+  });
+  let isStaticConfigInitialized = $state<boolean>(false);
+
+  function isPopupEnabled(): boolean {
+    if (!isPopupModeInitialized) return false;
+    return popupMode !== "off";
+  }
+
+  function togglePopupEnabled(enabled: boolean) {
+    if (!enabled) {
+      popupMode = "off";
+      return;
+    }
+    if (popupMode === "off") {
+      popupMode = "immediate";
+    }
+  }
 
   function clampOpacity(val: number): number {
     if (Number.isNaN(val)) return OPACITY_MAX;
@@ -18,6 +50,29 @@
   function opacityToGradientPercent(opacity: number): number {
     const t = (opacity - OPACITY_MIN) / (OPACITY_MAX - OPACITY_MIN);
     return Math.max(0, Math.min(100, t * 100));
+  }
+
+  async function loadPopupMode() {
+    try {
+      const storedMode = await storage.getItem<"off" | "immediate" | "button">(
+        "local:popupMode",
+      );
+      if (storedMode) popupMode = storedMode;
+      isPopupModeInitialized = true;
+    } catch (error) {
+      console.error("Failed to load popup mode:", error);
+      isPopupModeInitialized = true;
+    }
+  }
+
+  async function savePopupMode() {
+    try {
+      if (isPopupModeInitialized) {
+        await storage.setItem("local:popupMode", popupMode);
+      }
+    } catch (error) {
+      console.error("Failed to save popup mode:", error);
+    }
   }
 
   async function loadPopupOpacity() {
@@ -32,21 +87,6 @@
     }
   }
 
-  async function loadSearchButtonSettings() {
-    try {
-      const storedSize = await storage.getItem<SearchButtonSize>(
-        "local:searchButtonSize",
-      );
-      if (storedSize === "small" || storedSize === "medium" || storedSize === "big") {
-        searchButtonSize = storedSize;
-      }
-      isSearchButtonInitialized = true;
-    } catch (error) {
-      console.error("Failed to load search button settings:", error);
-      isSearchButtonInitialized = true;
-    }
-  }
-
   async function savePopupOpacity() {
     try {
       await storage.setItem("local:popupOpacity", popupOpacity);
@@ -54,29 +94,6 @@
       console.error("Failed to save popup opacity:", error);
     }
   }
-
-  async function saveSearchButtonSettings() {
-    try {
-      if (!isSearchButtonInitialized) return;
-      await storage.setItem("local:searchButtonSize", searchButtonSize);
-    } catch (error) {
-      console.error("Failed to save search button settings:", error);
-    }
-  }
-
-  let positionMode = $state<"highlight" | "remember" | "static">("highlight");
-  let isPositionInitialized = $state<boolean>(false);
-
-  let staticConfig = $state<{
-    corner: string;
-    offsetX: number;
-    offsetY: number;
-  }>({
-    corner: "top-right",
-    offsetX: 20,
-    offsetY: 20,
-  });
-  let isStaticConfigInitialized = $state<boolean>(false);
 
   async function loadPositionSettings() {
     try {
@@ -98,6 +115,21 @@
     }
   }
 
+  async function loadSearchButtonSettings() {
+    try {
+      const storedSize = await storage.getItem<SearchButtonSize>(
+        "local:searchButtonSize",
+      );
+      if (storedSize === "small" || storedSize === "medium" || storedSize === "big") {
+        searchButtonSize = storedSize;
+      }
+      isSearchButtonInitialized = true;
+    } catch (error) {
+      console.error("Failed to load search button settings:", error);
+      isSearchButtonInitialized = true;
+    }
+  }
+
   async function savePositionMode() {
     try {
       if (isPositionInitialized) {
@@ -111,7 +143,6 @@
   async function saveStaticConfig() {
     try {
       if (isStaticConfigInitialized) {
-        // We use $state.snapshot to get plain object instead of proxy
         const snap = {
           corner: staticConfig.corner,
           offsetX: staticConfig.offsetX,
@@ -124,19 +155,32 @@
     }
   }
 
+  async function saveSearchButtonSettings() {
+    try {
+      if (!isSearchButtonInitialized) return;
+      await storage.setItem("local:searchButtonSize", searchButtonSize);
+    } catch (error) {
+      console.error("Failed to save search button settings:", error);
+    }
+  }
+
+  loadPopupMode();
   loadPopupOpacity();
-  loadSearchButtonSettings();
   loadPositionSettings();
+  loadSearchButtonSettings();
+
+  $effect(() => {
+    savePopupMode();
+  });
 
   $effect(() => {
     if (isOpacityInitialized) savePopupOpacity();
   });
-  $effect(() => {
-    saveSearchButtonSettings();
-  });
+
   $effect(() => {
     savePositionMode();
   });
+
   $effect(() => {
     if (
       staticConfig.corner ||
@@ -146,9 +190,67 @@
     }
     saveStaticConfig();
   });
+
+  $effect(() => {
+    saveSearchButtonSettings();
+  });
 </script>
 
 <div class="settings-container">
+  <div class="setting-item">
+    <div class="setting-controls">
+      <label class="toggle-option">
+        <input
+          type="checkbox"
+          checked={isPopupEnabled()}
+          onchange={(e) =>
+            togglePopupEnabled((e.target as HTMLInputElement).checked)}
+        />
+        <span class="toggle-label">
+          <strong>Bật chế độ bôi đen</strong>
+          <span class="toggle-description"
+            >Hiển thị popup khi bôi đen văn bản</span
+          >
+        </span>
+      </label>
+
+      {#if isPopupEnabled()}
+        <div class="popup-mode-options">
+          <label class="radio-option">
+            <input
+              type="radio"
+              name="popupMode"
+              value="immediate"
+              checked={popupMode === "immediate"}
+              onchange={() => (popupMode = "immediate")}
+            />
+            <span class="radio-label">
+              <strong>Tức thì</strong>
+              <span class="radio-description"
+                >Hiển thị popup tự động khi chọn văn bản</span
+              >
+            </span>
+          </label>
+          <label class="radio-option">
+            <input
+              type="radio"
+              name="popupMode"
+              value="button"
+              checked={popupMode === "button"}
+              onchange={() => (popupMode = "button")}
+            />
+            <span class="radio-label">
+              <strong>Chế độ nút</strong>
+              <span class="radio-description"
+                >Hiển thị nút trước, nhấp để mở popup</span
+              >
+            </span>
+          </label>
+        </div>
+      {/if}
+    </div>
+  </div>
+  {#if isPopupEnabled()}
   <div class="setting-item">
     <h3>Vị trí Popup</h3>
     <div class="setting-controls position-radio-group">
@@ -184,10 +286,7 @@
         >
       </label>
 
-      <label
-        class="position-radio-card"
-        class:active={positionMode === "static"}
-      >
+      <label class="position-radio-card" class:active={positionMode === "static"}>
         <input
           type="radio"
           name="positionMode"
@@ -256,46 +355,57 @@
     </div>
   </div>
 
-  <div class="setting-item">
-    <h3>Nút ở Chế độ nút</h3>
-    <div class="setting-controls">
-      <div class="button-size-group">
-        <label class="position-radio-card" class:active={searchButtonSize === "small"}>
-          <input
-            type="radio"
-            name="searchButtonSize"
-            value="small"
-            bind:group={searchButtonSize}
-            class="custom-radio"
-          />
-          <span class="position-radio-text">Nhỏ</span>
-        </label>
-        <label class="position-radio-card" class:active={searchButtonSize === "medium"}>
-          <input
-            type="radio"
-            name="searchButtonSize"
-            value="medium"
-            bind:group={searchButtonSize}
-            class="custom-radio"
-          />
-          <span class="position-radio-text">Vừa</span>
-        </label>
-        <label class="position-radio-card" class:active={searchButtonSize === "big"}>
-          <input
-            type="radio"
-            name="searchButtonSize"
-            value="big"
-            bind:group={searchButtonSize}
-            class="custom-radio"
-          />
-          <span class="position-radio-text">Lớn</span>
-        </label>
+  {#if popupMode === "button"}
+    <div class="setting-item">
+      <h3>Nút ở Chế độ nút</h3>
+      <div class="setting-controls">
+        <div class="button-size-group">
+          <label class="position-radio-card" class:active={searchButtonSize === "small"}>
+            <input
+              type="radio"
+              name="searchButtonSize"
+              value="small"
+              bind:group={searchButtonSize}
+              class="custom-radio"
+            />
+            <span class="position-radio-text">Nhỏ</span>
+          </label>
+          <label class="position-radio-card" class:active={searchButtonSize === "medium"}>
+            <input
+              type="radio"
+              name="searchButtonSize"
+              value="medium"
+              bind:group={searchButtonSize}
+              class="custom-radio"
+            />
+            <span class="position-radio-text">Vừa</span>
+          </label>
+          <label class="position-radio-card" class:active={searchButtonSize === "big"}>
+            <input
+              type="radio"
+              name="searchButtonSize"
+              value="big"
+              bind:group={searchButtonSize}
+              class="custom-radio"
+            />
+            <span class="position-radio-text">Lớn</span>
+          </label>
+        </div>
       </div>
     </div>
-  </div>
+  {/if}
+  {/if}
+
 </div>
 
 <style>
+  .popup-mode-options {
+    display: flex;
+    flex-direction: row;
+    gap: 0.65rem;
+    margin-top: 0;
+  }
+
   .opacity-control {
     gap: 0.75rem;
     padding: 0.75rem;

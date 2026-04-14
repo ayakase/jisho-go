@@ -1,9 +1,10 @@
 <script lang="ts">
-  import MainSetting from "./components/MainSetting.svelte";
-  import DisplaySetting from "./components/DisplaySetting.svelte";
+  import HighlightSetting from "./components/HighlightSetting.svelte";
+  import HoverSetting from "./components/HoverSetting.svelte";
+  import CommonSetting from "./components/CommonSetting.svelte";
 
-  type Tab = "settings" | "appearance";
-  let activeTab = $state<Tab>("settings");
+  type Tab = "highlight" | "hover" | "common";
+  let activeTab = $state<Tab>("highlight");
 </script>
 
 <main>
@@ -14,23 +15,32 @@
   <div class="tab-row">
     <button
       type="button"
-      class="tab-button {activeTab === 'settings' ? 'active' : ''}"
-      onclick={() => (activeTab = "settings")}
+      class="tab-button {activeTab === 'highlight' ? 'active' : ''}"
+      onclick={() => (activeTab = "highlight")}
     >
-      Cài đặt
+      Bôi đen
     </button>
     <button
       type="button"
-      class="tab-button {activeTab === 'appearance' ? 'active' : ''}"
-      onclick={() => (activeTab = "appearance")}
+      class="tab-button {activeTab === 'hover' ? 'active' : ''}"
+      onclick={() => (activeTab = "hover")}
     >
-      Giao diện
+      Di chuột
+    </button>
+    <button
+      type="button"
+      class="tab-button {activeTab === 'common' ? 'active' : ''}"
+      onclick={() => (activeTab = "common")}
+    >
+      Cài đặt chung
     </button>
   </div>
 
-  {#if activeTab === "settings"}
-    <MainSetting />
+  {#if activeTab === "highlight"}
+    <HighlightSetting />
+  {:else if activeTab === "hover"}
+    <HoverSetting />
   {:else}
-    <DisplaySetting />
+    <CommonSetting />
   {/if}
 </main>

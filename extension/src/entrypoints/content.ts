@@ -2,6 +2,7 @@ import { mount } from 'svelte';
 import { storage } from '#imports';
 import SelectionPopup from './SelectionPopup.svelte';
 import HoverPopup from './HoverPopup.svelte';
+import HoverParagraphPopup from './HoverParagraphPopup.svelte';
 import { createWorker } from 'tesseract.js';
 
 type PopupMode = 'off' | 'immediate' | 'button';
@@ -743,10 +744,10 @@ function setupHoverMode() {
         const targetRect = getTargetRect(e.target);
         if (textChunk) {
           if (targetRect) {
-            showPopupNear(targetRect, textChunk);
+            showHoverParagraphPopupNear(targetRect, textChunk);
           }
         } else {
-          removePopup();
+          removeHoverPopup();
         }
         return;
       }
@@ -834,6 +835,76 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
     target: hoverPopupContainer,
     props: {
       text: kanji,
+      position: {
+        left,
+        top,
+      },
+    },
+  });
+
+  // Stop clicks inside hover popup from propagating
+  const stopPropagation = (ev: Event) => {
+    ev.stopPropagation();
+  };
+  hoverPopupContainer.addEventListener('mousedown', stopPropagation, true);
+  hoverPopupContainer.addEventListener('mouseup', stopPropagation, true);
+  hoverPopupContainer.addEventListener('click', stopPropagation, true);
+
+  // Keep hover popup open when hovering over it
+  hoverPopupContainer.addEventListener('mouseenter', () => {
+    if (hoverTimeout !== null) {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = null;
+    }
+  });
+}
+
+function showHoverParagraphPopupNear(rect: DOMRect, text: string) {
+  // Remove existing hover popup
+  removeHoverPopup();
+
+  // Don't show hover popup if click popup is active
+  if (popupContainer || buttonContainer) {
+    return;
+  }
+
+  // Create container for the hover popup
+  hoverPopupContainer = document.createElement('div');
+  hoverPopupContainer.id = 'kanji-go-hover-popup-container';
+  hoverPopupContainer.style.position = 'absolute';
+  hoverPopupContainer.style.zIndex = '2147483647';
+  document.body.appendChild(hoverPopupContainer);
+  hoverPopupContainer.style.opacity = popupOpacity.toString();
+
+  // Popup dimensions
+  const POPUP_WIDTH = 500;
+  const POPUP_MAX_HEIGHT = Math.min(500, window.innerHeight * 0.8);
+  const GAP = 8;
+  const PADDING = 12;
+
+  // Calculate position
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Horizontal positioning
+  let left = rect.right + GAP;
+  if (left + POPUP_WIDTH > viewportWidth - PADDING) {
+    left = rect.left - POPUP_WIDTH - GAP;
+  }
+  left = Math.max(PADDING, Math.min(left, viewportWidth - POPUP_WIDTH - PADDING));
+
+  // Vertical positioning
+  let top = rect.top;
+  if (top + POPUP_MAX_HEIGHT > viewportHeight - PADDING) {
+    top = viewportHeight - POPUP_MAX_HEIGHT - PADDING;
+  }
+  top = Math.max(PADDING, top);
+
+  // Mount the paragraph hover popup component
+  mount(HoverParagraphPopup, {
+    target: hoverPopupContainer,
+    props: {
+      text,
       position: {
         left,
         top,
