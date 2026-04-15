@@ -15,6 +15,8 @@
   let isPositionInitialized = $state<boolean>(false);
   let searchButtonSize = $state<SearchButtonSize>("medium");
   let isSearchButtonInitialized = $state<boolean>(false);
+  let includeLongerVocabMatches = $state<boolean>(false);
+  let isIncludeLongerVocabMatchesInitialized = $state<boolean>(false);
 
   let staticConfig = $state<{
     corner: string;
@@ -130,6 +132,19 @@
     }
   }
 
+  async function loadVocabMatchSettings() {
+    try {
+      const stored = await storage.getItem<boolean>(
+        "local:includeLongerVocabMatches",
+      );
+      includeLongerVocabMatches = stored ?? false;
+      isIncludeLongerVocabMatchesInitialized = true;
+    } catch (error) {
+      console.error("Failed to load vocab match settings:", error);
+      isIncludeLongerVocabMatchesInitialized = true;
+    }
+  }
+
   async function savePositionMode() {
     try {
       if (isPositionInitialized) {
@@ -164,10 +179,23 @@
     }
   }
 
+  async function saveVocabMatchSettings() {
+    try {
+      if (!isIncludeLongerVocabMatchesInitialized) return;
+      await storage.setItem(
+        "local:includeLongerVocabMatches",
+        includeLongerVocabMatches,
+      );
+    } catch (error) {
+      console.error("Failed to save vocab match settings:", error);
+    }
+  }
+
   loadPopupMode();
   loadPopupOpacity();
   loadPositionSettings();
   loadSearchButtonSettings();
+  loadVocabMatchSettings();
 
   $effect(() => {
     savePopupMode();
@@ -193,6 +221,10 @@
 
   $effect(() => {
     saveSearchButtonSettings();
+  });
+
+  $effect(() => {
+    saveVocabMatchSettings();
   });
 </script>
 
@@ -352,6 +384,24 @@
         style={`--progress:${opacityToGradientPercent(popupOpacity)}%;`}
         aria-label="Độ mờ popup"
       />
+    </div>
+  </div>
+
+  <div class="setting-item">
+    <h3>Tìm từ vựng</h3>
+    <div class="setting-controls">
+      <label class="toggle-option">
+        <input
+          type="checkbox"
+          bind:checked={includeLongerVocabMatches}
+        />
+        <span class="toggle-label">
+          <strong>Cho phép kết quả dài hơn đoạn bôi đen</strong>
+          <span class="toggle-description">
+            Bật để tìm cả từ/cách đọc có chứa đoạn bôi đen
+          </span>
+        </span>
+      </label>
     </div>
   </div>
 

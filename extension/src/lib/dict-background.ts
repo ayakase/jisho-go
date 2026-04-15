@@ -76,11 +76,16 @@ export async function backgroundFindKanji(query: string) {
   return { entry: found ?? null };
 }
 
-export async function backgroundSearchSelection(query: string) {
+export async function backgroundSearchSelection(
+  query: string,
+  includeLongerMatches = false,
+) {
   const trimmed = query.trim();
   const [kanjiDict, vocabData] = await Promise.all([
     ensureKanjiDict(),
     ensureVocabDict(),
   ]);
-  return searchSelection(trimmed, kanjiDict, vocabData);
+  return searchSelection(trimmed, kanjiDict, vocabData, {
+    includeLongerMatches,
+  });
 }

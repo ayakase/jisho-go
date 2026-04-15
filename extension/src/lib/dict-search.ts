@@ -26,6 +26,7 @@ export function searchSelection(
   trimmed: string,
   kanjiDict: DictEntry[],
   vocabData: Record<string, VocabMeta>,
+  options?: { includeLongerMatches?: boolean },
 ): {
   skipped: boolean;
   kanjiResults: DictEntry[];
@@ -39,27 +40,37 @@ export function searchSelection(
   }
 
   const vocabResults: VocabEntry[] = [];
+  const seenWords = new Set<string>();
   if (vocabData[trimmed]) {
     vocabResults.push({
       word: trimmed,
       r: vocabData[trimmed].r,
       m: vocabData[trimmed].m,
     });
+    seenWords.add(trimmed);
   }
 
+  const includeLongerMatches = options?.includeLongerMatches ?? false;
   let matchCount = 0;
   for (const key in vocabData) {
-    if (key === trimmed) continue;
+    if (seenWords.has(key)) continue;
 
     const containsTrimmed = key.includes(trimmed);
     const isContained = trimmed.includes(key) && key.length > 1;
+    const reading = vocabData[key].r;
+    const readingContainsTrimmed = reading.includes(trimmed);
+    const trimmedContainsReading = reading.length > 1 && trimmed.includes(reading);
 
-    if (containsTrimmed || isContained) {
+    const strictMatch = isContained || trimmedContainsReading;
+    const broaderMatch = containsTrimmed || readingContainsTrimmed;
+
+    if (strictMatch || (includeLongerMatches && broaderMatch)) {
       vocabResults.push({
         word: key,
-        r: vocabData[key].r,
+        r: reading,
         m: vocabData[key].m,
       });
+      seenWords.add(key);
       matchCount++;
       if (matchCount >= 10) break;
     }
