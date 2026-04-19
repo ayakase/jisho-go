@@ -8,6 +8,17 @@ import { createWorker } from 'tesseract.js';
 type PopupMode = 'off' | 'immediate' | 'button';
 type HoverGrabMode = 'single-kanji' | 'paragraph';
 type SearchButtonSize = 'small' | 'medium' | 'big';
+type HoverParagraphSections = {
+  translate: boolean;
+  vocab: boolean;
+  kanji: boolean;
+};
+
+const DEFAULT_HOVER_PARAGRAPH_SECTIONS: HoverParagraphSections = {
+  translate: true,
+  vocab: true,
+  kanji: false,
+};
 
 let popupContainer: HTMLElement | null = null; // Click/selection popup
 let hoverPopupContainer: HTMLElement | null = null; // Hover popup (separate)
@@ -17,6 +28,8 @@ let popupMode: PopupMode = 'immediate';
 let hoverMode = false;
 let hoverGrabMode: HoverGrabMode = 'single-kanji';
 let hoverTimeout: number | null = null;
+let hoverDelayMs = 300;
+let hoverParagraphSections: HoverParagraphSections = { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
 let blacklist: string[] = [];
 let popupOpacity = 1;
 let searchButtonSize: SearchButtonSize = 'medium';
@@ -25,6 +38,18 @@ let suppressSelectionPopupUntil = 0;
 function clampPopupOpacity(val: number): number {
   if (Number.isNaN(val)) return 1;
   return Math.max(0.1, Math.min(1, val));
+}
+
+function normalizeHoverParagraphSections(value: unknown): HoverParagraphSections {
+  if (!value || typeof value !== 'object') {
+    return { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
+  }
+  const raw = value as Partial<HoverParagraphSections>;
+  return {
+    translate: typeof raw.translate === 'boolean' ? raw.translate : DEFAULT_HOVER_PARAGRAPH_SECTIONS.translate,
+    vocab: typeof raw.vocab === 'boolean' ? raw.vocab : DEFAULT_HOVER_PARAGRAPH_SECTIONS.vocab,
+    kanji: typeof raw.kanji === 'boolean' ? raw.kanji : DEFAULT_HOVER_PARAGRAPH_SECTIONS.kanji,
+  };
 }
 
 let ocrWorkerPromise: ReturnType<typeof createWorker> | null = null;
@@ -107,6 +132,8 @@ export default defineContentScript({
     await loadPopupMode();
     await loadHoverMode();
     await loadHoverGrabMode();
+    await loadHoverDelayMs();
+    await loadHoverParagraphSections();
     await loadBlacklist();
     await loadPopupOpacity();
     await loadSearchButtonSettings();
@@ -239,6 +266,18 @@ export default defineContentScript({
       }
     });
 
+    storage.watch<number>('local:hoverDelayMs', (newDelay) => {
+      if (typeof newDelay === 'number' && Number.isFinite(newDelay)) {
+        hoverDelayMs = Math.max(0, Math.round(newDelay));
+      } else {
+        hoverDelayMs = 300;
+      }
+    });
+
+    storage.watch<unknown>('local:hoverParagraphSections', (newSections) => {
+      hoverParagraphSections = normalizeHoverParagraphSections(newSections);
+    });
+
     // Initialize hover mode if enabled
     if (hoverMode) {
       setupHoverMode();
@@ -276,6 +315,27 @@ async function loadHoverGrabMode() {
     }
   } catch (error) {
     console.error('Failed to load hover grab mode:', error);
+  }
+}
+
+async function loadHoverDelayMs() {
+  try {
+    const stored = await storage.getItem<number>('local:hoverDelayMs');
+    if (typeof stored === 'number' && Number.isFinite(stored)) {
+      hoverDelayMs = Math.max(0, Math.round(stored));
+    }
+  } catch (error) {
+    console.error('Failed to load hover delay ms:', error);
+  }
+}
+
+async function loadHoverParagraphSections() {
+  try {
+    const stored = await storage.getItem<unknown>('local:hoverParagraphSections');
+    hoverParagraphSections = normalizeHoverParagraphSections(stored);
+  } catch (error) {
+    console.error('Failed to load hover paragraph sections:', error);
+    hoverParagraphSections = { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
   }
 }
 
@@ -645,6 +705,7 @@ function getCharAtPosition(x: number, y: number): { char: string; rect: DOMRect 
 
 let hoverMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 let hoverMouseLeaveHandler: ((e: MouseEvent) => void) | null = null;
+let hoverLeaveTimeout: number | null = null;
 
 function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
@@ -664,7 +725,30 @@ function isLikelyBlockElement(el: Element): boolean {
   );
 }
 
-function getTextChunkFromTarget(target: EventTarget | null): string {
+type TextChunkCaptureMode = 'legacy' | 'semantic-only' | 'bounded-block';
+
+const TEXT_CHUNK_CAPTURE_MODE_OPTIONS: Array<{ mode: TextChunkCaptureMode; description: string }> = [
+  {
+    mode: 'legacy',
+    description:
+      'Current behavior: semantic tags first, then nearest block ancestor, then target text fallback.',
+  },
+  {
+    mode: 'semantic-only',
+    description:
+      'Strict mode: only capture from semantic text containers (p/li/headings/etc), otherwise return empty.',
+  },
+  {
+    mode: 'bounded-block',
+    description:
+      'Balanced mode: semantic first; otherwise allow nearby block elements but reject huge page-level wrappers.',
+  },
+];
+
+// Change this value directly in code to compare strategies quickly.
+const CURRENT_TEXT_CHUNK_CAPTURE_MODE: TextChunkCaptureMode = 'bounded-block';
+
+function getTextChunkFromTargetLegacy(target: EventTarget | null): string {
   if (!(target instanceof Element)) return '';
 
   // Prefer explicit text containers first.
@@ -690,6 +774,57 @@ function getTextChunkFromTarget(target: EventTarget | null): string {
   return normalizeWhitespace(target.textContent || '');
 }
 
+function getTextChunkFromTargetSemanticOnly(target: EventTarget | null): string {
+  if (!(target instanceof Element)) return '';
+
+  const preferred = target.closest(
+    'h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,figcaption,label',
+  );
+  if (!preferred) return '';
+
+  return normalizeWhitespace(preferred.textContent || '');
+}
+
+function getTextChunkFromTargetBoundedBlock(target: EventTarget | null): string {
+  if (!(target instanceof Element)) return '';
+
+  const semantic = getTextChunkFromTargetSemanticOnly(target);
+  if (semantic) return semantic;
+
+  const viewportArea = window.innerWidth * window.innerHeight;
+  let current: Element | null = target;
+  while (current && current !== document.body && current !== document.documentElement) {
+    const text = normalizeWhitespace(current.textContent || '');
+    if (!text || !isLikelyBlockElement(current)) {
+      current = current.parentElement;
+      continue;
+    }
+
+    const rect = current.getBoundingClientRect();
+    const area = Math.max(0, rect.width) * Math.max(0, rect.height);
+    const isTooLarge = viewportArea > 0 && area / viewportArea > 0.7;
+    const isTooLong = text.length > 800;
+    if (!isTooLarge && !isTooLong) {
+      return text;
+    }
+    current = current.parentElement;
+  }
+
+  return '';
+}
+
+function getTextChunkFromTarget(target: EventTarget | null): string {
+  switch (CURRENT_TEXT_CHUNK_CAPTURE_MODE) {
+    case 'semantic-only':
+      return getTextChunkFromTargetSemanticOnly(target);
+    case 'bounded-block':
+      return getTextChunkFromTargetBoundedBlock(target);
+    case 'legacy':
+    default:
+      return getTextChunkFromTargetLegacy(target);
+  }
+}
+
 function getTargetRect(target: EventTarget | null): DOMRect | null {
   if (!(target instanceof Element)) return null;
   const rect = target.getBoundingClientRect();
@@ -701,6 +836,11 @@ function setupHoverMode() {
   cleanupHoverMode();
 
   hoverMouseMoveHandler = (e: MouseEvent) => {
+    if (hoverLeaveTimeout !== null) {
+      clearTimeout(hoverLeaveTimeout);
+      hoverLeaveTimeout = null;
+    }
+
     // Do nothing on blacklisted sites
     if (isBlacklistedLocation()) {
       removeHoverPopup();
@@ -759,7 +899,7 @@ function setupHoverMode() {
       } else {
         removeHoverPopup();
       }
-    }, 300); // 300ms delay to avoid too frequent updates
+    }, hoverDelayMs);
   };
 
   hoverMouseLeaveHandler = (e: MouseEvent) => {
@@ -772,7 +912,11 @@ function setupHoverMode() {
       return;
     }
     // Only remove if not hovering over the popup itself
-    setTimeout(() => {
+    if (hoverLeaveTimeout !== null) {
+      clearTimeout(hoverLeaveTimeout);
+      hoverLeaveTimeout = null;
+    }
+    hoverLeaveTimeout = window.setTimeout(() => {
       if (hoverPopupContainer && !hoverPopupContainer.matches(':hover')) {
         // Check if mouse is still over the popup
         const rect = hoverPopupContainer.getBoundingClientRect();
@@ -782,6 +926,7 @@ function setupHoverMode() {
           removeHoverPopup();
         }
       }
+      hoverLeaveTimeout = null;
     }, 500); // Longer delay to allow moving to popup
   };
 
@@ -905,6 +1050,7 @@ function showHoverParagraphPopupNear(rect: DOMRect, text: string) {
     target: hoverPopupContainer,
     props: {
       text,
+      sections: hoverParagraphSections,
       position: {
         left,
         top,
