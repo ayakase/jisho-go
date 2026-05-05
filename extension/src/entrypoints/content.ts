@@ -29,6 +29,7 @@ let hoverMode = false;
 let hoverGrabMode: HoverGrabMode = 'single-kanji';
 let hoverTimeout: number | null = null;
 let hoverDelayMs = 300;
+let lastHoveredText: string | null = null;
 let hoverParagraphSections: HoverParagraphSections = { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
 let blacklist: string[] = [];
 let popupOpacity = 1;
@@ -423,6 +424,7 @@ function removeHoverPopup() {
   if (hoverPopupContainer) {
     hoverPopupContainer.remove();
     hoverPopupContainer = null;
+    lastHoveredText = null;
   }
 }
 
@@ -879,13 +881,18 @@ function setupHoverMode() {
     // Add small delay to avoid flickering
     hoverTimeout = window.setTimeout(() => {
       if (hoverGrabMode === 'paragraph') {
-        removeHoverPopup();
         const textChunk = getTextChunkFromTarget(e.target);
-        const targetRect = getTargetRect(e.target);
+        
+        // Skip reload if we're still hovering over the same content
+        if (textChunk && textChunk === lastHoveredText && hoverPopupContainer) {
+          return;
+        }
+
+        removeHoverPopup();
+        
         if (textChunk) {
-          if (targetRect) {
-            showHoverParagraphPopupNear(targetRect, textChunk);
-          }
+          lastHoveredText = textChunk;
+          showHoverParagraphPopupNear(e.clientX, e.clientY, textChunk);
         } else {
           removeHoverPopup();
         }
@@ -1004,7 +1011,7 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   });
 }
 
-function showHoverParagraphPopupNear(rect: DOMRect, text: string) {
+function showHoverParagraphPopupNear(x: number, y: number, text: string) {
   // Remove existing hover popup
   removeHoverPopup();
 
@@ -1022,26 +1029,26 @@ function showHoverParagraphPopupNear(rect: DOMRect, text: string) {
   hoverPopupContainer.style.opacity = popupOpacity.toString();
 
   // Popup dimensions
-  const POPUP_WIDTH = 500;
-  const POPUP_MAX_HEIGHT = Math.min(500, window.innerHeight * 0.8);
-  const GAP = 8;
+  const POPUP_WIDTH = 440; // Match CSS width in HoverParagraphPopup.svelte
+  const POPUP_MAX_HEIGHT = Math.min(440, window.innerHeight * 0.8);
+  const GAP = 15; // Slightly larger gap for mouse positioning
   const PADDING = 12;
 
   // Calculate position
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
 
-  // Horizontal positioning
-  let left = rect.right + GAP;
+  // Horizontal positioning - try to center or align to mouse
+  let left = x + GAP;
   if (left + POPUP_WIDTH > viewportWidth - PADDING) {
-    left = rect.left - POPUP_WIDTH - GAP;
+    left = x - POPUP_WIDTH - GAP;
   }
   left = Math.max(PADDING, Math.min(left, viewportWidth - POPUP_WIDTH - PADDING));
 
-  // Vertical positioning
-  let top = rect.top;
+  // Vertical positioning - below mouse, or above if no space
+  let top = y + GAP;
   if (top + POPUP_MAX_HEIGHT > viewportHeight - PADDING) {
-    top = viewportHeight - POPUP_MAX_HEIGHT - PADDING;
+    top = y - POPUP_MAX_HEIGHT - GAP;
   }
   top = Math.max(PADDING, top);
 
