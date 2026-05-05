@@ -380,13 +380,12 @@
     // Choose default tab based on available results (kanji first)
     if (kanjiResults.length > 0) activeTab = "kanji";
     else if (vocabResults.length > 0) activeTab = "vocab";
-    // else activeTab = "explain";
+    else activeTab = "explain";
 
     loading = false;
     isSearching = false;
   }
 
-  /*
   $effect(() => {
     if (activeTab !== "explain" || skipped || !text?.trim()) return;
     if (explainFetchedText === text) return;
@@ -443,7 +442,6 @@
       cancelled = true;
     };
   });
-  */
 </script>
 
 <div
@@ -492,13 +490,13 @@
           >
             Từ vựng ({vocabResults.length})
           </button>
-          <!-- <button
+          <button
             type="button"
             class="tab {activeTab === 'explain' ? 'active' : ''}"
             onclick={() => (activeTab = "explain")}
           >
             Giải thích AI
-          </button> -->
+          </button>
         </div>
       {/if}
 
@@ -646,7 +644,7 @@
         </div>
       {/if}
 
-      {#if false && activeTab === "explain"}
+      {#if activeTab === "explain"}
         <div class="explain-section">
           {#if explainLoading}
             <div class="explain-loading">Đang tải giải thích…</div>
