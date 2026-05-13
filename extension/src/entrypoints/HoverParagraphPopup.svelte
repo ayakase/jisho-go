@@ -132,7 +132,7 @@
 </script>
 
 <div
-  id="kanji-go-hover-paragraph-popup"
+  id="jisho-go-hover-paragraph-popup"
   class="hover-paragraph-popup"
   style="left: {position.left}px; top: {position.top}px;"
   role="tooltip"

@@ -445,7 +445,7 @@
 </script>
 
 <div
-  id="kanji-go-selection-popup"
+  id="jisho-go-selection-popup"
   class="popup {popupDragging ? 'dragging' : ''}"
   style={popupStyle}
   role="dialog"

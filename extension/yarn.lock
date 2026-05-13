@@ -2358,9 +2358,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"kanji-go@workspace:.":
+"jisho-go@workspace:.":
   version: 0.0.0-use.local
-  resolution: "kanji-go@workspace:."
+  resolution: "jisho-go@workspace:."
   dependencies:
     "@tsconfig/svelte": "npm:^5.0.5"
     "@wxt-dev/module-svelte": "npm:^2.0.3"

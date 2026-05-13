@@ -113,7 +113,7 @@
 </script>
 
 <div
-  id="kanji-go-hover-popup"
+  id="jisho-go-hover-popup"
   class="hover-popup"
   style="left: {position.left}px; top: {position.top}px;"
   role="tooltip"

@@ -81,7 +81,7 @@ function setOcrLoading(visible: boolean, progress?: number) {
       : '0 10px 15px -3px rgba(0,0,0,0.12), 0 4px 6px -4px rgba(0,0,0,0.10)';
 
     ocrLoadingEl = document.createElement('div');
-    ocrLoadingEl.id = 'kanji-go-ocr-loading';
+    ocrLoadingEl.id = 'jisho-go-ocr-loading';
     ocrLoadingEl.style.cssText = `
       position: fixed;
       z-index: 2147483647;
@@ -450,7 +450,7 @@ function showButtonNear(rect: DOMRect, text: string) {
 
   // Create button container
   buttonContainer = document.createElement('div');
-  buttonContainer.id = 'kanji-go-search-button';
+  buttonContainer.id = 'jisho-go-search-button';
   buttonContainer.style.cssText = `
     position: fixed;
     z-index: 2147483647;
@@ -543,7 +543,7 @@ function showPopupNear(rect: DOMRect, text: string) {
 
   // Create container for the Svelte component
   popupContainer = document.createElement('div');
-  popupContainer.id = 'kanji-go-selection-popup-container';
+  popupContainer.id = 'jisho-go-selection-popup-container';
   popupContainer.style.position = 'absolute';
   popupContainer.style.zIndex = '2147483647';
   document.body.appendChild(popupContainer);
@@ -952,7 +952,7 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
 
   // Create container for the hover popup
   hoverPopupContainer = document.createElement('div');
-  hoverPopupContainer.id = 'kanji-go-hover-popup-container';
+  hoverPopupContainer.id = 'jisho-go-hover-popup-container';
   hoverPopupContainer.style.position = 'absolute';
   hoverPopupContainer.style.zIndex = '2147483647';
   document.body.appendChild(hoverPopupContainer);
@@ -1022,7 +1022,7 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
 
   // Create container for the hover popup
   hoverPopupContainer = document.createElement('div');
-  hoverPopupContainer.id = 'kanji-go-hover-popup-container';
+  hoverPopupContainer.id = 'jisho-go-hover-popup-container';
   hoverPopupContainer.style.position = 'absolute';
   hoverPopupContainer.style.zIndex = '2147483647';
   document.body.appendChild(hoverPopupContainer);
