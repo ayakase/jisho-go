@@ -1,8 +1,20 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "jisho-api",
+  "account_id": "d0066e5e6f98c86db4a07b408b2dbee1",
   "main": "src/index.ts",
-  "compatibility_date": "2026-03-22"
+  "compatibility_date": "2026-03-22",
+  "placement": {
+    "mode": "targeted",
+    "region": "aws:ap-southeast-1"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jisho-go",
+      "database_id": "350ca647-a5ae-40e9-8065-34cfbe0f4393"
+    }
+  ]
   // "compatibility_flags": [
   //   "nodejs_compat"
   // ],

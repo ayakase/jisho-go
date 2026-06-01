@@ -1,0 +1,294 @@
+---
+import Layout from '../../layouts/Layout.astro';
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:8787';
+---
+
+<Layout>
+  <main class="min-h-screen bg-slate-50 px-6 py-12 text-slate-800" data-api-base={apiBase}>
+    <div class="mx-auto w-full max-w-5xl">
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <a href="/account" class="inline-flex text-sm text-slate-600 hover:text-slate-900">← Về Learning History</a>
+        <p id="detail-source" class="text-xs text-slate-500">Nguồn dữ liệu: -</p>
+      </div>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-5">
+          <h1 id="lesson-title" class="text-2xl font-bold tracking-[-0.02em]">Bài học</h1>
+          <p class="mt-1.5 text-sm text-slate-600">Xem lại nghĩa, từ vựng và ngữ pháp từ đoạn tiếng Nhật bạn đã tra.</p>
+        </div>
+
+        <div
+          id="detail-error"
+          class="hidden rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        ></div>
+
+        <div id="lesson-content" class="hidden space-y-5">
+          <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p class="mb-2 text-xs uppercase tracking-[0.08em] text-slate-600">Câu tiếng Nhật</p>
+            <p id="lesson-input" class="text-lg font-semibold text-slate-900 break-words"></p>
+            <p id="lesson-hiragana" class="mt-1 text-sm text-slate-600 break-words"></p>
+          </article>
+
+          <article class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <p class="mb-2 text-xs uppercase tracking-[0.08em] text-emerald-700">Nghĩa tiếng Việt</p>
+            <p id="lesson-meaning" class="text-base text-emerald-900 break-words"></p>
+          </article>
+
+          <article class="rounded-xl border border-sky-200 bg-sky-50 p-4">
+            <p class="mb-2 text-xs uppercase tracking-[0.08em] text-sky-700">Ghi chú</p>
+            <p id="lesson-notes" class="text-sm text-sky-900 whitespace-pre-wrap break-words"></p>
+          </article>
+
+          <section class="grid gap-4 md:grid-cols-2">
+            <article class="rounded-xl border border-slate-200 bg-white p-4">
+              <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-700">Từ vựng</h2>
+                <span id="lesson-vocab-count" class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600"></span>
+              </div>
+              <div id="lesson-vocab-list" class="space-y-2"></div>
+            </article>
+
+            <article class="rounded-xl border border-slate-200 bg-white p-4">
+              <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-700">Ngữ pháp</h2>
+                <span id="lesson-grammar-count" class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600"></span>
+              </div>
+              <div id="lesson-grammar-list" class="space-y-2"></div>
+            </article>
+          </section>
+
+          <details class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <summary class="cursor-pointer text-sm font-semibold text-slate-700">Advanced logs (debug)</summary>
+            <div class="mt-4 grid gap-3">
+              <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
+                <p class="mb-2 font-semibold text-slate-800">Meta</p>
+                <div id="advanced-meta" class="grid gap-2 md:grid-cols-2"></div>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white p-3">
+                <p class="mb-2 text-xs font-semibold text-slate-800">OpenRouter Request JSON</p>
+                <pre id="advanced-request-json" class="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-700"></pre>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white p-3">
+                <p class="mb-2 text-xs font-semibold text-slate-800">OpenRouter Response JSON</p>
+                <pre id="advanced-response-json" class="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-700"></pre>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white p-3">
+                <p class="mb-2 text-xs font-semibold text-slate-800">Provider Error Body</p>
+                <pre id="advanced-provider-error" class="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-slate-700"></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script is:inline>
+    const mainEl = document.querySelector('main[data-api-base]');
+    const apiBase = mainEl ? mainEl.getAttribute('data-api-base') : '';
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id') || '';
+    const numericId = Number(idParam);
+    const detailUrl = apiBase && Number.isFinite(numericId) && numericId > 0 ? `${apiBase}/history/${numericId}` : '';
+
+    const sourceEl = document.getElementById('detail-source');
+    const errorEl = document.getElementById('detail-error');
+    const contentEl = document.getElementById('lesson-content');
+    const titleEl = document.getElementById('lesson-title');
+    const inputEl = document.getElementById('lesson-input');
+    const hiraEl = document.getElementById('lesson-hiragana');
+    const meaningEl = document.getElementById('lesson-meaning');
+    const notesEl = document.getElementById('lesson-notes');
+    const vocabCountEl = document.getElementById('lesson-vocab-count');
+    const grammarCountEl = document.getElementById('lesson-grammar-count');
+    const vocabListEl = document.getElementById('lesson-vocab-list');
+    const grammarListEl = document.getElementById('lesson-grammar-list');
+
+    const advancedMetaEl = document.getElementById('advanced-meta');
+    const advancedRequestEl = document.getElementById('advanced-request-json');
+    const advancedResponseEl = document.getElementById('advanced-response-json');
+    const advancedProviderErrEl = document.getElementById('advanced-provider-error');
+
+    sourceEl.textContent = `Nguồn dữ liệu: ${detailUrl || '-'}`;
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function parseJsonLike(value) {
+      if (typeof value !== 'string') return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      try {
+        return JSON.parse(trimmed);
+      } catch {}
+
+      const firstBrace = trimmed.indexOf('{');
+      const lastBrace = trimmed.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
+
+      try {
+        return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+      } catch {
+        return null;
+      }
+    }
+
+    function formatJsonOrRaw(raw) {
+      if (raw == null || raw === '') return '-';
+      if (typeof raw === 'string') {
+        const parsed = parseJsonLike(raw);
+        if (parsed) return JSON.stringify(parsed, null, 2);
+        return raw;
+      }
+      try {
+        return JSON.stringify(raw, null, 2);
+      } catch {
+        return String(raw);
+      }
+    }
+
+    function toText(value, fallback = '-') {
+      return typeof value === 'string' && value.trim() ? value : fallback;
+    }
+
+    function renderVocabList(vocabularies) {
+      if (!Array.isArray(vocabularies) || vocabularies.length === 0) {
+        vocabListEl.innerHTML = '<p class="text-sm text-slate-500">Không có từ vựng.</p>';
+        vocabCountEl.textContent = '0 mục';
+        return;
+      }
+
+      vocabCountEl.textContent = `${vocabularies.length} mục`;
+      vocabListEl.innerHTML = vocabularies
+        .map((v) => {
+          const word = escapeHtml(toText(v?.word, '-'));
+          const hira = escapeHtml(toText(v?.hiragana, '-'));
+          const meaning = escapeHtml(toText(v?.meaning_vi, '-'));
+          return `
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p class="text-sm font-semibold text-slate-900">${word}</p>
+              <p class="text-xs text-slate-500">${hira}</p>
+              <p class="mt-1 text-sm text-slate-700">${meaning}</p>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderGrammarList(grammarPoints) {
+      if (!Array.isArray(grammarPoints) || grammarPoints.length === 0) {
+        grammarListEl.innerHTML = '<p class="text-sm text-slate-500">Không có điểm ngữ pháp.</p>';
+        grammarCountEl.textContent = '0 mục';
+        return;
+      }
+
+      grammarCountEl.textContent = `${grammarPoints.length} mục`;
+      grammarListEl.innerHTML = grammarPoints
+        .map((g) => {
+          const point = escapeHtml(toText(g?.point, '-'));
+          const exp = escapeHtml(toText(g?.explanation_vi, '-'));
+          const exJp = escapeHtml(toText(g?.example?.japanese, '-'));
+          const exHira = escapeHtml(toText(g?.example?.hiragana, '-'));
+          const exMeaning = escapeHtml(toText(g?.example?.meaning_vi, '-'));
+          return `
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p class="text-sm font-semibold text-slate-900">${point}</p>
+              <p class="mt-1 text-sm text-slate-700">${exp}</p>
+              <div class="mt-2 rounded-md border border-slate-200 bg-white p-2">
+                <p class="text-xs text-slate-900">${exJp}</p>
+                <p class="text-xs text-slate-500">${exHira}</p>
+                <p class="mt-1 text-xs text-slate-700">${exMeaning}</p>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderAdvancedMeta(entry) {
+      const status = entry.success ? 'Đã phân tích' : 'Lỗi xử lý';
+      advancedMetaEl.innerHTML = `
+        <div>ID: <strong>${Number(entry.id || 0)}</strong></div>
+        <div>Status: <strong>${status}</strong></div>
+        <div>Time (UTC): <strong>${escapeHtml(toText(entry.created_at))}</strong></div>
+        <div>Model: <strong>${escapeHtml(toText(entry.model))}</strong></div>
+        <div>Provider status: <strong>${entry.status_code == null ? '-' : Number(entry.status_code)}</strong></div>
+        <div>Duration: <strong>${Number(entry.duration_ms || 0)} ms</strong></div>
+        <div>Prompt tokens: <strong>${entry.usage_prompt_tokens == null ? '-' : Number(entry.usage_prompt_tokens)}</strong></div>
+        <div>Completion tokens: <strong>${entry.usage_completion_tokens == null ? '-' : Number(entry.usage_completion_tokens)}</strong></div>
+        <div>Total tokens: <strong>${entry.usage_total_tokens == null ? '-' : Number(entry.usage_total_tokens)}</strong></div>
+        <div>Client colo: <strong>${escapeHtml(toText(entry.client_colo))}</strong></div>
+      `;
+    }
+
+    function extractLessonPayload(entry) {
+      const responseRoot = parseJsonLike(entry.openrouter_response_json);
+      const content = responseRoot?.choices?.[0]?.message?.content;
+      const payload = parseJsonLike(content);
+      if (!payload || typeof payload !== 'object') return null;
+      return payload;
+    }
+
+    function renderLesson(entry) {
+      const lesson = extractLessonPayload(entry);
+
+      titleEl.textContent = `Bài học #${Number(entry.id || numericId)}`;
+      inputEl.textContent = toText(lesson?.input || entry.query, '-');
+      hiraEl.textContent = toText(lesson?.sentence_hiragana, '');
+      meaningEl.textContent = toText(lesson?.sentence_meaning_vi, entry.success ? 'Chưa có bản dịch.' : toText(entry.error_message));
+      notesEl.textContent = toText(lesson?.notes, entry.success ? 'Không có ghi chú bổ sung.' : toText(entry.error_message));
+
+      renderVocabList(lesson?.vocabularies);
+      renderGrammarList(lesson?.grammar);
+
+      renderAdvancedMeta(entry);
+      advancedRequestEl.textContent = formatJsonOrRaw(entry.openrouter_request_json);
+      advancedResponseEl.textContent = formatJsonOrRaw(entry.openrouter_response_json);
+      advancedProviderErrEl.textContent = formatJsonOrRaw(entry.provider_error_body);
+    }
+
+    async function loadDetail() {
+      if (!detailUrl) {
+        errorEl.textContent = 'Thiếu hoặc sai id. Dùng đường dẫn dạng /account/request?id=123';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch(detailUrl, { credentials: 'include' });
+        const raw = await res.text();
+        let data = null;
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch {
+          data = null;
+        }
+
+        if (!res.ok) {
+          const textSnippet = raw ? raw.slice(0, 220) : '';
+          const msg =
+            data && typeof data.error === 'string'
+              ? data.error
+              : `${res.status} ${res.statusText}${textSnippet ? ` - ${textSnippet}` : ''}`;
+          errorEl.textContent = `Không tải được bài học: ${msg}`;
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        renderLesson(data || {});
+        contentEl.classList.remove('hidden');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to load lesson detail';
+        errorEl.textContent = `Không tải được bài học: ${msg}`;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    loadDetail();
+  </script>
+</Layout>

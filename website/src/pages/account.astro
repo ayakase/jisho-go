@@ -1,0 +1,300 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:8787';
+const historyUrl = `${apiBase}/history?limit=100`;
+const meUrl = `${apiBase}/auth/me`;
+const logoutUrl = `${apiBase}/auth/logout`;
+---
+
+<Layout>
+  <main
+    class="min-h-screen bg-slate-50 px-6 py-12 text-slate-800"
+    data-history-url={historyUrl}
+    data-me-url={meUrl}
+    data-logout-url={logoutUrl}
+  >
+    <div class="mx-auto w-full max-w-6xl">
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <a href="/" class="inline-flex text-sm text-slate-600 hover:text-slate-900">← Về trang chủ</a>
+      </div>
+
+      <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div id="user-area" class="flex items-center gap-3">
+            <div class="size-10 animate-pulse rounded-full bg-slate-200"></div>
+            <div>
+              <p class="h-4 w-36 animate-pulse rounded bg-slate-200"></p>
+              <p class="mt-2 h-3 w-52 animate-pulse rounded bg-slate-100"></p>
+            </div>
+          </div>
+          <button
+            id="logout-btn"
+            type="button"
+            class="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+          >
+            Logout
+          </button>
+        </div>
+      </section>
+
+      <section id="history-section" class="hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 class="text-2xl font-bold tracking-[-0.02em]">Learning History</h1>
+            <p class="mt-1.5 text-sm text-slate-600">Xem nhanh các đoạn tiếng Nhật bạn đã học và mở lại từng bài chi tiết.</p>
+          </div>
+          <div id="account-stats" class="grid gap-2 text-sm text-slate-700"></div>
+        </div>
+
+        <div
+          id="account-error"
+          class="hidden rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        ></div>
+
+        <div
+          id="account-empty"
+          class="hidden rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+        >
+          Chưa có lịch sử nào.
+        </div>
+
+        <div id="account-table-wrap" class="hidden overflow-x-auto rounded-xl border border-slate-200">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-100 text-left text-xs uppercase tracking-[0.08em] text-slate-600">
+              <tr>
+                <th class="px-3 py-2">Thời gian</th>
+                <th class="px-3 py-2">Nội dung</th>
+                <th class="px-3 py-2">Nghĩa</th>
+                <th class="px-3 py-2">Trọng tâm</th>
+                <th class="px-3 py-2">Bài học</th>
+              </tr>
+            </thead>
+            <tbody id="account-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script is:inline>
+    const mainEl = document.querySelector('main[data-history-url]');
+    const historyUrl = mainEl ? mainEl.getAttribute('data-history-url') : '';
+    const meUrl = mainEl ? mainEl.getAttribute('data-me-url') : '';
+    const logoutUrl = mainEl ? mainEl.getAttribute('data-logout-url') : '';
+
+    const userAreaEl = document.getElementById('user-area');
+    const logoutBtn = document.getElementById('logout-btn');
+    const historySectionEl = document.getElementById('history-section');
+
+    const statsEl = document.getElementById('account-stats');
+    const errorEl = document.getElementById('account-error');
+    const emptyEl = document.getElementById('account-empty');
+    const tableWrapEl = document.getElementById('account-table-wrap');
+    const tableBodyEl = document.getElementById('account-table-body');
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function setStats(total, success, withLesson) {
+      const failure = total - success;
+      statsEl.innerHTML = `
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">Phiên học: <strong>${total}</strong></div>
+        <div class="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">Có nội dung bài học: <strong>${withLesson}</strong></div>
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">Thành công: <strong>${success}</strong></div>
+        <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">Cần thử lại: <strong>${failure}</strong></div>
+      `;
+    }
+
+    function extractJsonLike(text) {
+      if (typeof text !== 'string') return null;
+      const trimmed = text.trim();
+      if (!trimmed) return null;
+      try {
+        return JSON.parse(trimmed);
+      } catch {}
+
+      const firstBrace = trimmed.indexOf('{');
+      const lastBrace = trimmed.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
+
+      try {
+        return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+      } catch {
+        return null;
+      }
+    }
+
+    function getLessonData(item) {
+      const responseRoot = extractJsonLike(item?.openrouter_response_json);
+      const content = responseRoot?.choices?.[0]?.message?.content;
+      const payload = extractJsonLike(content);
+      if (!payload || typeof payload !== 'object') return null;
+
+      return {
+        meaning: typeof payload.sentence_meaning_vi === 'string' ? payload.sentence_meaning_vi : null,
+        notes: typeof payload.notes === 'string' ? payload.notes : null,
+        vocabCount: Array.isArray(payload.vocabularies) ? payload.vocabularies.length : 0,
+        grammarCount: Array.isArray(payload.grammar) ? payload.grammar.length : 0,
+      };
+    }
+
+    function bindRowNavigation() {
+      const rows = tableBodyEl.querySelectorAll('tr[data-href]');
+      rows.forEach((row) => {
+        const href = row.getAttribute('data-href');
+        if (!href) return;
+
+        row.addEventListener('click', (event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest('a, button, input, select, textarea, label')) return;
+          window.location.href = href;
+        });
+
+        row.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            window.location.href = href;
+          }
+        });
+      });
+    }
+
+    function renderUser(user) {
+      const name = escapeHtml(user.display_name || user.email);
+      const email = escapeHtml(user.email || '');
+      const avatar = user.avatar_url ? escapeHtml(user.avatar_url) : null;
+
+      userAreaEl.innerHTML = `
+        ${avatar
+          ? `<img src="${avatar}" alt="Avatar" class="size-10 rounded-full border border-slate-200 object-cover" referrerpolicy="no-referrer" />`
+          : `<div class="grid size-10 place-items-center rounded-full border border-slate-200 bg-slate-100 text-sm font-bold text-slate-700">${name.charAt(0).toUpperCase()}</div>`}
+        <div>
+          <p class="text-sm font-semibold text-slate-900">${name}</p>
+          <p class="text-xs text-slate-500">${email}</p>
+        </div>
+      `;
+    }
+
+    async function requireAuth() {
+      const res = await fetch(meUrl, { credentials: 'include' });
+      if (!res.ok) {
+        window.location.href = '/login';
+        return null;
+      }
+
+      const data = await res.json();
+      if (!data?.user) {
+        window.location.href = '/login';
+        return null;
+      }
+
+      return data.user;
+    }
+
+    async function loadHistory() {
+      setStats(0, 0, 0);
+      try {
+        const res = await fetch(historyUrl, { credentials: 'include' });
+        const raw = await res.text();
+        let data = null;
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch {
+          data = null;
+        }
+
+        if (!res.ok) {
+          const textSnippet = raw ? raw.slice(0, 180) : '';
+          const msg =
+            data && typeof data.error === 'string'
+              ? data.error
+              : `${res.status} ${res.statusText}${textSnippet ? ` - ${textSnippet}` : ''}`;
+          errorEl.textContent = `Không tải được lịch sử: ${msg}`;
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        const items = data && Array.isArray(data.items) ? data.items : [];
+        const successCount = items.filter((item) => item && item.success === true).length;
+        const lessonCount = items.filter((item) => !!getLessonData(item)).length;
+        setStats(items.length, successCount, lessonCount);
+
+        if (items.length === 0) {
+          emptyEl.classList.remove('hidden');
+          return;
+        }
+
+        const rowsHtml = items
+          .map((item) => {
+            const lesson = getLessonData(item);
+            const query = escapeHtml(item.query || '');
+            const meaning = escapeHtml(lesson?.meaning || 'Chưa có bản dịch cho mục này.');
+            const notes = escapeHtml(lesson?.notes || (item.error_message || 'Không có ghi chú.'));
+            const vocabCount = Number(lesson?.vocabCount || 0);
+            const grammarCount = Number(lesson?.grammarCount || 0);
+            const createdAt = escapeHtml(item.created_at || '');
+            const detailHref = `/account/request?id=${Number(item.id || 0)}`;
+
+            return `
+              <tr class="align-top cursor-pointer hover:bg-slate-50 focus-within:bg-slate-50" data-href="${detailHref}" tabindex="0">
+                <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500">${createdAt}</td>
+                <td class="max-w-[300px] px-3 py-3">
+                  <p class="line-clamp-2 break-words text-sm font-semibold text-slate-900" title="${query}">${query}</p>
+                  <p class="mt-1 line-clamp-2 break-words text-xs text-slate-500" title="${notes}">${notes}</p>
+                </td>
+                <td class="max-w-[300px] px-3 py-3">
+                  <p class="line-clamp-3 break-words text-sm text-slate-700" title="${meaning}">${meaning}</p>
+                </td>
+                <td class="whitespace-nowrap px-3 py-3">
+                  <div class="flex flex-wrap gap-2 text-xs">
+                    <span class="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-sky-700">Từ vựng: ${vocabCount}</span>
+                    <span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Ngữ pháp: ${grammarCount}</span>
+                  </div>
+                </td>
+                <td class="whitespace-nowrap p-0">
+                  <a class="block h-full w-full px-3 py-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none" href="${detailHref}">Mở bài học</a>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        tableBodyEl.innerHTML = rowsHtml;
+        bindRowNavigation();
+        tableWrapEl.classList.remove('hidden');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to load history';
+        errorEl.textContent = `Không tải được lịch sử: ${msg}`;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    logoutBtn?.addEventListener('click', async () => {
+      try {
+        await fetch(logoutUrl, {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch {
+        // no-op
+      }
+      window.location.href = '/login';
+    });
+
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+
+      renderUser(user);
+      logoutBtn?.classList.remove('hidden');
+      historySectionEl?.classList.remove('hidden');
+      await loadHistory();
+    })();
+  </script>
+</Layout>
