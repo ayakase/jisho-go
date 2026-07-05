@@ -18,6 +18,7 @@ export type Bindings = {
   AUTH_COOKIE_SECRET?: string
   AUTH_WEB_ORIGIN?: string
   AUTH_SKIP_STATE_COOKIE_CHECK?: string
+  AUTH_EXTENSION_ORIGIN?: string
 }
 
 export interface Vocabulary {
@@ -51,6 +52,7 @@ export interface OpenRouterRequestLog {
   id: number
   created_at: string
   query: string
+  user_id: number | null
   model: string
   success: boolean
   status_code: number | null

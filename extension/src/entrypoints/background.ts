@@ -1,5 +1,14 @@
 import { createWorker } from "tesseract.js";
 import {
+  clearStoredSession,
+  fetchExtensionMe,
+  getApiBase,
+  getStoredSession,
+  logoutExtensionSession,
+  setStoredSession,
+  type ExtensionAuthSession,
+} from "../lib/auth";
+import {
   backgroundFindKanji,
   backgroundSearchSelection,
 } from "../lib/dict-background";
@@ -19,6 +28,70 @@ export function getWorker() {
 }
 
 export default defineBackground(() => {
+  async function startExtensionLogin(): Promise<ExtensionAuthSession> {
+    const redirectUri = browser.identity.getRedirectURL("auth");
+    const startUrl = new URL(`${getApiBase()}/auth/ext/start`);
+    startUrl.searchParams.set("redirect_uri", redirectUri);
+    startUrl.searchParams.set("device_label", "Kanji Go Extension");
+
+    const startRes = await fetch(startUrl.toString());
+    if (!startRes.ok) {
+      throw new Error(`Failed to start extension auth: ${startRes.status}`);
+    }
+
+    const startData = (await startRes.json()) as { authUrl?: string; error?: string };
+    if (!startData.authUrl) {
+      throw new Error(startData.error || "Missing auth URL");
+    }
+
+    const callbackUrl = await browser.identity.launchWebAuthFlow({
+      url: startData.authUrl,
+      interactive: true,
+    });
+
+    if (!callbackUrl) {
+      throw new Error("Extension login cancelled");
+    }
+
+    const callback = new URL(callbackUrl);
+    const code = callback.searchParams.get("code");
+    const state = callback.searchParams.get("state");
+
+    if (!code || !state) {
+      const oauthError = callback.searchParams.get("error");
+      throw new Error(oauthError || "Missing code/state from auth callback");
+    }
+
+    const exchangeRes = await fetch(`${getApiBase()}/auth/ext/exchange`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code,
+        state,
+        redirectUri,
+        deviceLabel: "Kanji Go Extension",
+      }),
+    });
+
+    const exchangeData = (await exchangeRes.json()) as
+      | ExtensionAuthSession
+      | { error?: string };
+
+    if (!exchangeRes.ok) {
+      throw new Error(
+        "error" in exchangeData && exchangeData.error
+          ? exchangeData.error
+          : `Failed to exchange auth code: ${exchangeRes.status}`,
+      );
+    }
+
+    const session = exchangeData as ExtensionAuthSession;
+    await setStoredSession(session);
+    return session;
+  }
+
   // create a menu item once the extension gets installed or loads
   browser.contextMenus.create({
     id: "capture-selection",
@@ -40,6 +113,72 @@ export default defineBackground(() => {
 
   // Listen for screenshot capture requests from content script
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "AUTH_LOGIN") {
+      (async () => {
+        try {
+          const session = await startExtensionLogin();
+          sendResponse({ ok: true as const, session });
+        } catch (e) {
+          sendResponse({
+            ok: false as const,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
+      return true;
+    }
+
+    if (message.type === "AUTH_ME") {
+      (async () => {
+        try {
+          const session = await getStoredSession();
+          if (!session) {
+            sendResponse({ ok: true as const, session: null });
+            return;
+          }
+
+          const user = await fetchExtensionMe(session.accessToken);
+          if (!user) {
+            await clearStoredSession();
+            sendResponse({ ok: true as const, session: null });
+            return;
+          }
+
+          const nextSession = {
+            ...session,
+            user,
+          };
+          await setStoredSession(nextSession);
+          sendResponse({ ok: true as const, session: nextSession });
+        } catch (e) {
+          sendResponse({
+            ok: false as const,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
+      return true;
+    }
+
+    if (message.type === "AUTH_LOGOUT") {
+      (async () => {
+        try {
+          const session = await getStoredSession();
+          if (session) {
+            await logoutExtensionSession(session.accessToken);
+          }
+          await clearStoredSession();
+          sendResponse({ ok: true as const });
+        } catch (e) {
+          sendResponse({
+            ok: false as const,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
+      return true;
+    }
+
     if (message.type === "DICT_FIND_KANJI") {
       (async () => {
         try {

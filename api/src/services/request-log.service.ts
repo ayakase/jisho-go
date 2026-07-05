@@ -2,6 +2,7 @@ import { D1DatabaseCompat, OpenRouterRequestLog } from '../types'
 
 export type OpenRouterRequestLogInput = {
   query: string
+  userId: number | null
   model: string
   success: boolean
   statusCode: number | null
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS openrouter_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   query TEXT NOT NULL,
+  user_id INTEGER,
   model TEXT NOT NULL,
   success INTEGER NOT NULL,
   status_code INTEGER,
@@ -34,7 +36,8 @@ CREATE TABLE IF NOT EXISTS openrouter_requests (
   provider_error_body TEXT,
   usage_prompt_tokens INTEGER,
   usage_completion_tokens INTEGER,
-  usage_total_tokens INTEGER
+  usage_total_tokens INTEGER,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 `
 
@@ -43,7 +46,13 @@ CREATE INDEX IF NOT EXISTS idx_openrouter_requests_created_at
 ON openrouter_requests(created_at DESC);
 `
 
+const CREATE_USER_INDEX_SQL = `
+CREATE INDEX IF NOT EXISTS idx_openrouter_requests_user_id
+ON openrouter_requests(user_id);
+`
+
 const ALTER_TABLE_ADD_COLUMNS_SQL = [
+  `ALTER TABLE openrouter_requests ADD COLUMN user_id INTEGER;`,
   `ALTER TABLE openrouter_requests ADD COLUMN openrouter_request_json TEXT;`,
   `ALTER TABLE openrouter_requests ADD COLUMN openrouter_response_json TEXT;`,
   `ALTER TABLE openrouter_requests ADD COLUMN provider_error_body TEXT;`,
@@ -72,24 +81,26 @@ export class RequestLogService {
           `
           INSERT INTO openrouter_requests (
             query,
+            user_id,
             model,
             success,
             status_code,
-          duration_ms,
-          error_message,
-          client_ip,
-          client_colo,
-          openrouter_request_json,
-          openrouter_response_json,
-          provider_error_body,
-          usage_prompt_tokens,
-          usage_completion_tokens,
-          usage_total_tokens
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            duration_ms,
+            error_message,
+            client_ip,
+            client_colo,
+            openrouter_request_json,
+            openrouter_response_json,
+            provider_error_body,
+            usage_prompt_tokens,
+            usage_completion_tokens,
+            usage_total_tokens
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         )
         .bind(
           entry.query,
+          entry.userId,
           entry.model,
           entry.success ? 1 : 0,
           entry.statusCode,
@@ -114,17 +125,17 @@ export class RequestLogService {
     }
   }
 
-  async list(limit: number): Promise<OpenRouterRequestLog[]> {
+  async list(limit: number, userId?: number | null): Promise<OpenRouterRequestLog[]> {
     await this.ensureSchema()
 
     const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 200) : 50
-    const rs = await this.db
-      .prepare(
-        `
+    const query = userId == null
+      ? `
         SELECT
           id,
           created_at,
           query,
+          user_id,
           model,
           success,
           status_code,
@@ -141,27 +152,50 @@ export class RequestLogService {
         FROM openrouter_requests
         ORDER BY id DESC
         LIMIT ?
-      `,
-      )
-      .bind(safeLimit)
-      .all()
+      `
+      : `
+        SELECT
+          id,
+          created_at,
+          query,
+          user_id,
+          model,
+          success,
+          status_code,
+          duration_ms,
+          error_message,
+          client_ip,
+          client_colo,
+          openrouter_request_json,
+          openrouter_response_json,
+          provider_error_body,
+          usage_prompt_tokens,
+          usage_completion_tokens,
+          usage_total_tokens
+        FROM openrouter_requests
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+      `
+    const statement = this.db.prepare(query)
+    const rs = userId == null ? await statement.bind(safeLimit).all() : await statement.bind(userId, safeLimit).all()
 
     const rows = (rs.results ?? []) as Record<string, unknown>[]
     return rows.map((row) => this.mapRowToLog(row))
   }
 
-  async getById(id: number): Promise<OpenRouterRequestLog | null> {
+  async getById(id: number, userId?: number | null): Promise<OpenRouterRequestLog | null> {
     await this.ensureSchema()
     const safeId = Math.floor(id)
     if (!Number.isFinite(safeId) || safeId <= 0) return null
 
-    const rs = await this.db
-      .prepare(
-        `
+    const query = userId == null
+      ? `
         SELECT
           id,
           created_at,
           query,
+          user_id,
           model,
           success,
           status_code,
@@ -178,10 +212,32 @@ export class RequestLogService {
         FROM openrouter_requests
         WHERE id = ?
         LIMIT 1
-      `,
-      )
-      .bind(safeId)
-      .all()
+      `
+      : `
+        SELECT
+          id,
+          created_at,
+          query,
+          user_id,
+          model,
+          success,
+          status_code,
+          duration_ms,
+          error_message,
+          client_ip,
+          client_colo,
+          openrouter_request_json,
+          openrouter_response_json,
+          provider_error_body,
+          usage_prompt_tokens,
+          usage_completion_tokens,
+          usage_total_tokens
+        FROM openrouter_requests
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+      `
+    const statement = this.db.prepare(query)
+    const rs = userId == null ? await statement.bind(safeId).all() : await statement.bind(safeId, userId).all()
 
     const rows = (rs.results ?? []) as Record<string, unknown>[]
     if (rows.length === 0) return null
@@ -194,6 +250,7 @@ export class RequestLogService {
       await this.db.prepare(CREATE_TABLE_SQL).run()
       await this.backfillColumns()
       await this.db.prepare(CREATE_INDEX_SQL).run()
+      await this.db.prepare(CREATE_USER_INDEX_SQL).run()
       this.schemaReady = true
     } catch (err) {
       throw new Error(`Failed creating table/index: ${err instanceof Error ? err.message : String(err)}`)
@@ -219,6 +276,7 @@ export class RequestLogService {
       id: Number(row.id),
       created_at: String(row.created_at ?? ''),
       query: String(row.query ?? ''),
+      user_id: row.user_id == null ? null : Number(row.user_id),
       model: String(row.model ?? ''),
       success: Number(row.success) === 1,
       status_code: row.status_code == null ? null : Number(row.status_code),

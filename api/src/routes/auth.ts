@@ -5,38 +5,55 @@ import { cors } from 'hono/cors'
 import { Bindings } from '../types'
 import {
   createSession,
+  createExtensionSession,
   createStateToken,
+  deleteExtensionSessionByToken,
   deleteSessionByToken,
   exchangeCodeForGoogleAccessToken,
   fetchGoogleUserInfo,
+  getUserByExtensionToken,
   getUserBySessionToken,
   parseAndVerifyOAuthState,
   signOAuthState,
   upsertGoogleUser,
 } from '../services/auth.service'
+import { getAuthorizationBearerToken } from '../utils/request-auth'
 
 const auth = new Hono<{ Bindings: Bindings }>()
 
 const SESSION_COOKIE = 'kg_session'
 const STATE_COOKIE = 'kg_oauth_state'
 
+function isExtensionOrigin(origin: string | undefined): boolean {
+  if (!origin) return false
+  return origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')
+}
+
 auth.use(
   '*',
   cors({
     origin: (origin, c) => {
       const configuredOrigin = c.env.AUTH_WEB_ORIGIN?.trim()
-      if (!configuredOrigin) {
+      const configuredExtensionOrigin = c.env.AUTH_EXTENSION_ORIGIN?.trim()
+      if (!configuredOrigin && !configuredExtensionOrigin) {
         return origin || '*'
       }
-      return origin === configuredOrigin ? origin : configuredOrigin
+      if (isExtensionOrigin(origin)) {
+        return origin
+      }
+      if (origin && (origin === configuredOrigin || origin === configuredExtensionOrigin)) {
+        return origin
+      }
+      return configuredOrigin || configuredExtensionOrigin || origin || '*'
     },
     credentials: true,
     allowMethods: ['GET', 'POST', 'OPTIONS'],
-    allowHeaders: ['Content-Type'],
+    allowHeaders: ['Content-Type', 'Authorization'],
   }),
 )
 
 type AppContext = Context<{ Bindings: Bindings }>
+type CookieSameSite = 'Lax' | 'Strict' | 'None'
 
 function getWebOrigin(c: AppContext): string {
   if (c.env.AUTH_WEB_ORIGIN?.trim()) {
@@ -61,12 +78,38 @@ function getWebOrigin(c: AppContext): string {
   return 'http://localhost:4321'
 }
 
-function shouldUseSecureCookies(origin: string): boolean {
+function getRequestOrigin(c: AppContext): string | null {
+  try {
+    const url = new URL(c.req.url)
+    return `${url.protocol}//${url.host}`
+  } catch {
+    return null
+  }
+}
+
+function shouldUseSecureCookies(origin: string | null): boolean {
+  if (!origin) return true
   try {
     return new URL(origin).protocol === 'https:'
   } catch {
     return true
   }
+}
+
+function getSessionCookieSameSite(webOrigin: string, requestOrigin: string | null): CookieSameSite {
+  if (!requestOrigin) {
+    return 'Lax'
+  }
+
+  try {
+    if (new URL(webOrigin).origin === new URL(requestOrigin).origin) {
+      return 'Lax'
+    }
+  } catch {
+    return 'Lax'
+  }
+
+  return 'None'
 }
 
 function parseBooleanEnv(value: string | undefined): boolean {
@@ -75,21 +118,21 @@ function parseBooleanEnv(value: string | undefined): boolean {
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on'
 }
 
-function setAuthCookie(c: AppContext, token: string, expiresAt: Date, secure: boolean) {
+function setAuthCookie(c: AppContext, token: string, expiresAt: Date, secure: boolean, sameSite: CookieSameSite) {
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure,
-    sameSite: 'Lax',
+    sameSite,
     path: '/',
     expires: expiresAt,
   })
 }
 
-function clearAuthCookie(c: AppContext, secure: boolean) {
+function clearAuthCookie(c: AppContext, secure: boolean, sameSite: CookieSameSite) {
   deleteCookie(c, SESSION_COOKIE, {
     path: '/',
     secure,
-    sameSite: 'Lax',
+    sameSite,
     httpOnly: true,
   })
 }
@@ -109,7 +152,7 @@ auth.get('/google/start', async (c) => {
   }
 
   const webOrigin = getWebOrigin(c)
-  const secureCookies = shouldUseSecureCookies(webOrigin)
+  const secureCookies = shouldUseSecureCookies(getRequestOrigin(c))
   const next = c.req.query('next') || '/account'
   const safeNext = next.startsWith('/') ? next : '/account'
   const stateToken = createStateToken()
@@ -175,7 +218,8 @@ auth.get('/google/callback', async (c) => {
     return c.json({ error: 'Invalid OAuth state' }, 400)
   }
 
-  const secureCookies = shouldUseSecureCookies(parsedState.webOrigin || getWebOrigin(c))
+  const requestOrigin = getRequestOrigin(c)
+  const secureCookies = shouldUseSecureCookies(requestOrigin)
 
   deleteCookie(c, STATE_COOKIE, {
     path: '/',
@@ -185,6 +229,7 @@ auth.get('/google/callback', async (c) => {
   })
 
   const webOrigin = parsedState.webOrigin || getWebOrigin(c)
+  const sessionCookieSameSite = getSessionCookieSameSite(webOrigin, requestOrigin)
   const next = parsedState.nextPath || '/account'
 
   try {
@@ -199,7 +244,7 @@ auth.get('/google/callback', async (c) => {
     const user = await upsertGoogleUser(db, profile)
     const session = await createSession(db, user.id)
 
-    setAuthCookie(c, session.token, session.expiresAt, secureCookies)
+    setAuthCookie(c, session.token, session.expiresAt, secureCookies, sessionCookieSameSite)
 
     const redirectTarget = `${webOrigin}${next.startsWith('/') ? next : '/account'}`
     return c.redirect(redirectTarget, 302)
@@ -234,7 +279,12 @@ auth.get('/me', async (c) => {
 
   const user = await getUserBySessionToken(db, sessionToken)
   if (!user) {
-    clearAuthCookie(c, shouldUseSecureCookies(getWebOrigin(c)))
+    const webOrigin = getWebOrigin(c)
+    clearAuthCookie(
+      c,
+      shouldUseSecureCookies(getRequestOrigin(c)),
+      getSessionCookieSameSite(webOrigin, getRequestOrigin(c)),
+    )
     if (c.req.query('debug') === '1') {
       return c.json({
         user: null,
@@ -273,7 +323,150 @@ auth.post('/logout', async (c) => {
     await deleteSessionByToken(db, sessionToken)
   }
 
-  clearAuthCookie(c, shouldUseSecureCookies(getWebOrigin(c)))
+  const webOrigin = getWebOrigin(c)
+  clearAuthCookie(
+    c,
+    shouldUseSecureCookies(getRequestOrigin(c)),
+    getSessionCookieSameSite(webOrigin, getRequestOrigin(c)),
+  )
+  return c.json({ ok: true })
+})
+
+auth.get('/ext/start', async (c) => {
+  const clientId = c.env.GOOGLE_CLIENT_ID
+  const stateSecret = c.env.AUTH_COOKIE_SECRET
+
+  if (!clientId || !stateSecret) {
+    return c.json({ error: 'Missing OAuth configuration' }, 500)
+  }
+
+  const redirectUri = c.req.query('redirect_uri')?.trim()
+  const deviceLabel = c.req.query('device_label')?.trim() || 'Browser Extension'
+  if (!redirectUri) {
+    return c.json({ error: 'Missing redirect_uri' }, 400)
+  }
+
+  const stateToken = createStateToken()
+  const callbackState = await signOAuthState({
+    token: stateToken,
+    nextPath: '/auth/ext/exchange',
+    webOrigin: redirectUri,
+    secret: stateSecret,
+  })
+
+  const googleUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+  googleUrl.searchParams.set('client_id', clientId)
+  googleUrl.searchParams.set('redirect_uri', redirectUri)
+  googleUrl.searchParams.set('response_type', 'code')
+  googleUrl.searchParams.set('scope', 'openid email profile')
+  googleUrl.searchParams.set('state', `${callbackState}:${encodeURIComponent(deviceLabel)}`)
+  googleUrl.searchParams.set('access_type', 'online')
+  googleUrl.searchParams.set('prompt', 'select_account')
+
+  return c.json({
+    authUrl: googleUrl.toString(),
+  })
+})
+
+auth.post('/ext/exchange', async (c) => {
+  const clientId = c.env.GOOGLE_CLIENT_ID
+  const clientSecret = c.env.GOOGLE_CLIENT_SECRET
+  const stateSecret = c.env.AUTH_COOKIE_SECRET
+  const db = c.env.DB
+
+  if (!db) {
+    return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
+  }
+
+  if (!clientId || !clientSecret || !stateSecret) {
+    return c.json({ error: 'Missing OAuth configuration' }, 500)
+  }
+
+  const body = await c.req.json<{
+    code?: string
+    state?: string
+    redirectUri?: string
+    deviceLabel?: string
+  }>()
+  const code = body.code?.trim()
+  const state = body.state?.trim()
+  const redirectUri = body.redirectUri?.trim()
+  const deviceLabel = body.deviceLabel?.trim() || 'Browser Extension'
+
+  if (!code || !state || !redirectUri) {
+    return c.json({ error: 'Missing code/state/redirectUri' }, 400)
+  }
+
+  const stateParts = state.split(':')
+  if (stateParts.length < 5) {
+    return c.json({ error: 'Invalid extension OAuth state' }, 400)
+  }
+
+  const signedState = stateParts.slice(0, 4).join(':')
+  const stateDeviceLabel = decodeURIComponent(stateParts.slice(4).join(':'))
+  const parsedState = await parseAndVerifyOAuthState(signedState, stateSecret)
+
+  if (!parsedState || parsedState.nextPath !== '/auth/ext/exchange' || parsedState.webOrigin !== redirectUri) {
+    return c.json({ error: 'Invalid extension OAuth state' }, 400)
+  }
+
+  try {
+    const token = await exchangeCodeForGoogleAccessToken({
+      code,
+      clientId,
+      clientSecret,
+      redirectUri,
+    })
+
+    const profile = await fetchGoogleUserInfo(token.access_token)
+    const user = await upsertGoogleUser(db, profile)
+    const extensionSession = await createExtensionSession(
+      db,
+      user.id,
+      stateDeviceLabel || deviceLabel,
+    )
+
+    return c.json({
+      accessToken: extensionSession.token,
+      expiresAt: extensionSession.expiresAt,
+      user,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Extension OAuth callback failed'
+    return c.json({ error: message }, 400)
+  }
+})
+
+auth.get('/ext/me', async (c) => {
+  const db = c.env.DB
+  if (!db) {
+    return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
+  }
+
+  const token = getAuthorizationBearerToken(c.req.header('Authorization'))
+  if (!token) {
+    return c.json({ user: null }, 401)
+  }
+
+  const user = await getUserByExtensionToken(db, token)
+  if (!user) {
+    return c.json({ user: null }, 401)
+  }
+
+  return c.json({ user })
+})
+
+auth.post('/ext/logout', async (c) => {
+  const db = c.env.DB
+  if (!db) {
+    return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
+  }
+
+  const token = getAuthorizationBearerToken(c.req.header('Authorization'))
+  if (token) {
+    await deleteExtensionSessionByToken(db, token)
+  }
+
   return c.json({ ok: true })
 })
 

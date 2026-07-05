@@ -18,10 +18,14 @@ export default defineConfig({
   manifest: {
     name: 'Kanji Go - Tra Kanji siêu tốc',
     description: 'Kanji Go - Tra Kanji siêu tốc',
-    permissions: ["activeTab", "tabs", "scripting", "storage", "contextMenus"],
+    permissions: ["activeTab", "tabs", "scripting", "storage", "contextMenus", "identity"],
     host_permissions: [
       "http://localhost/*",
       "http://127.0.0.1/*",
+      "https://*.workers.dev/*",
+      "https://accounts.google.com/*",
+      "https://oauth2.googleapis.com/*",
+      "https://openidconnect.googleapis.com/*",
     ],
     web_accessible_resources: [
       {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { searchSelectionDicts } from "../lib/dict-loaders";
   import { storage } from "#imports";
+  import { getStoredSession } from "../lib/auth";
   import { kanaToRomajiConvert } from "../lib/romaji";
   interface Position {
     left: number;
@@ -400,7 +401,12 @@
           import.meta.env.WXT_API_URL?.replace(/\/$/, "") ??
           "http://localhost:8787";
         const url = `${base}/explain?q=${encodeURIComponent(text.trim())}`;
-        const res = await fetch(url);
+        const session = await getStoredSession();
+        const headers = new Headers();
+        if (session?.accessToken) {
+          headers.set("Authorization", `Bearer ${session.accessToken}`);
+        }
+        const res = await fetch(url, { headers });
         const data = (await res.json()) as Record<string, unknown>;
         if (cancelled) return;
         if (!res.ok) {

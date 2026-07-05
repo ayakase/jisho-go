@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { getCookie } from 'hono/cookie'
 import { AIService, AIServiceError, OPENROUTER_MODEL } from '../services/ai.service'
 import { RequestLogService } from '../services/request-log.service'
 import { Bindings } from '../types'
+import { getAuthenticatedUser } from '../utils/request-auth'
 
 const explain = new Hono<{ Bindings: Bindings }>()
 
@@ -11,6 +13,7 @@ explain.use(
   cors({
     origin: '*',
     allowMethods: ['GET', 'OPTIONS'],
+    allowHeaders: ['Authorization', 'Content-Type'],
   }),
 )
 
@@ -29,6 +32,12 @@ explain.get('/', async (c) => {
   const db = c.env.DB
   const logger = db ? new RequestLogService(db) : null
   const aiService = new AIService(c.env.OPENROUTER_API_KEY)
+  const user = db
+    ? await getAuthenticatedUser(db, {
+        sessionToken: getCookie(c, 'kg_session'),
+        authorizationHeader: c.req.header('Authorization'),
+      })
+    : null
 
   if (!logger) {
     console.error('[explain] OpenRouter request log skipped: D1 binding "DB" is missing', {
@@ -45,6 +54,7 @@ explain.get('/', async (c) => {
       try {
         await logger.save({
           query,
+          userId: user?.id ?? null,
           model: result.model,
           success: true,
           statusCode: result.providerStatusCode,
@@ -77,6 +87,7 @@ explain.get('/', async (c) => {
       try {
         await logger.save({
           query,
+          userId: user?.id ?? null,
           model: aiErr?.model ?? OPENROUTER_MODEL,
           success: false,
           statusCode: aiErr?.providerStatusCode ?? null,

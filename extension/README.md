@@ -46,3 +46,31 @@ This is a **browser extension** built with **WXT** (MV3) + **Svelte** + **tesser
 yarn dev
 yarn build
 ```
+
+### Extension auth setup
+
+- Set `WXT_API_URL` so the extension points at the correct API.
+- Example extension env:
+
+```bash
+WXT_API_URL=http://localhost:8787
+```
+
+- Run auth migrations locally before testing login:
+
+```bash
+npx wrangler d1 execute jisho-go --local --file=./migrations/0003_auth_users_sessions.sql
+npx wrangler d1 execute jisho-go --local --file=./migrations/0004_extension_sessions.sql
+```
+
+- Add the extension redirect URI from `browser.identity.getRedirectURL("auth")` to Google Cloud Console.
+- For Chromium browsers it will look like:
+
+```txt
+https://<extension-id>.chromiumapp.org/auth
+```
+
+- API auth env still needs:
+  - `GOOGLE_CLIENT_ID`
+  - `GOOGLE_CLIENT_SECRET`
+  - `AUTH_COOKIE_SECRET`

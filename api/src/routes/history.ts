@@ -1,24 +1,45 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
+import { type SessionUser } from '../services/auth.service'
 import { RequestLogService } from '../services/request-log.service'
 import { Bindings } from '../types'
-import { getUserBySessionToken } from '../services/auth.service'
+import { getAuthenticatedUser } from '../utils/request-auth'
 
-const history = new Hono<{ Bindings: Bindings }>()
+type HistoryEnv = {
+  Bindings: Bindings
+  Variables: {
+    authUser: SessionUser
+  }
+}
+
+const history = new Hono<HistoryEnv>()
+
+function isExtensionOrigin(origin: string | undefined): boolean {
+  if (!origin) return false
+  return origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')
+}
 
 history.use(
   '*',
   cors({
     origin: (origin, c) => {
       const configuredOrigin = c.env.AUTH_WEB_ORIGIN?.trim()
-      if (!configuredOrigin) {
+      const configuredExtensionOrigin = c.env.AUTH_EXTENSION_ORIGIN?.trim()
+      if (!configuredOrigin && !configuredExtensionOrigin) {
         return origin || '*'
       }
-      return origin === configuredOrigin ? origin : configuredOrigin
+      if (isExtensionOrigin(origin)) {
+        return origin
+      }
+      if (origin && (origin === configuredOrigin || origin === configuredExtensionOrigin)) {
+        return origin
+      }
+      return configuredOrigin || configuredExtensionOrigin || origin || '*'
     },
     credentials: true,
     allowMethods: ['GET', 'OPTIONS'],
+    allowHeaders: ['Authorization', 'Content-Type'],
   }),
 )
 
@@ -28,16 +49,15 @@ history.use('*', async (c, next) => {
     return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
   }
 
-  const sessionToken = getCookie(c, 'kg_session')
-  if (!sessionToken) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-
-  const user = await getUserBySessionToken(db, sessionToken)
+  const user = await getAuthenticatedUser(db, {
+    sessionToken: getCookie(c, 'kg_session'),
+    authorizationHeader: c.req.header('Authorization'),
+  })
   if (!user) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
 
+  c.set('authUser', user)
   await next()
 })
 
@@ -49,7 +69,8 @@ history.get('/', async (c) => {
   const limitParam = c.req.query('limit')
   const limit = limitParam ? Number(limitParam) : 50
   const logger = new RequestLogService(c.env.DB)
-  const entries = await logger.list(limit)
+  const user = c.get('authUser')
+  const entries = await logger.list(limit, user.id)
 
   return c.json({
     items: entries,
@@ -68,7 +89,8 @@ history.get('/:id', async (c) => {
   }
 
   const logger = new RequestLogService(c.env.DB)
-  const entry = await logger.getById(id)
+  const user = c.get('authUser')
+  const entry = await logger.getById(id, user.id)
   if (!entry) {
     return c.json({ error: 'Not found' }, 404)
   }

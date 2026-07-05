@@ -1,6 +1,7 @@
 <script lang="ts">
   import { storage } from "#imports";
   import { validateUrl } from "../../../lib/validateUrl";
+  import type { ExtensionAuthSession } from "../../../lib/auth";
 
   let showRomaji = $state<boolean>(false);
   let isInitialized = $state(false);
@@ -9,6 +10,10 @@
   let editingIndex = $state<number | null>(null);
   let editingValue = $state<string>("");
   let errorMessage = $state<string>("");
+  let authSession = $state<ExtensionAuthSession | null>(null);
+  let authLoading = $state(true);
+  let authActionLoading = $state(false);
+  let authError = $state<string>("");
 
   async function loadSettings() {
     try {
@@ -40,6 +45,89 @@
     } catch (error) {
       console.error("Failed to load common settings:", error);
       isInitialized = true;
+    }
+  }
+
+  async function loadAuthState() {
+    authLoading = true;
+    authError = "";
+    try {
+      const res = (await browser.runtime.sendMessage({
+        type: "AUTH_ME",
+      })) as
+        | { ok: true; session: ExtensionAuthSession | null }
+        | { ok: false; error: string }
+        | undefined;
+
+      if (!res) {
+        authError = "No response from background auth service.";
+        authSession = null;
+        return;
+      }
+
+      if (!res.ok) {
+        authError = res.error;
+        authSession = null;
+        return;
+      }
+
+      authSession = res.session;
+    } catch (error) {
+      authError = error instanceof Error ? error.message : String(error);
+      authSession = null;
+    } finally {
+      authLoading = false;
+    }
+  }
+
+  async function loginWithGoogle() {
+    authActionLoading = true;
+    authError = "";
+    try {
+      const res = (await browser.runtime.sendMessage({
+        type: "AUTH_LOGIN",
+      })) as
+        | { ok: true; session: ExtensionAuthSession }
+        | { ok: false; error: string }
+        | undefined;
+
+      if (!res) {
+        throw new Error("No response from background auth service.");
+      }
+
+      if (!res.ok) {
+        throw new Error(res.error);
+      }
+
+      authSession = res.session;
+    } catch (error) {
+      authError = error instanceof Error ? error.message : String(error);
+    } finally {
+      authActionLoading = false;
+    }
+  }
+
+  async function logout() {
+    authActionLoading = true;
+    authError = "";
+    try {
+      const res = (await browser.runtime.sendMessage({
+        type: "AUTH_LOGOUT",
+      })) as { ok: boolean; error?: string } | undefined;
+
+      if (!res) {
+        throw new Error("No response from background auth service.");
+      }
+
+      if (!res.ok) {
+        throw new Error(res.error || "Logout failed.");
+      }
+
+      authSession = null;
+    } catch (error) {
+      authError = error instanceof Error ? error.message : String(error);
+    } finally {
+      authActionLoading = false;
     }
   }
 
@@ -103,6 +191,7 @@
   }
 
   loadSettings();
+  loadAuthState();
 
   $effect(() => {
     if (isInitialized) saveRomajiMode();
@@ -114,6 +203,48 @@
 </script>
 
 <div class="settings-container">
+  <div class="setting-item">
+    <h3>Tài khoản</h3>
+    <div class="setting-controls">
+      <div class="auth-card">
+        {#if authLoading}
+          <p class="auth-status">Đang kiểm tra phiên đăng nhập...</p>
+        {:else if authSession}
+          <div class="auth-user-row">
+            {#if authSession.user.avatar_url}
+              <img
+                class="auth-avatar"
+                src={authSession.user.avatar_url}
+                alt="User avatar"
+                referrerpolicy="no-referrer"
+              />
+            {:else}
+              <div class="auth-avatar auth-avatar-fallback">
+                {(authSession.user.display_name || authSession.user.email).slice(0, 1).toUpperCase()}
+              </div>
+            {/if}
+            <div class="auth-user-info">
+              <strong>{authSession.user.display_name || "No display name"}</strong>
+              <span>{authSession.user.email}</span>
+            </div>
+          </div>
+          <button class="auth-button auth-button-secondary" onclick={logout} disabled={authActionLoading}>
+            {authActionLoading ? "Đang đăng xuất..." : "Đăng xuất"}
+          </button>
+        {:else}
+          <p class="auth-status">Chưa đăng nhập. Dùng Google để đồng bộ tài khoản extension với website.</p>
+          <button class="auth-button" onclick={loginWithGoogle} disabled={authActionLoading}>
+            {authActionLoading ? "Đang mở Google..." : "Đăng nhập với Google"}
+          </button>
+        {/if}
+
+        {#if authError}
+          <div class="auth-error">{authError}</div>
+        {/if}
+      </div>
+    </div>
+  </div>
+
   <div class="setting-item">
     <h3>Hiển thị Romaji</h3>
     <div class="setting-controls">
