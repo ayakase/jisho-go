@@ -23,6 +23,22 @@ export function getApiBase(): string {
   return API_BASE;
 }
 
+export async function createWebLoginUrl(token: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/auth/ext/web-session`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = (await res.json()) as { loginUrl?: string; error?: string };
+  if (!res.ok || !data.loginUrl) {
+    throw new Error(data.error || `Web session start failed: ${res.status}`);
+  }
+
+  return data.loginUrl;
+}
+
 export async function getStoredSession(): Promise<ExtensionAuthSession | null> {
   const session = await storage.getItem<ExtensionAuthSession>(SESSION_KEY);
   if (!session || typeof session !== "object") {

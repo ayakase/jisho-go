@@ -164,6 +164,12 @@
     cursor: wait;
   }
 
+  .auth-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
   .auth-button-secondary {
     border-color: #e5e7eb;
     background-color: #ffffff;

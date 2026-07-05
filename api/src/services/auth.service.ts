@@ -4,6 +4,7 @@ const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_ENDPOINT = 'https://openidconnect.googleapis.com/v1/userinfo'
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30
 const EXTENSION_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30
+const EXTENSION_WEB_LOGIN_TOKEN_TTL_MS = 1000 * 60
 
 type GoogleTokenResponse = {
   access_token: string
@@ -351,6 +352,80 @@ export async function getUserByExtensionToken(db: D1DatabaseCompat, token: strin
     await db.prepare('DELETE FROM extension_sessions WHERE token_hash = ?').bind(tokenHash).run()
     return null
   }
+
+  return {
+    id: row.id,
+    email: row.email,
+    display_name: row.display_name,
+    avatar_url: row.avatar_url,
+    email_verified: row.email_verified === 1,
+    created_at: row.created_at,
+  }
+}
+
+export async function createExtensionWebLoginToken(
+  db: D1DatabaseCompat,
+  userId: number,
+): Promise<{ token: string; expiresAt: string }> {
+  const rawToken = toBase64Url(crypto.getRandomValues(new Uint8Array(32)))
+  const tokenHash = await sha256Hex(rawToken)
+  const expiresIso = nowPlusMsAsIso(EXTENSION_WEB_LOGIN_TOKEN_TTL_MS)
+
+  await db
+    .prepare(
+      `INSERT INTO extension_web_login_tokens (token_hash, user_id, expires_at)
+       VALUES (?, ?, ?)`,
+    )
+    .bind(tokenHash, userId, expiresIso)
+    .run()
+
+  return {
+    token: rawToken,
+    expiresAt: expiresIso,
+  }
+}
+
+export async function consumeExtensionWebLoginToken(db: D1DatabaseCompat, token: string): Promise<SessionUser | null> {
+  const tokenHash = await sha256Hex(token)
+  const result = await db
+    .prepare(
+      `SELECT
+         u.id,
+         u.email,
+         u.display_name,
+         u.avatar_url,
+         u.email_verified,
+         u.created_at,
+         t.expires_at,
+         t.used_at
+       FROM extension_web_login_tokens t
+       INNER JOIN users u ON u.id = t.user_id
+       WHERE t.token_hash = ?
+       LIMIT 1`,
+    )
+    .bind(tokenHash)
+    .all<{
+      id: number
+      email: string
+      display_name: string | null
+      avatar_url: string | null
+      email_verified: number
+      created_at: string
+      expires_at: string
+      used_at: string | null
+    }>()
+
+  const row = result.results?.[0]
+  if (!row) {
+    return null
+  }
+
+  if (row.used_at || normalizeExpiresAt(row.expires_at) <= Date.now()) {
+    await db.prepare('DELETE FROM extension_web_login_tokens WHERE token_hash = ?').bind(tokenHash).run()
+    return null
+  }
+
+  await db.prepare('DELETE FROM extension_web_login_tokens WHERE token_hash = ?').bind(tokenHash).run()
 
   return {
     id: row.id,

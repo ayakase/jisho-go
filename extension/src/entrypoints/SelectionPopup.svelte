@@ -411,9 +411,13 @@
         if (cancelled) return;
         if (!res.ok) {
           explainError =
-            typeof data.error === "string"
-              ? data.error
-              : res.statusText || "Request failed";
+            res.status === 401
+              ? "Hay login de su dung"
+              : typeof data.detail === "string"
+                ? data.detail
+                : typeof data.error === "string"
+                  ? data.error
+                  : res.statusText || "Request failed";
           return;
         }
         explainPayload = {

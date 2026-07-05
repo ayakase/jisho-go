@@ -1,7 +1,7 @@
 <script lang="ts">
   import { storage } from "#imports";
   import { validateUrl } from "../../../lib/validateUrl";
-  import type { ExtensionAuthSession } from "../../../lib/auth";
+  import { createWebLoginUrl, type ExtensionAuthSession } from "../../../lib/auth";
 
   let showRomaji = $state<boolean>(false);
   let isInitialized = $state(false);
@@ -131,6 +131,25 @@
     }
   }
 
+  async function openWebAccount() {
+    authActionLoading = true;
+    authError = "";
+    try {
+      if (!authSession?.accessToken) {
+        throw new Error("Chưa có phiên đăng nhập extension.");
+      }
+
+      const loginUrl = await createWebLoginUrl(authSession.accessToken);
+      await browser.tabs.create({
+        url: loginUrl,
+      });
+    } catch (error) {
+      authError = error instanceof Error ? error.message : String(error);
+    } finally {
+      authActionLoading = false;
+    }
+  }
+
   async function saveRomajiMode() {
     try {
       await storage.setItem("local:showRomaji", showRomaji);
@@ -228,9 +247,14 @@
               <span>{authSession.user.email}</span>
             </div>
           </div>
-          <button class="auth-button auth-button-secondary" onclick={logout} disabled={authActionLoading}>
-            {authActionLoading ? "Đang đăng xuất..." : "Đăng xuất"}
-          </button>
+          <div class="auth-actions">
+            <button class="auth-button auth-button-secondary" onclick={openWebAccount} disabled={authActionLoading}>
+              {authActionLoading ? "Đang mở..." : "Mở trang tài khoản"}
+            </button>
+            <button class="auth-button auth-button-secondary" onclick={logout} disabled={authActionLoading}>
+              {authActionLoading ? "Đang đăng xuất..." : "Đăng xuất"}
+            </button>
+          </div>
         {:else}
           <p class="auth-status">Chưa đăng nhập. Dùng Google để đồng bộ tài khoản extension với website.</p>
           <button class="auth-button" onclick={loginWithGoogle} disabled={authActionLoading}>

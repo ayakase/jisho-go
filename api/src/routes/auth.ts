@@ -6,7 +6,9 @@ import { Bindings } from '../types'
 import {
   createSession,
   createExtensionSession,
+  createExtensionWebLoginToken,
   createStateToken,
+  consumeExtensionWebLoginToken,
   deleteExtensionSessionByToken,
   deleteSessionByToken,
   exchangeCodeForGoogleAccessToken,
@@ -61,7 +63,7 @@ function getWebOrigin(c: AppContext): string {
   }
 
   const fromOrigin = c.req.header('Origin')
-  if (fromOrigin) {
+  if (fromOrigin && !isExtensionOrigin(fromOrigin)) {
     return fromOrigin.replace(/\/$/, '')
   }
 
@@ -69,7 +71,10 @@ function getWebOrigin(c: AppContext): string {
   if (fromReferer) {
     try {
       const url = new URL(fromReferer)
-      return `${url.protocol}//${url.host}`
+      const origin = `${url.protocol}//${url.host}`
+      if (!isExtensionOrigin(origin)) {
+        return origin
+      }
     } catch {
       // fall through
     }
@@ -454,6 +459,60 @@ auth.get('/ext/me', async (c) => {
   }
 
   return c.json({ user })
+})
+
+auth.post('/ext/web-session', async (c) => {
+  const db = c.env.DB
+  if (!db) {
+    return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
+  }
+
+  const token = getAuthorizationBearerToken(c.req.header('Authorization'))
+  if (!token) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  const user = await getUserByExtensionToken(db, token)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  const webLogin = await createExtensionWebLoginToken(db, user.id)
+  const webOrigin = getWebOrigin(c)
+  const loginUrl = `${webOrigin}/auth/extension-login?token=${encodeURIComponent(webLogin.token)}`
+
+  return c.json({
+    loginUrl,
+    expiresAt: webLogin.expiresAt,
+  })
+})
+
+auth.post('/ext/web-session/consume', async (c) => {
+  const db = c.env.DB
+  if (!db) {
+    return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
+  }
+
+  const body = await c.req.json<{ token?: string }>()
+  const token = body.token?.trim()
+  if (!token) {
+    return c.json({ error: 'Missing token' }, 400)
+  }
+
+  const user = await consumeExtensionWebLoginToken(db, token)
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  const requestOrigin = getRequestOrigin(c)
+  const webOrigin = getWebOrigin(c)
+  const secureCookies = shouldUseSecureCookies(requestOrigin)
+  const sessionCookieSameSite = getSessionCookieSameSite(webOrigin, requestOrigin)
+  const session = await createSession(db, user.id)
+
+  setAuthCookie(c, session.token, session.expiresAt, secureCookies, sessionCookieSameSite)
+
+  return c.json({ ok: true })
 })
 
 auth.post('/ext/logout', async (c) => {

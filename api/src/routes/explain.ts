@@ -39,6 +39,15 @@ explain.get('/', async (c) => {
       })
     : null
 
+  if (!user) {
+    return c.json(
+      {
+        error: 'Unauthorized',
+      },
+      401,
+    )
+  }
+
   if (!logger) {
     console.error('[explain] OpenRouter request log skipped: D1 binding "DB" is missing', {
       traceId,
