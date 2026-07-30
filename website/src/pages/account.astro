@@ -256,6 +256,20 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
       return `${new Intl.NumberFormat('vi-VN').format(Number(value || 0))} VND`;
     }
 
+    function formatDateTime(value) {
+      if (typeof value !== 'string' || !value.trim()) return '-';
+      const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+        ? `${value.replace(' ', 'T')}Z`
+        : value;
+      const date = new Date(normalized);
+      if (Number.isNaN(date.getTime())) return value;
+      return new Intl.DateTimeFormat('vi-VN', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: 'Asia/Ho_Chi_Minh',
+      }).format(date);
+    }
+
     function walletEntryLabel(entryType) {
       if (entryType === 'topup') return 'Nạp tiền';
       if (entryType === 'ai_charge') return 'Phí AI';
@@ -319,7 +333,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
         const amountClass = amount >= 0 ? 'text-emerald-700' : 'text-rose-700';
         const amountText = `${amount >= 0 ? '+' : ''}${formatVnd(amount)}`;
         return `<tr>
-          <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500">${escapeHtml(entry.createdAt || '')}</td>
+          <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500">${escapeHtml(formatDateTime(entry.createdAt))}</td>
           <td class="px-3 py-3 text-slate-700">${escapeHtml(walletEntryLabel(entry.entryType))}</td>
           <td class="whitespace-nowrap px-3 py-3 font-semibold ${amountClass}">${amountText}</td>
           <td class="whitespace-nowrap px-3 py-3 text-slate-700">${formatVnd(entry.balanceAfterVnd)}</td>
@@ -420,7 +434,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
             const notes = escapeHtml(lesson?.notes || (item.error_message || 'Không có ghi chú.'));
             const vocabCount = Number(lesson?.vocabCount || 0);
             const grammarCount = Number(lesson?.grammarCount || 0);
-            const createdAt = escapeHtml(item.created_at || '');
+            const createdAt = escapeHtml(formatDateTime(item.created_at));
             const detailHref = `/account/request?id=${Number(item.id || 0)}`;
 
             return `
