@@ -2,8 +2,9 @@
   import HighlightSetting from "./components/HighlightSetting.svelte";
   import HoverSetting from "./components/HoverSetting.svelte";
   import CommonSetting from "./components/CommonSetting.svelte";
+  import Account from "./components/Account.svelte";
 
-  type Tab = "highlight" | "hover" | "common";
+  type Tab = "highlight" | "hover" | "common" | "account";
   let activeTab = $state<Tab>("highlight");
 </script>
 
@@ -34,13 +35,22 @@
     >
       Cài đặt chung
     </button>
+    <button
+      type="button"
+      class="tab-button {activeTab === 'account' ? 'active' : ''}"
+      onclick={() => (activeTab = "account")}
+    >
+      Tài khoản
+    </button>
   </div>
 
   {#if activeTab === "highlight"}
     <HighlightSetting />
   {:else if activeTab === "hover"}
     <HoverSetting />
-  {:else}
+  {:else if activeTab === "common"}
     <CommonSetting />
+  {:else}
+    <Account />
   {/if}
 </main>

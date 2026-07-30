@@ -140,10 +140,11 @@ export class RequestLogService {
       .run()
   }
 
-  async list(limit: number, userId?: number | null): Promise<OpenRouterRequestLog[]> {
+  async list(limit: number, offset = 0, userId?: number | null): Promise<OpenRouterRequestLog[]> {
     await this.ensureSchema()
 
     const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 200) : 50
+    const safeOffset = Number.isFinite(offset) ? Math.max(Math.floor(offset), 0) : 0
     const query = userId == null
       ? `
         SELECT
@@ -167,7 +168,7 @@ export class RequestLogService {
           wallet_ledger_entry_id
         FROM openrouter_requests
         ORDER BY id DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
       `
       : `
         SELECT
@@ -192,13 +193,26 @@ export class RequestLogService {
         FROM openrouter_requests
         WHERE user_id = ?
         ORDER BY id DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
       `
     const statement = this.db.prepare(query)
-    const rs = userId == null ? await statement.bind(safeLimit).all() : await statement.bind(userId, safeLimit).all()
+    const rs = userId == null
+      ? await statement.bind(safeLimit, safeOffset).all()
+      : await statement.bind(userId, safeLimit, safeOffset).all()
 
     const rows = (rs.results ?? []) as Record<string, unknown>[]
     return rows.map((row) => this.mapRowToLog(row))
+  }
+
+  async count(userId?: number | null): Promise<number> {
+    await this.ensureSchema()
+
+    const query = userId == null
+      ? 'SELECT COUNT(*) AS total FROM openrouter_requests'
+      : 'SELECT COUNT(*) AS total FROM openrouter_requests WHERE user_id = ?'
+    const statement = this.db.prepare(query)
+    const rs = userId == null ? await statement.all<{ total: number }>() : await statement.bind(userId).all<{ total: number }>()
+    return Number(rs.results?.[0]?.total ?? 0)
   }
 
   async getById(id: number, userId?: number | null): Promise<OpenRouterRequestLog | null> {

@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 
 const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:8787';
-const historyUrl = `${apiBase}/history?limit=100`;
+const historyUrl = `${apiBase}/history`;
 const meUrl = `${apiBase}/auth/me`;
 const logoutUrl = `${apiBase}/auth/logout`;
 const walletUrl = `${apiBase}/billing/wallet`;
@@ -63,7 +63,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
             <p id="wallet-product-empty" class="hidden mt-3 text-sm text-slate-500">Chưa có gói nạp khả dụng.</p>
             <div class="mt-4 flex flex-wrap items-center gap-4 border border-amber-200 bg-amber-50 p-3">
               <img
-                src="https://vietqr.app/img?bank=BIDV&amp;acc=96247OW8RC&amp;template=compact&amp;showinfo=true&amp;holder=DANG%20THAI%20AN"
+                src="https://vietqr.app/img?bank=BIDV&amp;acc=96247OW8RC&amp;template=compact&amp;holder=DANG%20THAI%20AN"
                 alt="QR chuyển khoản BIDV tới DANG THAI AN"
                 width="132"
                 height="132"
@@ -137,6 +137,13 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
             <tbody id="account-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
           </table>
         </div>
+        <nav id="history-pagination" class="mt-4 hidden items-center justify-between gap-3" aria-label="Phân trang lịch sử học">
+          <p id="history-page-status" class="text-sm text-slate-600"></p>
+          <div class="flex items-center gap-2">
+            <button id="history-prev-btn" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">Trang trước</button>
+            <button id="history-next-btn" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">Trang sau</button>
+          </div>
+        </nav>
       </section>
     </div>
   </main>
@@ -169,6 +176,13 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     const emptyEl = document.getElementById('account-empty');
     const tableWrapEl = document.getElementById('account-table-wrap');
     const tableBodyEl = document.getElementById('account-table-body');
+    const historyPaginationEl = document.getElementById('history-pagination');
+    const historyPageStatusEl = document.getElementById('history-page-status');
+    const historyPrevBtn = document.getElementById('history-prev-btn');
+    const historyNextBtn = document.getElementById('history-next-btn');
+    const HISTORY_PAGE_SIZE = 20;
+    let historyPage = 1;
+    let historyPageCount = 0;
 
     function escapeHtml(value) {
       return String(value)
@@ -182,36 +196,15 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     function setStats(total, success, withLesson) {
       const failure = total - success;
       statsEl.innerHTML = `
-        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">Phiên học: <strong>${total}</strong></div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">Trang này: <strong>${total}</strong></div>
         <div class="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">Có nội dung bài học: <strong>${withLesson}</strong></div>
         <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">Thành công: <strong>${success}</strong></div>
         <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">Cần thử lại: <strong>${failure}</strong></div>
       `;
     }
 
-    function extractJsonLike(text) {
-      if (typeof text !== 'string') return null;
-      const trimmed = text.trim();
-      if (!trimmed) return null;
-      try {
-        return JSON.parse(trimmed);
-      } catch {}
-
-      const firstBrace = trimmed.indexOf('{');
-      const lastBrace = trimmed.lastIndexOf('}');
-      if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null;
-
-      try {
-        return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
-      } catch {
-        return null;
-      }
-    }
-
     function getLessonData(item) {
-      const responseRoot = extractJsonLike(item?.openrouter_response_json);
-      const content = responseRoot?.choices?.[0]?.message?.content;
-      const payload = extractJsonLike(content);
+      const payload = item?.lesson;
       if (!payload || typeof payload !== 'object') return null;
 
       return {
@@ -362,10 +355,28 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
       return data.user;
     }
 
-    async function loadHistory() {
+    function updateHistoryPagination(total) {
+      const hasPages = total > 0;
+      historyPaginationEl.classList.toggle('hidden', !hasPages);
+      historyPaginationEl.classList.toggle('flex', hasPages);
+      if (!hasPages) return;
+      historyPageStatusEl.textContent = `Trang ${historyPage} / ${historyPageCount} (${total} phiên)`;
+      historyPrevBtn.disabled = historyPage <= 1;
+      historyNextBtn.disabled = historyPage >= historyPageCount;
+    }
+
+    async function loadHistory(page = historyPage) {
+      historyPage = Math.max(1, Number(page) || 1);
       setStats(0, 0, 0);
+      emptyEl.classList.add('hidden');
+      tableWrapEl.classList.add('hidden');
+      historyPaginationEl.classList.add('hidden');
+      historyPaginationEl.classList.remove('flex');
       try {
-        const res = await fetch(historyUrl, { credentials: 'include' });
+        const url = new URL(historyUrl);
+        url.searchParams.set('page', String(historyPage));
+        url.searchParams.set('pageSize', String(HISTORY_PAGE_SIZE));
+        const res = await fetch(url, { credentials: 'include' });
         const raw = await res.text();
         let data = null;
         try {
@@ -386,9 +397,15 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
         }
 
         const items = data && Array.isArray(data.items) ? data.items : [];
+        const total = Number(data?.total || 0);
+        historyPageCount = Math.max(Number(data?.pageCount || 0), 0);
+        if (historyPageCount > 0 && historyPage > historyPageCount) {
+          return loadHistory(historyPageCount);
+        }
         const successCount = items.filter((item) => item && item.success === true).length;
         const lessonCount = items.filter((item) => !!getLessonData(item)).length;
         setStats(items.length, successCount, lessonCount);
+        updateHistoryPagination(total);
 
         if (items.length === 0) {
           emptyEl.classList.remove('hidden');
@@ -454,6 +471,8 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
 
     walletRefreshBtn?.addEventListener('click', loadWallet);
     walletPaymentRefreshBtn?.addEventListener('click', loadWallet);
+    historyPrevBtn?.addEventListener('click', () => loadHistory(historyPage - 1));
+    historyNextBtn?.addEventListener('click', () => loadHistory(historyPage + 1));
 
     (async () => {
       const user = await requireAuth();

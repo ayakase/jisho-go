@@ -26,6 +26,7 @@ export default defineConfig({
       "https://accounts.google.com/*",
       "https://oauth2.googleapis.com/*",
       "https://openidconnect.googleapis.com/*",
+      "https://vietqr.app/*",
     ],
     web_accessible_resources: [
       {

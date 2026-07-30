@@ -4,7 +4,8 @@ import { getCookie } from 'hono/cookie'
 import { resolveCorsOrigin } from '../config/app'
 import { type SessionUser } from '../services/auth.service'
 import { RequestLogService } from '../services/request-log.service'
-import { Bindings } from '../types'
+import { normalizeExplainPayload, parseJsonFromLLMContent } from '../utils/llm'
+import { Bindings, ExplainResponse, OpenRouterRequestLog } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
 
 type HistoryEnv = {
@@ -15,6 +16,37 @@ type HistoryEnv = {
 }
 
 const history = new Hono<HistoryEnv>()
+
+type PublicHistoryEntry = {
+  id: number
+  created_at: string
+  query: string
+  success: boolean
+  lesson: ExplainResponse | null
+}
+
+function extractLesson(entry: OpenRouterRequestLog): ExplainResponse | null {
+  if (!entry.openrouter_response_json) return null
+
+  try {
+    const response = JSON.parse(entry.openrouter_response_json) as { choices?: Array<{ message?: { content?: unknown } }> }
+    const content = response.choices?.[0]?.message?.content
+    if (typeof content !== 'string') return null
+    return normalizeExplainPayload(parseJsonFromLLMContent(content), entry.query)
+  } catch {
+    return null
+  }
+}
+
+function toPublicHistoryEntry(entry: OpenRouterRequestLog): PublicHistoryEntry {
+  return {
+    id: entry.id,
+    created_at: entry.created_at,
+    query: entry.query,
+    success: entry.success,
+    lesson: extractLesson(entry),
+  }
+}
 
 history.use(
   '*',
@@ -49,15 +81,25 @@ history.get('/', async (c) => {
     return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
   }
 
-  const limitParam = c.req.query('limit')
-  const limit = limitParam ? Number(limitParam) : 50
+  const pageParam = Number(c.req.query('page') ?? '1')
+  const page = Number.isFinite(pageParam) ? Math.max(Math.floor(pageParam), 1) : 1
+  const pageSizeParam = c.req.query('pageSize') ?? c.req.query('limit')
+  const requestedPageSize = pageSizeParam ? Number(pageSizeParam) : 20
+  const pageSize = Number.isFinite(requestedPageSize) ? Math.min(Math.max(Math.floor(requestedPageSize), 1), 100) : 20
   const logger = new RequestLogService(c.env.DB)
   const user = c.get('authUser')
-  const entries = await logger.list(limit, user.id)
+  const [entries, total] = await Promise.all([
+    logger.list(pageSize, (page - 1) * pageSize, user.id),
+    logger.count(user.id),
+  ])
 
   return c.json({
-    items: entries,
+    items: entries.map(toPublicHistoryEntry),
     count: entries.length,
+    total,
+    page,
+    pageSize,
+    pageCount: Math.ceil(total / pageSize),
   })
 })
 
@@ -78,7 +120,7 @@ history.get('/:id', async (c) => {
     return c.json({ error: 'Not found' }, 404)
   }
 
-  return c.json(entry)
+  return c.json(toPublicHistoryEntry(entry))
 })
 
 export default history

@@ -114,7 +114,7 @@
     if (sections.kanji) {
       kanjiResults = foundKanji.slice(0, MAX_KANJI_ITEMS).map((k) => ({
         ...k,
-        detail: k.detail ?? k.d,
+        detail: k.detail,
       }));
     }
     dictLoading = false;
