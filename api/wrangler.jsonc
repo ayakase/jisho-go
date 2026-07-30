@@ -8,6 +8,10 @@
     "mode": "targeted",
     "region": "aws:ap-southeast-1"
   },
+  "vars": {
+    "OPENROUTER_USD_TO_VND": "26000",
+    "OPENROUTER_MARKUP_MULTIPLIER": "3"
+  },
   "d1_databases": [
     {
       "binding": "DB",

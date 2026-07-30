@@ -9,7 +9,7 @@
 
 <main>
   <div class="header-section">
-    <h1>Cài đặt Kanji Go</h1>
+    <h1>Cài đặt Jisho Go</h1>
   </div>
 
   <div class="tab-row">

@@ -1,4 +1,4 @@
-## Kanji Go (Extension)
+## Jisho Go (Extension)
 
 ### Usage
 

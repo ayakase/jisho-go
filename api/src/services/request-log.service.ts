@@ -10,12 +10,13 @@ export type OpenRouterRequestLogInput = {
   errorMessage: string | null
   clientIp: string | null
   clientColo: string | null
-  openRouterRequestJson: string | null
   openRouterResponseJson: string | null
   providerErrorBody: string | null
   usagePromptTokens: number | null
   usageCompletionTokens: number | null
   usageTotalTokens: number | null
+  providerCostUsd: string | null
+  walletLedgerEntryId: number | null
 }
 
 const CREATE_TABLE_SQL = `
@@ -31,12 +32,13 @@ CREATE TABLE IF NOT EXISTS openrouter_requests (
   error_message TEXT,
   client_ip TEXT,
   client_colo TEXT,
-  openrouter_request_json TEXT,
   openrouter_response_json TEXT,
   provider_error_body TEXT,
   usage_prompt_tokens INTEGER,
   usage_completion_tokens INTEGER,
   usage_total_tokens INTEGER,
+  provider_cost_usd TEXT,
+  wallet_ledger_entry_id INTEGER,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 `
@@ -53,12 +55,13 @@ ON openrouter_requests(user_id);
 
 const ALTER_TABLE_ADD_COLUMNS_SQL = [
   `ALTER TABLE openrouter_requests ADD COLUMN user_id INTEGER;`,
-  `ALTER TABLE openrouter_requests ADD COLUMN openrouter_request_json TEXT;`,
   `ALTER TABLE openrouter_requests ADD COLUMN openrouter_response_json TEXT;`,
   `ALTER TABLE openrouter_requests ADD COLUMN provider_error_body TEXT;`,
   `ALTER TABLE openrouter_requests ADD COLUMN usage_prompt_tokens INTEGER;`,
   `ALTER TABLE openrouter_requests ADD COLUMN usage_completion_tokens INTEGER;`,
   `ALTER TABLE openrouter_requests ADD COLUMN usage_total_tokens INTEGER;`,
+  `ALTER TABLE openrouter_requests ADD COLUMN provider_cost_usd TEXT;`,
+  `ALTER TABLE openrouter_requests ADD COLUMN wallet_ledger_entry_id INTEGER;`,
 ]
 
 export class RequestLogService {
@@ -66,7 +69,7 @@ export class RequestLogService {
 
   constructor(private db: D1DatabaseCompat) {}
 
-  async save(entry: OpenRouterRequestLogInput): Promise<void> {
+  async save(entry: OpenRouterRequestLogInput): Promise<number | null> {
     try {
       await this.ensureSchema()
     } catch (err) {
@@ -89,13 +92,14 @@ export class RequestLogService {
             error_message,
             client_ip,
             client_colo,
-            openrouter_request_json,
             openrouter_response_json,
             provider_error_body,
             usage_prompt_tokens,
             usage_completion_tokens,
-            usage_total_tokens
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            usage_total_tokens,
+            provider_cost_usd,
+            wallet_ledger_entry_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         )
         .bind(
@@ -108,21 +112,32 @@ export class RequestLogService {
           entry.errorMessage,
           entry.clientIp,
           entry.clientColo,
-          entry.openRouterRequestJson,
           entry.openRouterResponseJson,
           entry.providerErrorBody,
           entry.usagePromptTokens,
           entry.usageCompletionTokens,
           entry.usageTotalTokens,
+          entry.providerCostUsd,
+          entry.walletLedgerEntryId,
         )
         .run()) as { success?: unknown; meta?: unknown }
 
       if (result && typeof result === 'object' && 'success' in result && result.success === false) {
         throw new Error(`D1 insert returned success=false with meta=${JSON.stringify(result.meta ?? null)}`)
       }
+      const meta = result && typeof result === 'object' && 'meta' in result ? result.meta as { last_row_id?: unknown } : null
+      return typeof meta?.last_row_id === 'number' ? meta.last_row_id : null
     } catch (err) {
       throw new Error(`D1 insert failed for openrouter_requests: ${err instanceof Error ? err.message : String(err)}`)
     }
+  }
+
+  async attachWalletLedgerEntry(requestId: number, ledgerEntryId: number): Promise<void> {
+    await this.ensureSchema()
+    await this.db
+      .prepare('UPDATE openrouter_requests SET wallet_ledger_entry_id = ? WHERE id = ?')
+      .bind(ledgerEntryId, requestId)
+      .run()
   }
 
   async list(limit: number, userId?: number | null): Promise<OpenRouterRequestLog[]> {
@@ -143,12 +158,13 @@ export class RequestLogService {
           error_message,
           client_ip,
           client_colo,
-          openrouter_request_json,
           openrouter_response_json,
           provider_error_body,
           usage_prompt_tokens,
           usage_completion_tokens,
-          usage_total_tokens
+          usage_total_tokens,
+          provider_cost_usd,
+          wallet_ledger_entry_id
         FROM openrouter_requests
         ORDER BY id DESC
         LIMIT ?
@@ -166,12 +182,13 @@ export class RequestLogService {
           error_message,
           client_ip,
           client_colo,
-          openrouter_request_json,
           openrouter_response_json,
           provider_error_body,
           usage_prompt_tokens,
           usage_completion_tokens,
-          usage_total_tokens
+          usage_total_tokens,
+          provider_cost_usd,
+          wallet_ledger_entry_id
         FROM openrouter_requests
         WHERE user_id = ?
         ORDER BY id DESC
@@ -203,12 +220,13 @@ export class RequestLogService {
           error_message,
           client_ip,
           client_colo,
-          openrouter_request_json,
           openrouter_response_json,
           provider_error_body,
           usage_prompt_tokens,
           usage_completion_tokens,
-          usage_total_tokens
+          usage_total_tokens,
+          provider_cost_usd,
+          wallet_ledger_entry_id
         FROM openrouter_requests
         WHERE id = ?
         LIMIT 1
@@ -226,12 +244,13 @@ export class RequestLogService {
           error_message,
           client_ip,
           client_colo,
-          openrouter_request_json,
           openrouter_response_json,
           provider_error_body,
           usage_prompt_tokens,
           usage_completion_tokens,
-          usage_total_tokens
+          usage_total_tokens,
+          provider_cost_usd,
+          wallet_ledger_entry_id
         FROM openrouter_requests
         WHERE id = ? AND user_id = ?
         LIMIT 1
@@ -284,12 +303,13 @@ export class RequestLogService {
       error_message: row.error_message == null ? null : String(row.error_message),
       client_ip: row.client_ip == null ? null : String(row.client_ip),
       client_colo: row.client_colo == null ? null : String(row.client_colo),
-      openrouter_request_json: row.openrouter_request_json == null ? null : String(row.openrouter_request_json),
       openrouter_response_json: row.openrouter_response_json == null ? null : String(row.openrouter_response_json),
       provider_error_body: row.provider_error_body == null ? null : String(row.provider_error_body),
       usage_prompt_tokens: row.usage_prompt_tokens == null ? null : Number(row.usage_prompt_tokens),
       usage_completion_tokens: row.usage_completion_tokens == null ? null : Number(row.usage_completion_tokens),
       usage_total_tokens: row.usage_total_tokens == null ? null : Number(row.usage_total_tokens),
+      provider_cost_usd: row.provider_cost_usd == null ? null : String(row.provider_cost_usd),
+      wallet_ledger_entry_id: row.wallet_ledger_entry_id == null ? null : Number(row.wallet_ledger_entry_id),
     }
   }
 }

@@ -5,12 +5,12 @@ import { normalizeExplainPayload, parseJsonFromLLMContent } from '../utils/llm'
 export const OPENROUTER_MODEL = 'google/gemini-2.5-flash-lite'
 
 export type OpenRouterTraceDetails = {
-  openRouterRequestJson: string | null
   openRouterResponseJson: string | null
   providerErrorBody: string | null
   usagePromptTokens: number | null
   usageCompletionTokens: number | null
   usageTotalTokens: number | null
+  providerCostUsd: string | null
 }
 
 export type ExplainJapaneseResult = {
@@ -27,29 +27,34 @@ type AIServiceErrorDetails = {
 export class AIServiceError extends Error {
   readonly model: string
   readonly providerStatusCode: number | null
-  readonly openRouterRequestJson: string | null
   readonly openRouterResponseJson: string | null
   readonly providerErrorBody: string | null
   readonly usagePromptTokens: number | null
   readonly usageCompletionTokens: number | null
   readonly usageTotalTokens: number | null
+  readonly providerCostUsd: string | null
 
   constructor(message: string, details: AIServiceErrorDetails) {
     super(message)
     this.name = 'AIServiceError'
     this.model = details.model
     this.providerStatusCode = details.providerStatusCode
-    this.openRouterRequestJson = details.openRouterRequestJson
     this.openRouterResponseJson = details.openRouterResponseJson
     this.providerErrorBody = details.providerErrorBody
     this.usagePromptTokens = details.usagePromptTokens
     this.usageCompletionTokens = details.usageCompletionTokens
     this.usageTotalTokens = details.usageTotalTokens
+    this.providerCostUsd = details.providerCostUsd
   }
 }
 
 function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function decimalStringOrNull(value: unknown): string | null {
+  const numeric = numberOrNull(value)
+  return numeric == null || numeric < 0 ? null : String(numeric)
 }
 
 export class AIService {
@@ -74,6 +79,7 @@ export class AIService {
     let lastUsagePromptTokens: number | null = null
     let lastUsageCompletionTokens: number | null = null
     let lastUsageTotalTokens: number | null = null
+    let lastProviderCostUsd: string | null = null
 
     for (let attempt = 0; attempt < EXPLAIN_JSON_MAX_ATTEMPTS; attempt++) {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -99,21 +105,23 @@ export class AIService {
       const usagePromptTokens = numberOrNull(data?.usage?.prompt_tokens)
       const usageCompletionTokens = numberOrNull(data?.usage?.completion_tokens)
       const usageTotalTokens = numberOrNull(data?.usage?.total_tokens)
+      const providerCostUsd = decimalStringOrNull(data?.usage?.cost)
       lastUsagePromptTokens = usagePromptTokens
       lastUsageCompletionTokens = usageCompletionTokens
       lastUsageTotalTokens = usageTotalTokens
+      lastProviderCostUsd = providerCostUsd
 
       if (!res.ok) {
         const errBody = responseText || `HTTP ${res.status}`
         throw new AIServiceError(`API error: ${errBody}`, {
           model: OPENROUTER_MODEL,
           providerStatusCode: res.status,
-          openRouterRequestJson: requestJson,
           openRouterResponseJson: responseText || null,
           providerErrorBody: errBody,
           usagePromptTokens,
           usageCompletionTokens,
           usageTotalTokens,
+          providerCostUsd,
         })
       }
 
@@ -123,12 +131,12 @@ export class AIService {
         throw new AIServiceError('Empty model response', {
           model: OPENROUTER_MODEL,
           providerStatusCode: res.status,
-          openRouterRequestJson: requestJson,
           openRouterResponseJson: responseText || null,
           providerErrorBody: null,
           usagePromptTokens,
           usageCompletionTokens,
           usageTotalTokens,
+          providerCostUsd,
         })
       }
 
@@ -144,24 +152,24 @@ export class AIService {
         payload: normalizeExplainPayload(parsed, query),
         model: OPENROUTER_MODEL,
         providerStatusCode: res.status,
-        openRouterRequestJson: requestJson,
         openRouterResponseJson: responseText || null,
         providerErrorBody: null,
         usagePromptTokens,
         usageCompletionTokens,
         usageTotalTokens,
+        providerCostUsd,
       }
     }
 
     throw new AIServiceError(`Invalid JSON from model after ${EXPLAIN_JSON_MAX_ATTEMPTS} attempts. Snippet: ${lastInvalidJsonSnippet}`, {
       model: OPENROUTER_MODEL,
       providerStatusCode: lastProviderStatusCode,
-      openRouterRequestJson: requestJson,
       openRouterResponseJson: lastResponseJson,
       providerErrorBody: null,
       usagePromptTokens: lastUsagePromptTokens,
       usageCompletionTokens: lastUsageCompletionTokens,
       usageTotalTokens: lastUsageTotalTokens,
+      providerCostUsd: lastProviderCostUsd,
     })
   }
 }

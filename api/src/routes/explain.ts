@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
+import { calculateAiChargeVnd, getBillingConfig } from '../config/billing'
 import { AIService, AIServiceError, OPENROUTER_MODEL } from '../services/ai.service'
 import { RequestLogService } from '../services/request-log.service'
+import { InsufficientBalanceError, WalletService } from '../services/wallet.service'
 import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
 
@@ -48,6 +50,22 @@ explain.get('/', async (c) => {
     )
   }
 
+  if (!db) {
+    return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
+  }
+
+  const wallet = new WalletService(db)
+  const balance = await wallet.getBalance(user.id)
+  const billingConfig = getBillingConfig(c.env)
+  if (balance.balanceVnd < billingConfig.minimumAiBalanceVnd) {
+    return c.json({
+      error: 'Wallet balance is too low',
+      code: 'WALLET_LOW_BALANCE',
+      balanceVnd: balance.balanceVnd,
+      minimumBalanceVnd: billingConfig.minimumAiBalanceVnd,
+    }, 402)
+  }
+
   if (!logger) {
     console.error('[explain] OpenRouter request log skipped: D1 binding "DB" is missing', {
       traceId,
@@ -59,11 +77,21 @@ explain.get('/', async (c) => {
 
   try {
     const result = await aiService.explainJapanese(query)
+    if (result.providerCostUsd == null) {
+      throw new Error('Billing error: OpenRouter response is missing usage.cost')
+    }
+
+    const chargeVnd = calculateAiChargeVnd(result.providerCostUsd, billingConfig)
+    if (chargeVnd == null) {
+      throw new Error('Billing error: invalid OpenRouter usage.cost')
+    }
+
+    let requestId: number | null = null
     if (logger) {
       try {
-        await logger.save({
+        requestId = await logger.save({
           query,
-          userId: user?.id ?? null,
+          userId: user.id,
           model: result.model,
           success: true,
           statusCode: result.providerStatusCode,
@@ -71,12 +99,13 @@ explain.get('/', async (c) => {
           errorMessage: null,
           clientIp,
           clientColo,
-          openRouterRequestJson: result.openRouterRequestJson,
           openRouterResponseJson: result.openRouterResponseJson,
           providerErrorBody: result.providerErrorBody,
           usagePromptTokens: result.usagePromptTokens,
           usageCompletionTokens: result.usageCompletionTokens,
           usageTotalTokens: result.usageTotalTokens,
+          providerCostUsd: result.providerCostUsd,
+          walletLedgerEntryId: null,
         })
       } catch (logErr) {
         console.error('[explain] Failed to persist successful OpenRouter request log', {
@@ -89,14 +118,38 @@ explain.get('/', async (c) => {
         })
       }
     }
+    const ledger = await wallet.createEntry({
+      userId: user.id,
+      entryType: 'ai_charge',
+      amountVnd: -chargeVnd,
+      openrouterRequestId: requestId,
+      providerCostUsd: result.providerCostUsd,
+      usdToVnd: billingConfig.usdToVnd,
+      markupMultiplier: billingConfig.markupMultiplier,
+      note: `OpenRouter ${result.model}`,
+    })
+    if (logger && requestId != null) {
+      await logger.attachWalletLedgerEntry(requestId, ledger.id)
+    }
     return c.json(result.payload)
   } catch (err: any) {
+    if (err instanceof InsufficientBalanceError) {
+      return c.json(
+        {
+          error: 'Wallet balance is insufficient for this AI request',
+          code: 'WALLET_INSUFFICIENT',
+          balanceVnd: err.balanceVnd,
+          requiredVnd: err.chargeVnd,
+        },
+        402,
+      )
+    }
     const aiErr = err instanceof AIServiceError ? err : null
     if (logger) {
       try {
         await logger.save({
           query,
-          userId: user?.id ?? null,
+          userId: user.id,
           model: aiErr?.model ?? OPENROUTER_MODEL,
           success: false,
           statusCode: aiErr?.providerStatusCode ?? null,
@@ -104,12 +157,13 @@ explain.get('/', async (c) => {
           errorMessage: err?.message ? String(err.message) : 'Unknown error',
           clientIp,
           clientColo,
-          openRouterRequestJson: aiErr?.openRouterRequestJson ?? null,
           openRouterResponseJson: aiErr?.openRouterResponseJson ?? null,
           providerErrorBody: aiErr?.providerErrorBody ?? null,
           usagePromptTokens: aiErr?.usagePromptTokens ?? null,
           usageCompletionTokens: aiErr?.usageCompletionTokens ?? null,
           usageTotalTokens: aiErr?.usageTotalTokens ?? null,
+          providerCostUsd: aiErr?.providerCostUsd ?? null,
+          walletLedgerEntryId: null,
         })
       } catch (logErr) {
         console.error('[explain] Failed to persist failed OpenRouter request log', {

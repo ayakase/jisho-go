@@ -1,0 +1,1 @@
+ALTER TABLE openrouter_requests DROP COLUMN openrouter_request_json;

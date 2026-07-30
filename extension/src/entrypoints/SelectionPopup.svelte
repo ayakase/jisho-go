@@ -413,6 +413,8 @@
           explainError =
             res.status === 401
               ? "Hay login de su dung"
+              : res.status === 402 && (data.code === "WALLET_LOW_BALANCE" || data.code === "WALLET_INSUFFICIENT")
+                ? "Số dư AI không đủ. Vui lòng nạp tiền trên trang tài khoản để tiếp tục sử dụng."
               : typeof data.detail === "string"
                 ? data.detail
                 : typeof data.error === "string"

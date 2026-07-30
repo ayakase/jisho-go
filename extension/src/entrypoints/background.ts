@@ -28,11 +28,23 @@ export function getWorker() {
 }
 
 export default defineBackground(() => {
+  function registerCaptureSelectionMenu() {
+    browser.contextMenus.remove("capture-selection", () => {
+      // Chrome reports an error when the menu does not exist yet; reading it consumes it.
+      void browser.runtime.lastError;
+      browser.contextMenus.create({
+        id: "capture-selection",
+        title: "Xử lý",
+        contexts: ["all"],
+      });
+    });
+  }
+
   async function startExtensionLogin(): Promise<ExtensionAuthSession> {
     const redirectUri = browser.identity.getRedirectURL("auth");
     const startUrl = new URL(`${getApiBase()}/auth/ext/start`);
     startUrl.searchParams.set("redirect_uri", redirectUri);
-    startUrl.searchParams.set("device_label", "Kanji Go Extension");
+    startUrl.searchParams.set("device_label", "Jisho Go Extension");
 
     const startRes = await fetch(startUrl.toString());
     if (!startRes.ok) {
@@ -71,7 +83,7 @@ export default defineBackground(() => {
         code,
         state,
         redirectUri,
-        deviceLabel: "Kanji Go Extension",
+        deviceLabel: "Jisho Go Extension",
       }),
     });
 
@@ -92,12 +104,7 @@ export default defineBackground(() => {
     return session;
   }
 
-  // create a menu item once the extension gets installed or loads
-  browser.contextMenus.create({
-    id: "capture-selection",
-    title: "Xử lý",
-    contexts: ["all"], // show on all right-click contexts
-  });
+  registerCaptureSelectionMenu();
 
   // listen for menu item clicks
   browser.contextMenus.onClicked.addListener((info, tab) => {

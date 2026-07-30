@@ -19,6 +19,16 @@ export type Bindings = {
   AUTH_WEB_ORIGIN?: string
   AUTH_SKIP_STATE_COOKIE_CHECK?: string
   AUTH_EXTENSION_ORIGIN?: string
+  PAYOS_CLIENT_ID?: string
+  PAYOS_API_KEY?: string
+  PAYOS_CHECKSUM_KEY?: string
+  PAYOS_WEBHOOK_URL?: string
+  PAYOS_RETURN_URL?: string
+  PAYOS_CANCEL_URL?: string
+  ADMIN_API_KEY?: string
+  OPENROUTER_USD_TO_VND?: string
+  OPENROUTER_MARKUP_MULTIPLIER?: string
+  AI_MINIMUM_BALANCE_VND?: string
 }
 
 export interface Vocabulary {
@@ -60,10 +70,11 @@ export interface OpenRouterRequestLog {
   error_message: string | null
   client_ip: string | null
   client_colo: string | null
-  openrouter_request_json: string | null
   openrouter_response_json: string | null
   provider_error_body: string | null
   usage_prompt_tokens: number | null
   usage_completion_tokens: number | null
   usage_total_tokens: number | null
+  provider_cost_usd: string | null
+  wallet_ledger_entry_id: number | null
 }
