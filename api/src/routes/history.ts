@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
+import { resolveCorsOrigin } from '../config/app'
 import { type SessionUser } from '../services/auth.service'
 import { RequestLogService } from '../services/request-log.service'
 import { Bindings } from '../types'
@@ -15,28 +16,10 @@ type HistoryEnv = {
 
 const history = new Hono<HistoryEnv>()
 
-function isExtensionOrigin(origin: string | undefined): boolean {
-  if (!origin) return false
-  return origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')
-}
-
 history.use(
   '*',
   cors({
-    origin: (origin, c) => {
-      const configuredOrigin = c.env.AUTH_WEB_ORIGIN?.trim()
-      const configuredExtensionOrigin = c.env.AUTH_EXTENSION_ORIGIN?.trim()
-      if (!configuredOrigin && !configuredExtensionOrigin) {
-        return origin || '*'
-      }
-      if (isExtensionOrigin(origin)) {
-        return origin
-      }
-      if (origin && (origin === configuredOrigin || origin === configuredExtensionOrigin)) {
-        return origin
-      }
-      return configuredOrigin || configuredExtensionOrigin || origin || '*'
-    },
+    origin: (origin) => resolveCorsOrigin(origin),
     credentials: true,
     allowMethods: ['GET', 'OPTIONS'],
     allowHeaders: ['Authorization', 'Content-Type'],

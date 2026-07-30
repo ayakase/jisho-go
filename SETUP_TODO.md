@@ -37,23 +37,14 @@ npx wrangler secret put PAYOS_API_KEY
 npx wrangler secret put PAYOS_CHECKSUM_KEY
 ```
 
-Set non-secret billing settings in the Worker environment:
-
-```txt
-OPENROUTER_USD_TO_VND=26000
-OPENROUTER_MARKUP_MULTIPLIER=3
-AI_MINIMUM_BALANCE_VND=100
-```
-
-Their purpose and defaults are documented in `api/src/config/billing.ts`.
+Non-secret settings, including the AI model, pricing, CORS, OAuth redirect, and PayOS return URLs, are in `api/src/config/app.ts`. Change that file and redeploy the Worker.
 
 ## 3. Configure PayOS
 
 1. Create PayOS credentials and place them in the environment above.
-2. Set `PAYOS_WEBHOOK_URL` to `https://<worker-host>/billing/payos/webhook`.
-3. Set `PAYOS_RETURN_URL` and `PAYOS_CANCEL_URL` to `https://<website-host>/account`.
-4. Register the same webhook URL in the PayOS dashboard.
-5. Make a sandbox payment and confirm that the wallet ledger receives one `topup` entry only.
+2. Register `https://<worker-host>/billing/payos/webhook` in the PayOS dashboard.
+3. Set an explicit return/cancel URL in `api/src/config/app.ts` only when the automatic request-origin fallback is not appropriate.
+4. Make a sandbox payment and confirm that the wallet ledger receives one `topup` entry only.
 
 The Account page creates the checkout link and opens PayOS. PayOS owns the QR display on that checkout page.
 
@@ -61,13 +52,12 @@ The Account page creates the checkout link and opens PayOS. PayOS owns the QR di
 
 1. Deploy the Worker: `cd api && npm run deploy`.
 2. Build/deploy the website with `PUBLIC_API_BASE_URL` pointing at the Worker.
-3. Configure `AUTH_WEB_ORIGIN` to the website origin and `AUTH_EXTENSION_ORIGIN` to the installed extension's origin when applicable.
+3. In `api/src/config/app.ts`, set `auth.websiteOrigin` and `auth.extensionOrigin` when production CORS should be locked to those origins. Leaving both blank keeps the request-origin fallback.
 4. Sign in, top up the wallet, then run an AI explanation from the extension.
 5. Confirm that the Account page shows the top-up and the later AI charge.
 
 ## Deferred work
 
-- Automated test suite for billing, OAuth and extension flows.
 - Production extension packaging/store submission.
 - CI/CD deployment pipeline.
 - Rewrite `website/README.md`, which is still the Astro starter README.

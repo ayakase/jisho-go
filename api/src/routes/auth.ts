@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { cors } from 'hono/cors'
+import { APP_CONFIG, isExtensionOrigin, resolveCorsOrigin, resolveGoogleRedirectUri, resolveWebOrigin } from '../config/app'
 import { Bindings } from '../types'
 import {
   createSession,
@@ -26,28 +27,10 @@ const auth = new Hono<{ Bindings: Bindings }>()
 const SESSION_COOKIE = 'kg_session'
 const STATE_COOKIE = 'kg_oauth_state'
 
-function isExtensionOrigin(origin: string | undefined): boolean {
-  if (!origin) return false
-  return origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')
-}
-
 auth.use(
   '*',
   cors({
-    origin: (origin, c) => {
-      const configuredOrigin = c.env.AUTH_WEB_ORIGIN?.trim()
-      const configuredExtensionOrigin = c.env.AUTH_EXTENSION_ORIGIN?.trim()
-      if (!configuredOrigin && !configuredExtensionOrigin) {
-        return origin || '*'
-      }
-      if (isExtensionOrigin(origin)) {
-        return origin
-      }
-      if (origin && (origin === configuredOrigin || origin === configuredExtensionOrigin)) {
-        return origin
-      }
-      return configuredOrigin || configuredExtensionOrigin || origin || '*'
-    },
+    origin: (origin) => resolveCorsOrigin(origin),
     credentials: true,
     allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
@@ -58,29 +41,7 @@ type AppContext = Context<{ Bindings: Bindings }>
 type CookieSameSite = 'Lax' | 'Strict' | 'None'
 
 function getWebOrigin(c: AppContext): string {
-  if (c.env.AUTH_WEB_ORIGIN?.trim()) {
-    return c.env.AUTH_WEB_ORIGIN.trim().replace(/\/$/, '')
-  }
-
-  const fromOrigin = c.req.header('Origin')
-  if (fromOrigin && !isExtensionOrigin(fromOrigin)) {
-    return fromOrigin.replace(/\/$/, '')
-  }
-
-  const fromReferer = c.req.header('Referer')
-  if (fromReferer) {
-    try {
-      const url = new URL(fromReferer)
-      const origin = `${url.protocol}//${url.host}`
-      if (!isExtensionOrigin(origin)) {
-        return origin
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  return 'http://localhost:4321'
+  return resolveWebOrigin(c.req.header('Origin'), c.req.header('Referer'))
 }
 
 function getRequestOrigin(c: AppContext): string | null {
@@ -117,12 +78,6 @@ function getSessionCookieSameSite(webOrigin: string, requestOrigin: string | nul
   return 'None'
 }
 
-function parseBooleanEnv(value: string | undefined): boolean {
-  if (!value) return false
-  const normalized = value.trim().toLowerCase()
-  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on'
-}
-
 function setAuthCookie(c: AppContext, token: string, expiresAt: Date, secure: boolean, sameSite: CookieSameSite) {
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
@@ -144,7 +99,7 @@ function clearAuthCookie(c: AppContext, secure: boolean, sameSite: CookieSameSit
 
 auth.get('/google/start', async (c) => {
   const clientId = c.env.GOOGLE_CLIENT_ID
-  const redirectUri = c.env.GOOGLE_REDIRECT_URI
+  const redirectUri = resolveGoogleRedirectUri(getRequestOrigin(c))
   const stateSecret = c.env.AUTH_COOKIE_SECRET
 
   if (!clientId || !redirectUri || !stateSecret) {
@@ -192,7 +147,7 @@ auth.get('/google/start', async (c) => {
 auth.get('/google/callback', async (c) => {
   const clientId = c.env.GOOGLE_CLIENT_ID
   const clientSecret = c.env.GOOGLE_CLIENT_SECRET
-  const redirectUri = c.env.GOOGLE_REDIRECT_URI
+  const redirectUri = resolveGoogleRedirectUri(getRequestOrigin(c))
   const stateSecret = c.env.AUTH_COOKIE_SECRET
   const db = c.env.DB
 
@@ -213,7 +168,7 @@ auth.get('/google/callback', async (c) => {
 
   const parsedState = await parseAndVerifyOAuthState(state, stateSecret)
   const cookieState = getCookie(c, STATE_COOKIE)
-  const skipStateCookieCheck = parseBooleanEnv(c.env.AUTH_SKIP_STATE_COOKIE_CHECK)
+  const skipStateCookieCheck = APP_CONFIG.auth.skipStateCookieCheck
 
   if (!parsedState) {
     return c.json({ error: 'Invalid OAuth state' }, 400)

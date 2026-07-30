@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
+import { resolveCorsOrigin, resolvePayOSUrls } from '../config/app'
 import { PayOSService } from '../services/payos.service'
 import { WalletService } from '../services/wallet.service'
 import { Bindings } from '../types'
@@ -8,21 +9,10 @@ import { getAuthenticatedUser } from '../utils/request-auth'
 
 const billing = new Hono<{ Bindings: Bindings }>()
 
-function isExtensionOrigin(origin: string | undefined): boolean {
-  return !!origin && (origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://'))
-}
-
 billing.use(
   '*',
   cors({
-    origin: (origin, c) => {
-      const webOrigin = c.env.AUTH_WEB_ORIGIN?.trim()
-      const extensionOrigin = c.env.AUTH_EXTENSION_ORIGIN?.trim()
-      if (!webOrigin && !extensionOrigin) return origin || '*'
-      if (isExtensionOrigin(origin)) return origin
-      if (origin && (origin === webOrigin || origin === extensionOrigin)) return origin
-      return webOrigin || extensionOrigin || origin || '*'
-    },
+    origin: (origin) => resolveCorsOrigin(origin),
     credentials: true,
     allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['Authorization', 'Content-Type'],
@@ -77,8 +67,7 @@ billing.post('/checkout', async (c) => {
   if (!payos) return c.json({ error: 'Missing PayOS configuration' }, 500)
   const orderCode = createOrderCode()
   const amountVnd = Number(selected.amount_vnd)
-  const returnUrl = c.env.PAYOS_RETURN_URL || c.env.AUTH_WEB_ORIGIN || 'http://localhost:4321/account'
-  const cancelUrl = c.env.PAYOS_CANCEL_URL || returnUrl
+  const { returnUrl, cancelUrl } = resolvePayOSUrls(c.req.header('Origin'))
   await db.prepare(`INSERT INTO payment_orders (user_id, product_code, order_code, amount_vnd, status) VALUES (?, ?, ?, ?, 'pending')`).bind(user.id, selected.code, orderCode, amountVnd).run()
   try {
     const payment = await payos.createPaymentLink({ orderCode, amount: amountVnd, description: `Jisho Go ${amountVnd} VND`, returnUrl, cancelUrl })

@@ -2,20 +2,10 @@
 OPENROUTER_API_KEY=<required>
 GOOGLE_CLIENT_ID=<required>
 GOOGLE_CLIENT_SECRET=<required>
-GOOGLE_REDIRECT_URI=http://localhost:8787/auth/google/callback
 AUTH_COOKIE_SECRET=<required>
-AUTH_WEB_ORIGIN=http://localhost:4321
-AUTH_EXTENSION_ORIGIN=
-
 # PayOS: keep these blank when billing is not being tested locally.
 PAYOS_CLIENT_ID=
 PAYOS_API_KEY=
 PAYOS_CHECKSUM_KEY=
-PAYOS_WEBHOOK_URL=
-PAYOS_RETURN_URL=http://localhost:4321/account
-PAYOS_CANCEL_URL=http://localhost:4321/account
 
-# Billing configuration. See src/config/billing.ts for the meaning of each value.
-OPENROUTER_USD_TO_VND=26000
-OPENROUTER_MARKUP_MULTIPLIER=3
-AI_MINIMUM_BALANCE_VND=100
+# Non-secret settings such as model, pricing, CORS and payment return URLs live in src/config/app.ts.

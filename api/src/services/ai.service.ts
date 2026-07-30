@@ -1,8 +1,9 @@
 import { EXPLAIN_JSON_MAX_ATTEMPTS, EXPLAIN_SYSTEM } from '../constants/prompts'
+import { APP_CONFIG } from '../config/app'
 import { ExplainResponse } from '../types'
 import { normalizeExplainPayload, parseJsonFromLLMContent } from '../utils/llm'
 
-export const OPENROUTER_MODEL = 'google/gemini-2.5-flash-lite'
+export const OPENROUTER_MODEL = APP_CONFIG.openRouter.model
 
 export type OpenRouterTraceDetails = {
   openRouterResponseJson: string | null

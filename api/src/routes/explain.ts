@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
-import { calculateAiChargeVnd, getBillingConfig } from '../config/billing'
+import { APP_CONFIG, calculateAiChargeVnd } from '../config/app'
 import { AIService, AIServiceError, OPENROUTER_MODEL } from '../services/ai.service'
 import { RequestLogService } from '../services/request-log.service'
 import { InsufficientBalanceError, WalletService } from '../services/wallet.service'
@@ -56,13 +56,12 @@ explain.get('/', async (c) => {
 
   const wallet = new WalletService(db)
   const balance = await wallet.getBalance(user.id)
-  const billingConfig = getBillingConfig(c.env)
-  if (balance.balanceVnd < billingConfig.minimumAiBalanceVnd) {
+  if (balance.balanceVnd < APP_CONFIG.openRouter.minimumBalanceVnd) {
     return c.json({
       error: 'Wallet balance is too low',
       code: 'WALLET_LOW_BALANCE',
       balanceVnd: balance.balanceVnd,
-      minimumBalanceVnd: billingConfig.minimumAiBalanceVnd,
+      minimumBalanceVnd: APP_CONFIG.openRouter.minimumBalanceVnd,
     }, 402)
   }
 
@@ -81,7 +80,7 @@ explain.get('/', async (c) => {
       throw new Error('Billing error: OpenRouter response is missing usage.cost')
     }
 
-    const chargeVnd = calculateAiChargeVnd(result.providerCostUsd, billingConfig)
+    const chargeVnd = calculateAiChargeVnd(result.providerCostUsd)
     if (chargeVnd == null) {
       throw new Error('Billing error: invalid OpenRouter usage.cost')
     }
@@ -124,8 +123,8 @@ explain.get('/', async (c) => {
       amountVnd: -chargeVnd,
       openrouterRequestId: requestId,
       providerCostUsd: result.providerCostUsd,
-      usdToVnd: billingConfig.usdToVnd,
-      markupMultiplier: billingConfig.markupMultiplier,
+      usdToVnd: APP_CONFIG.openRouter.usdToVnd,
+      markupMultiplier: APP_CONFIG.openRouter.markupMultiplier,
       note: `OpenRouter ${result.model}`,
     })
     if (logger && requestId != null) {

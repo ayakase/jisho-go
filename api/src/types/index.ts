@@ -14,21 +14,10 @@ export type Bindings = {
   DB?: D1DatabaseCompat
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
-  GOOGLE_REDIRECT_URI?: string
   AUTH_COOKIE_SECRET?: string
-  AUTH_WEB_ORIGIN?: string
-  AUTH_SKIP_STATE_COOKIE_CHECK?: string
-  AUTH_EXTENSION_ORIGIN?: string
   PAYOS_CLIENT_ID?: string
   PAYOS_API_KEY?: string
   PAYOS_CHECKSUM_KEY?: string
-  PAYOS_WEBHOOK_URL?: string
-  PAYOS_RETURN_URL?: string
-  PAYOS_CANCEL_URL?: string
-  ADMIN_API_KEY?: string
-  OPENROUTER_USD_TO_VND?: string
-  OPENROUTER_MARKUP_MULTIPLIER?: string
-  AI_MINIMUM_BALANCE_VND?: string
 }
 
 export interface Vocabulary {
