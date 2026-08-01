@@ -22,10 +22,13 @@ export const APP_CONFIG = {
     // Keep false outside narrowly scoped local OAuth debugging.
     skipStateCookieCheck: false,
   },
-  payos: {
-    // Leave blank to return users to <request website origin>/account after payment.
-    returnUrl: '',
-    cancelUrl: '',
+  sepay: {
+    // Public receiving account used to generate a QR after a user chooses a top-up package.
+    bank: 'BIDV',
+    accountNumber: '96247OW8RC',
+    accountHolder: 'DANG THAI AN',
+    // Each paid order has this prefix followed by its unique order code in the transfer content.
+    transferPrefix: 'JISHO',
   },
 } as const
 
@@ -58,14 +61,6 @@ export function resolveWebOrigin(origin: string | undefined, referer: string | u
     }
   }
   return 'http://localhost:4321'
-}
-
-export function resolvePayOSUrls(requestOrigin: string | undefined): { returnUrl: string; cancelUrl: string } {
-  const fallback = `${resolveWebOrigin(requestOrigin, undefined)}/account`
-  return {
-    returnUrl: APP_CONFIG.payos.returnUrl || fallback,
-    cancelUrl: APP_CONFIG.payos.cancelUrl || APP_CONFIG.payos.returnUrl || fallback,
-  }
 }
 
 export function calculateAiChargeVnd(providerCostUsd: string): number | null {

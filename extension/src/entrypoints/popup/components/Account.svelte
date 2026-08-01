@@ -3,7 +3,7 @@
 
   type WalletProduct = { code: string; amountVnd: number };
   type WalletEntry = { entryType: string; amountVnd: number; balanceAfterVnd: number; createdAt: string };
-  type WalletData = { balanceVnd: number; products: WalletProduct[]; entries: WalletEntry[] };
+  type WalletData = { balanceVnd: number; products: WalletProduct[]; entries: WalletEntry[]; transferContent: string; topupQrCode: string };
 
   const manualQrUrl = "https://vietqr.app/img?bank=BIDV&acc=96247OW8RC&template=compact&holder=DANG%20THAI%20AN";
   let authSession = $state<ExtensionAuthSession | null>(null);
@@ -174,15 +174,15 @@
     <div class="setting-item">
       <h3>Nạp tiền</h3>
       <div class="wallet-qr-card">
-        <img src={paymentQr || manualQrUrl} alt="QR nạp tiền BIDV" class="wallet-qr" />
-        <p>{paymentQr ? "QR PayOS đã được tạo. Hoàn tất thanh toán để số dư được cộng tự động." : "QR chuyển khoản thủ công chưa tự cộng số dư. Chọn gói bên dưới để tạo QR PayOS."}</p>
+        <img src={paymentQr || wallet?.topupQrCode || manualQrUrl} alt="QR nạp tiền BIDV" class="wallet-qr" />
+        <p>{paymentQr ? "QR SePay đã được tạo. Quét QR và giữ nguyên nội dung để số dư được cộng tự động." : `Quét QR và giữ nguyên nội dung ${wallet?.transferContent || "JISHO..."} để số dư được cộng tự động.`}</p>
       </div>
       <div class="wallet-products">
         {#each wallet?.products || [] as product}
           <button class="auth-button" onclick={() => startCheckout(product.code)} disabled={authActionLoading}>{formatVnd(product.amountVnd)}</button>
         {/each}
       </div>
-      {#if paymentLink}<a class="auth-button wallet-pay-link" href={paymentLink} target="_blank" rel="noreferrer">Mở PayOS</a>{/if}
+      {#if paymentLink}<a class="auth-button wallet-pay-link" href={paymentLink} target="_blank" rel="noreferrer">Mở QR nạp tiền</a>{/if}
     </div>
 
     <div class="setting-item">

@@ -15,9 +15,7 @@ export type Bindings = {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   AUTH_COOKIE_SECRET?: string
-  PAYOS_CLIENT_ID?: string
-  PAYOS_API_KEY?: string
-  PAYOS_CHECKSUM_KEY?: string
+  SEPAY_WEBHOOK_API_KEY?: string
 }
 
 export interface Vocabulary {

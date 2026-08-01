@@ -3,9 +3,7 @@ OPENROUTER_API_KEY=<required>
 GOOGLE_CLIENT_ID=<required>
 GOOGLE_CLIENT_SECRET=<required>
 AUTH_COOKIE_SECRET=<required>
-# PayOS: keep these blank when billing is not being tested locally.
-PAYOS_CLIENT_ID=
-PAYOS_API_KEY=
-PAYOS_CHECKSUM_KEY=
+# Set this to the API Key configured for the SePay webhook.
+SEPAY_WEBHOOK_API_KEY=
 
-# Non-secret settings such as model, pricing, CORS and payment return URLs live in src/config/app.ts.
+# Non-secret settings such as model, pricing, CORS and receiving bank details live in src/config/app.ts.

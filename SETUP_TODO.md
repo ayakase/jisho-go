@@ -20,6 +20,12 @@ For a local database, use `--local` instead of `--remote`.
 
 If this database was originally updated with `d1 execute` and has no `d1_migrations` table, do not run `migrations apply` blindly: it will try old migrations again. Apply only the required SQL files manually after inspecting the current schema.
 
+For the SePay reusable-QR flow, apply `0009` after `0007`:
+
+```sh
+npx wrangler d1 execute jisho-go --remote --file=./migrations/0009_sepay_transactions.sql
+```
+
 ## 2. Configure Worker environment
 
 For local development, copy `api/.dev.vars.example` to `api/.dev.vars` and fill in the required values.
@@ -32,21 +38,20 @@ npx wrangler secret put OPENROUTER_API_KEY
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put AUTH_COOKIE_SECRET
-npx wrangler secret put PAYOS_CLIENT_ID
-npx wrangler secret put PAYOS_API_KEY
-npx wrangler secret put PAYOS_CHECKSUM_KEY
+npx wrangler secret put SEPAY_WEBHOOK_API_KEY
 ```
 
-Non-secret settings, including the AI model, pricing, CORS, OAuth redirect, and PayOS return URLs, are in `api/src/config/app.ts`. Change that file and redeploy the Worker.
+Non-secret settings, including the AI model, pricing, CORS, OAuth redirect, and SePay receiving account, are in `api/src/config/app.ts`. Change that file and redeploy the Worker.
 
-## 3. Configure PayOS
+## 3. Configure SePay
 
-1. Create PayOS credentials and place them in the environment above.
-2. Register `https://<worker-host>/billing/payos/webhook` in the PayOS dashboard.
-3. Set an explicit return/cancel URL in `api/src/config/app.ts` only when the automatic request-origin fallback is not appropriate.
-4. Make a sandbox payment and confirm that the wallet ledger receives one `topup` entry only.
+1. Add the BIDV receiving account in SePay and create a webhook for the `Có tiền vào` event.
+2. Set its URL to `https://<worker-host>/billing/sepay/webhook`.
+3. Select API Key authentication in SePay and use the same value as `SEPAY_WEBHOOK_API_KEY`.
+4. Create a wallet top-up from the website/extension. Transfer exactly the QR amount and leave the displayed `JISHO...` transfer content unchanged. The same user transfer content is reusable and does not create a pending order.
+5. Confirm that the wallet ledger receives one `topup` entry only. SePay retries a webhook that does not receive a successful response.
 
-The Account page creates the checkout link and opens PayOS. PayOS owns the QR display on that checkout page.
+The wallet exposes a reusable QR with a user-specific transfer content. The checkout endpoint only creates a variant with the selected amount prefilled; neither flow creates a pending order.
 
 ## 4. Deploy and verify
 

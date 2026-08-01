@@ -63,6 +63,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
             <p id="wallet-product-empty" class="hidden mt-3 text-sm text-slate-500">Chưa có gói nạp khả dụng.</p>
             <div class="mt-4 flex flex-wrap items-center gap-4 border border-amber-200 bg-amber-50 p-3">
               <img
+                id="wallet-topup-qr"
                 src="https://vietqr.app/img?bank=BIDV&amp;acc=96247OW8RC&amp;template=compact&amp;holder=DANG%20THAI%20AN"
                 alt="QR chuyển khoản BIDV tới DANG THAI AN"
                 width="132"
@@ -71,7 +72,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
               />
               <div class="min-w-0 flex-1 text-sm text-amber-950">
                 <p class="font-semibold">Chuyển khoản thủ công (tạm thời)</p>
-                <p class="mt-1 text-xs leading-relaxed text-amber-900">QR này chưa thể tự cộng số dư. Dùng PayOS để nạp tự động khi cấu hình webhook hoàn tất.</p>
+                <p id="wallet-topup-qr-note" class="mt-1 text-xs leading-relaxed text-amber-900">Đang tải QR nạp tiền...</p>
               </div>
             </div>
           </div>
@@ -79,9 +80,9 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
 
         <div id="wallet-payment" class="hidden mt-5 border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
           <p class="font-semibold">Đơn thanh toán đã được tạo.</p>
-          <p class="mt-1 text-sky-800">Mở trang PayOS để quét QR hoặc chọn phương thức thanh toán. Số dư sẽ được cộng sau khi PayOS xác nhận.</p>
+          <p class="mt-1 text-sky-800">Quét QR SePay vừa tạo và giữ nguyên nội dung chuyển khoản. Số dư sẽ được cộng sau khi SePay xác nhận giao dịch.</p>
           <div class="mt-3 flex flex-wrap gap-2">
-            <a id="wallet-payment-link" class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-3 py-2 font-semibold text-white hover:bg-sky-800" target="_blank" rel="noopener noreferrer">Mở PayOS</a>
+            <a id="wallet-payment-link" class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-3 py-2 font-semibold text-white hover:bg-sky-800" target="_blank" rel="noopener noreferrer">Mở QR nạp tiền</a>
             <button id="wallet-payment-refresh" type="button" class="rounded-lg border border-sky-300 bg-white px-3 py-2 font-semibold text-sky-800 hover:bg-sky-100">Tải lại sau khi thanh toán</button>
           </div>
         </div>
@@ -170,6 +171,8 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     const walletPaymentEl = document.getElementById('wallet-payment');
     const walletPaymentLinkEl = document.getElementById('wallet-payment-link');
     const walletPaymentRefreshBtn = document.getElementById('wallet-payment-refresh');
+    const walletTopupQrEl = document.getElementById('wallet-topup-qr');
+    const walletTopupQrNoteEl = document.getElementById('wallet-topup-qr-note');
 
     const statsEl = document.getElementById('account-stats');
     const errorEl = document.getElementById('account-error');
@@ -302,6 +305,12 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
           throw new Error(typeof data?.error === 'string' ? data.error : 'Không tạo được đơn thanh toán.');
         }
         walletPaymentLinkEl.href = data.paymentLink;
+        if (typeof data?.qrCode === 'string' && data.qrCode) {
+          walletTopupQrEl.src = data.qrCode;
+        }
+        if (typeof data?.transferContent === 'string' && data.transferContent) {
+          walletTopupQrNoteEl.textContent = `Quét QR và giữ nguyên nội dung ${data.transferContent} để số dư được cộng tự động.`;
+        }
         walletPaymentEl.classList.remove('hidden');
       } catch (err) {
         showWalletError(err instanceof Error ? err.message : 'Không tạo được đơn thanh toán.');
@@ -313,6 +322,12 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
 
     function renderWallet(data) {
       walletBalanceEl.textContent = formatVnd(data?.balanceVnd);
+      if (typeof data?.topupQrCode === 'string' && data.topupQrCode) {
+        walletTopupQrEl.src = data.topupQrCode;
+      }
+      walletTopupQrNoteEl.textContent = data?.transferContent
+        ? `Quét QR và giữ nguyên nội dung ${data.transferContent} để số dư được cộng tự động.`
+        : 'Không tải được thông tin QR nạp tiền.';
       const products = Array.isArray(data?.products) ? data.products : [];
       walletProductsEl.innerHTML = products.map((product) => `
         <button type="button" data-product-code="${escapeHtml(product.code)}" class="border border-slate-200 bg-white px-3 py-3 text-left hover:border-emerald-400 hover:bg-emerald-50">

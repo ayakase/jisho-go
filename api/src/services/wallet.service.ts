@@ -25,6 +25,7 @@ type WalletEntryInput = {
   entryType: WalletLedgerEntry['entryType']
   amountVnd: number
   paymentOrderId?: number | null
+  sepayTransactionId?: number | null
   openrouterRequestId?: number | null
   providerCostUsd?: string | null
   usdToVnd?: number | null
@@ -76,8 +77,8 @@ export class WalletService {
       .prepare(
         `INSERT INTO wallet_ledger_entries (
           user_id, entry_type, amount_vnd, balance_after_vnd, payment_order_id,
-          openrouter_request_id, provider_cost_usd, usd_to_vnd, markup_multiplier, note
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          openrouter_request_id, sepay_transaction_id, provider_cost_usd, usd_to_vnd, markup_multiplier, note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING id`,
       )
       .bind(
@@ -87,6 +88,7 @@ export class WalletService {
         balanceAfterVnd,
         input.paymentOrderId ?? null,
         input.openrouterRequestId ?? null,
+        input.sepayTransactionId ?? null,
         input.providerCostUsd ?? null,
         input.usdToVnd ?? null,
         input.markupMultiplier ?? null,
