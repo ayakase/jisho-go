@@ -400,19 +400,24 @@
         const base =
           import.meta.env.WXT_API_URL?.replace(/\/$/, "") ??
           "http://localhost:8787";
-        const url = `${base}/explain?q=${encodeURIComponent(text.trim())}`;
+        const url = `${base}/explain`;
         const session = await getStoredSession();
         const headers = new Headers();
+        headers.set("Content-Type", "application/json");
         if (session?.accessToken) {
           headers.set("Authorization", `Bearer ${session.accessToken}`);
         }
-        const res = await fetch(url, { headers });
+        const res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ q: text.trim() }),
+        });
         const data = (await res.json()) as Record<string, unknown>;
         if (cancelled) return;
         if (!res.ok) {
           explainError =
             res.status === 401
-              ? "Hay login de su dung"
+              ? "Hãy đăng nhập để sử dụng Giải thích AI."
               : res.status === 402 && (data.code === "WALLET_LOW_BALANCE" || data.code === "WALLET_INSUFFICIENT")
                 ? "Số dư AI không đủ. Vui lòng nạp tiền trên trang tài khoản để tiếp tục sử dụng."
               : typeof data.detail === "string"

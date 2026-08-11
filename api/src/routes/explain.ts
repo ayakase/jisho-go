@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
 import { APP_CONFIG, calculateAiChargeVnd } from '../config/app'
@@ -9,19 +10,18 @@ import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
 
 const explain = new Hono<{ Bindings: Bindings }>()
+type ExplainContext = Context<{ Bindings: Bindings }>
 
 explain.use(
   '*',
   cors({
     origin: '*',
-    allowMethods: ['GET', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['Authorization', 'Content-Type'],
   }),
 )
 
-explain.get('/', async (c) => {
-  const query = c.req.query('q')
-
+async function handleExplain(c: ExplainContext, query: string | undefined) {
   if (!query) {
     return c.json({ error: 'Missing ?q=...' }, 400)
   }
@@ -184,6 +184,21 @@ explain.get('/', async (c) => {
       500,
     )
   }
+}
+
+explain.get('/', async (c) => {
+  return handleExplain(c, c.req.query('q'))
+})
+
+explain.post('/', async (c) => {
+  let body: { q?: string; query?: string } = {}
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
+
+  return handleExplain(c, body.q ?? body.query)
 })
 
 export default explain

@@ -1113,6 +1113,18 @@ window.addEventListener("message", (event) => {
 
     let startX = 0, startY = 0, rect: HTMLDivElement | null = null;
     let isDrawing = false;
+    const removeOverlay = () => {
+      if (document.body.contains(overlay)) {
+        document.body.removeChild(overlay);
+      }
+      document.removeEventListener("keydown", handleEscape);
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        removeOverlay();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
 
     overlay.onmousedown = (e) => {
       // Prevent creating multiple rectangles
@@ -1154,16 +1166,12 @@ window.addEventListener("message", (event) => {
       isDrawing = false;
 
       if (!rect) {
-        if (document.body.contains(overlay)) {
-          document.body.removeChild(overlay);
-        }
+        removeOverlay();
         return;
       }
       const rectBounds = rect.getBoundingClientRect();
       // Remove overlay immediately to prevent blocking
-      if (document.body.contains(overlay)) {
-        document.body.removeChild(overlay);
-      }
+      removeOverlay();
 
       // Capture the selected area
       try {
@@ -1193,34 +1201,15 @@ window.addEventListener("message", (event) => {
               /[^\u3040-\u30FF\u4E00-\u9FFF。、・！？ー ]/g,
               ""
             );
-            const compactJapanese = onlyJapanese.replace(/\s+/g, "");
-            if (compactJapanese.length > 0) {
-              showPopupNear(rectBounds, compactJapanese);
+            const normalizedJapanese = onlyJapanese.replace(/\s+/g, " ").trim();
+            if (normalizedJapanese.length > 0) {
+              showPopupNear(rectBounds, normalizedJapanese);
             }
           } catch (ocrError) {
             console.error("Content: OCR failed:", ocrError);
           } finally {
             setOcrLoading(false);
           }
-
-          // Show preview of captured image
-          const preview = document.createElement("img");
-          preview.src = response.imageDataUrl;
-          preview.style.position = "fixed";
-          preview.style.top = "10px";
-          preview.style.right = "10px";
-          preview.style.maxWidth = "300px";
-          preview.style.maxHeight = "300px";
-          preview.style.border = "2px solid red";
-          preview.style.zIndex = "999999";
-          document.body.appendChild(preview);
-
-          // Remove preview after 3 seconds
-          setTimeout(() => {
-            if (document.body.contains(preview)) {
-              document.body.removeChild(preview);
-            }
-          }, 3000);
         } else if (response && response.error) {
           console.error("Capture error from background:", response.error);
           alert("Failed to capture: " + response.error);
@@ -1231,10 +1220,5 @@ window.addEventListener("message", (event) => {
       }
     };
 
-    document.body.onkeydown = (e) => {
-      if (e.key === "Escape") {
-        document.body.removeChild(overlay);
-      }
-    };
   }
 });

@@ -15,10 +15,10 @@ export const APP_CONFIG = {
   },
   auth: {
     // Leave blank to use the requesting website origin. Set these to lock down CORS in production.
-    websiteOrigin: '',
-    extensionOrigin: '',
+    websiteOrigin: '' as string,
+    extensionOrigin: '' as string,
     // Leave blank to derive <Worker origin>/auth/google/callback.
-    googleRedirectUri: '',
+    googleRedirectUri: '' as string,
     // Keep false outside narrowly scoped local OAuth debugging.
     skipStateCookieCheck: false,
   },
