@@ -1,9 +1,8 @@
 import { EXPLAIN_JSON_MAX_ATTEMPTS, EXPLAIN_SYSTEM } from '../constants/prompts'
-import { APP_CONFIG } from '../config/app'
 import { ExplainResponse } from '../types'
 import { normalizeExplainPayload, parseJsonFromLLMContent } from '../utils/llm'
 
-export const OPENROUTER_MODEL = APP_CONFIG.openRouter.model
+export const OPENROUTER_MODEL = 'google/gemini-2.5-flash-lite'
 
 export type OpenRouterTraceDetails = {
   openRouterResponseJson: string | null
@@ -59,11 +58,11 @@ function decimalStringOrNull(value: unknown): string | null {
 }
 
 export class AIService {
-  constructor(private apiKey: string) {}
+  constructor(private apiKey: string, private model = OPENROUTER_MODEL) {}
 
   async explainJapanese(query: string): Promise<ExplainJapaneseResult> {
     const requestPayload = {
-      model: OPENROUTER_MODEL,
+      model: this.model,
       messages: [
         { role: 'system', content: EXPLAIN_SYSTEM },
         {
@@ -115,7 +114,7 @@ export class AIService {
       if (!res.ok) {
         const errBody = responseText || `HTTP ${res.status}`
         throw new AIServiceError(`API error: ${errBody}`, {
-          model: OPENROUTER_MODEL,
+          model: this.model,
           providerStatusCode: res.status,
           openRouterResponseJson: responseText || null,
           providerErrorBody: errBody,
@@ -130,7 +129,7 @@ export class AIService {
 
       if (typeof content !== 'string' || !content.trim()) {
         throw new AIServiceError('Empty model response', {
-          model: OPENROUTER_MODEL,
+          model: this.model,
           providerStatusCode: res.status,
           openRouterResponseJson: responseText || null,
           providerErrorBody: null,
@@ -151,7 +150,7 @@ export class AIService {
 
       return {
         payload: normalizeExplainPayload(parsed, query),
-        model: OPENROUTER_MODEL,
+        model: this.model,
         providerStatusCode: res.status,
         openRouterResponseJson: responseText || null,
         providerErrorBody: null,
@@ -163,7 +162,7 @@ export class AIService {
     }
 
     throw new AIServiceError(`Invalid JSON from model after ${EXPLAIN_JSON_MAX_ATTEMPTS} attempts. Snippet: ${lastInvalidJsonSnippet}`, {
-      model: OPENROUTER_MODEL,
+      model: this.model,
       providerStatusCode: lastProviderStatusCode,
       openRouterResponseJson: lastResponseJson,
       providerErrorBody: null,

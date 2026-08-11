@@ -1,5 +1,13 @@
-// This is the single source of truth for non-secret Worker settings.
-// Change a value here and redeploy the Worker. Credentials stay in Worker secrets/.dev.vars.
+// Defaults for non-secret Worker settings. Admin overrides are stored in D1 app_config.
+// Credentials stay in Worker secrets/.dev.vars.
+export type OpenRouterBillingConfig = {
+  model: string
+  usdToVnd: number
+  markupMultiplier: number
+  minimumBalanceVnd: number
+  minimumChargeVnd: number
+}
+
 export const APP_CONFIG = {
   openRouter: {
     // Current model. Other candidates: 'openai/gpt-5-mini' and 'openai/gpt-5-nano'.
@@ -12,7 +20,7 @@ export const APP_CONFIG = {
     minimumBalanceVnd: 100,
     // Floor applied to every successful AI request, even when the calculated amount is lower.
     minimumChargeVnd: 1,
-  },
+  } satisfies OpenRouterBillingConfig,
   auth: {
     // Leave blank to use the requesting website origin. Set these to lock down CORS in production.
     websiteOrigin: '' as string,
@@ -23,12 +31,8 @@ export const APP_CONFIG = {
     skipStateCookieCheck: false,
   },
   sepay: {
-    // Public receiving account used to generate a QR after a user chooses a top-up package.
-    bank: 'BIDV',
-    accountNumber: '96247OW8RC',
-    accountHolder: 'DANG THAI AN',
-    // Each paid order has this prefix followed by its unique order code in the transfer content.
-    transferPrefix: 'JISHO',
+    // Public VietQR base URL. The Worker adds the amount and user-specific transfer content.
+    qrCodeUrl: 'https://vietqr.app/img?bank=BIDV&acc=96247OW8RC&template=compact&showinfo=true&holder=DANG%20THAI%20AN',
   },
 } as const
 
@@ -63,11 +67,14 @@ export function resolveWebOrigin(origin: string | undefined, referer: string | u
   return 'http://localhost:4321'
 }
 
-export function calculateAiChargeVnd(providerCostUsd: string): number | null {
+export function calculateAiChargeVnd(
+  providerCostUsd: string,
+  config: Pick<OpenRouterBillingConfig, 'usdToVnd' | 'markupMultiplier' | 'minimumChargeVnd'> = APP_CONFIG.openRouter,
+): number | null {
   const providerCost = Number(providerCostUsd)
   if (!Number.isFinite(providerCost) || providerCost < 0) return null
 
-  const { usdToVnd, markupMultiplier, minimumChargeVnd } = APP_CONFIG.openRouter
+  const { usdToVnd, markupMultiplier, minimumChargeVnd } = config
   const calculated = Math.ceil(providerCost * usdToVnd * markupMultiplier)
   const chargeVnd = Math.max(minimumChargeVnd, calculated)
   return Number.isSafeInteger(chargeVnd) && chargeVnd >= 0 ? chargeVnd : null

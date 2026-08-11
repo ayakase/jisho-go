@@ -2,9 +2,10 @@ import { Hono } from 'hono'
 import type { Context } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
-import { APP_CONFIG, calculateAiChargeVnd } from '../config/app'
-import { AIService, AIServiceError, OPENROUTER_MODEL } from '../services/ai.service'
+import { calculateAiChargeVnd } from '../config/app'
+import { AIService, AIServiceError } from '../services/ai.service'
 import { RequestLogService } from '../services/request-log.service'
+import { getRuntimeConfig } from '../services/runtime-config.service'
 import { InsufficientBalanceError, WalletService } from '../services/wallet.service'
 import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
@@ -33,7 +34,6 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
   const queryPreview = query.length > 120 ? `${query.slice(0, 120)}...` : query
   const db = c.env.DB
   const logger = db ? new RequestLogService(db) : null
-  const aiService = new AIService(c.env.OPENROUTER_API_KEY)
   const user = db
     ? await getAuthenticatedUser(db, {
         sessionToken: getCookie(c, 'kg_session'),
@@ -54,14 +54,17 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
     return c.json({ error: 'D1 binding "DB" is not configured' }, 500)
   }
 
+  const runtimeConfig = await getRuntimeConfig(db)
+  const aiService = new AIService(c.env.OPENROUTER_API_KEY, runtimeConfig.aiBilling.model)
+
   const wallet = new WalletService(db)
   const balance = await wallet.getBalance(user.id)
-  if (balance.balanceVnd < APP_CONFIG.openRouter.minimumBalanceVnd) {
+  if (balance.balanceVnd < runtimeConfig.aiBilling.minimumBalanceVnd) {
     return c.json({
       error: 'Wallet balance is too low',
       code: 'WALLET_LOW_BALANCE',
       balanceVnd: balance.balanceVnd,
-      minimumBalanceVnd: APP_CONFIG.openRouter.minimumBalanceVnd,
+      minimumBalanceVnd: runtimeConfig.aiBilling.minimumBalanceVnd,
     }, 402)
   }
 
@@ -80,7 +83,7 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
       throw new Error('Billing error: OpenRouter response is missing usage.cost')
     }
 
-    const chargeVnd = calculateAiChargeVnd(result.providerCostUsd)
+    const chargeVnd = calculateAiChargeVnd(result.providerCostUsd, runtimeConfig.aiBilling)
     if (chargeVnd == null) {
       throw new Error('Billing error: invalid OpenRouter usage.cost')
     }
@@ -123,8 +126,8 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
       amountVnd: -chargeVnd,
       openrouterRequestId: requestId,
       providerCostUsd: result.providerCostUsd,
-      usdToVnd: APP_CONFIG.openRouter.usdToVnd,
-      markupMultiplier: APP_CONFIG.openRouter.markupMultiplier,
+      usdToVnd: runtimeConfig.aiBilling.usdToVnd,
+      markupMultiplier: runtimeConfig.aiBilling.markupMultiplier,
       note: `OpenRouter ${result.model}`,
     })
     if (logger && requestId != null) {
@@ -149,7 +152,7 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
         await logger.save({
           query,
           userId: user.id,
-          model: aiErr?.model ?? OPENROUTER_MODEL,
+          model: aiErr?.model ?? runtimeConfig.aiBilling.model,
           success: false,
           statusCode: aiErr?.providerStatusCode ?? null,
           durationMs: Date.now() - startedAt,

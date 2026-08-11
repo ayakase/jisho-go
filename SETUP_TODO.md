@@ -26,6 +26,18 @@ For the SePay reusable-QR flow, apply `0009` after `0007`:
 npx wrangler d1 execute jisho-go --remote --file=./migrations/0009_sepay_transactions.sql
 ```
 
+Apply the Admin console schema after `0009`:
+
+```sh
+npx wrangler d1 execute jisho-go --remote --file=./migrations/0010_admin_console.sql
+```
+
+Then grant the first owner role. Replace `OWNER_EMAIL` with the Google email that has already logged into Jisho Go:
+
+```sh
+npx wrangler d1 execute jisho-go --remote --command="INSERT INTO user_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'OWNER_EMAIL' AND r.code = 'owner';"
+```
+
 ## 2. Configure Worker environment
 
 For local development, copy `api/.dev.vars.example` to `api/.dev.vars` and fill in the required values.
@@ -41,7 +53,7 @@ npx wrangler secret put AUTH_COOKIE_SECRET
 npx wrangler secret put SEPAY_WEBHOOK_API_KEY
 ```
 
-Non-secret settings, including the AI model, pricing, CORS, OAuth redirect, and SePay receiving account, are in `api/src/config/app.ts`. Change that file and redeploy the Worker.
+The Admin console (`/admin`) can update non-secret AI billing and the base VietQR URL at runtime. Initial defaults remain in `api/src/config/app.ts`. CORS and OAuth settings intentionally remain source configuration because they are security-sensitive.
 
 ## 3. Configure SePay
 
@@ -60,6 +72,7 @@ The wallet exposes a reusable QR with a user-specific transfer content. The chec
 3. In `api/src/config/app.ts`, set `auth.websiteOrigin` and `auth.extensionOrigin` when production CORS should be locked to those origins. Leaving both blank keeps the request-origin fallback.
 4. Sign in, top up the wallet, then run an AI explanation from the extension.
 5. Confirm that the Account page shows the top-up and the later AI charge.
+6. Open `/admin` as the owner and verify the dashboard, logs, wallet adjustment, SePay transactions, and runtime config.
 
 ## Deferred work
 

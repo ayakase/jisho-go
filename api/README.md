@@ -31,7 +31,7 @@ the user's reusable transfer content. The API derives the user ID from the signe
 `GET /billing/wallet` returns the current authenticated user's VND balance, available
 products, and ledger entries. A successful AI response is charged
 `ceil(usage.cost × usdToVnd × markupMultiplier)`, subject to the minimum charge.
-Model, pricing, CORS, OAuth redirect and SePay receiving-account settings are in `src/config/app.ts`.
+Model, pricing, CORS, OAuth redirect and the default VietQR URL are in `src/config/app.ts`.
 
 [For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
 

@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
-import { APP_CONFIG, resolveCorsOrigin } from '../config/app'
+import { resolveCorsOrigin } from '../config/app'
+import { getRuntimeConfig, type SePayConfig } from '../services/runtime-config.service'
 import { WalletService } from '../services/wallet.service'
 import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
@@ -18,17 +19,14 @@ billing.use(
   }),
 )
 
-function createSePayQrUrl(transferContent: string, amountVnd?: number): string {
-  const { bank, accountNumber, accountHolder } = APP_CONFIG.sepay
-  const params = new URLSearchParams({
-    bank,
-    acc: accountNumber,
-    template: 'compact',
-    addInfo: transferContent,
-    holder: accountHolder,
-  })
-  if (amountVnd != null) params.set('amount', String(amountVnd))
-  return `https://vietqr.app/img?${params.toString()}`
+const TRANSFER_PREFIX = 'JISHO'
+
+function createSePayQrUrl(config: SePayConfig, transferContent: string, amountVnd?: number): string {
+  const url = new URL(config.qrCodeUrl)
+  url.searchParams.set('addInfo', transferContent)
+  if (amountVnd != null) url.searchParams.set('amount', String(amountVnd))
+  else url.searchParams.delete('amount')
+  return url.toString()
 }
 
 function hasValidSePayApiKey(authorization: string | undefined, apiKey: string | undefined): boolean {
@@ -36,7 +34,7 @@ function hasValidSePayApiKey(authorization: string | undefined, apiKey: string |
 }
 
 function transferContentForUser(userId: number): string {
-  return `${APP_CONFIG.sepay.transferPrefix}${userId}`
+  return `${TRANSFER_PREFIX}${userId}`
 }
 
 billing.get('/wallet', async (c) => {
@@ -45,6 +43,7 @@ billing.get('/wallet', async (c) => {
   const user = await getAuthenticatedUser(db, { sessionToken: getCookie(c, 'kg_session'), authorizationHeader: c.req.header('Authorization') })
   if (!user) return c.json({ error: 'Unauthorized' }, 401)
   const wallet = new WalletService(db)
+  const runtimeConfig = await getRuntimeConfig(db)
   const transferContent = transferContentForUser(user.id)
   const [balance, entries, products] = await Promise.all([
     wallet.getBalance(user.id),
@@ -54,7 +53,7 @@ billing.get('/wallet', async (c) => {
   return c.json({
     ...balance,
     transferContent,
-    topupQrCode: createSePayQrUrl(transferContent),
+    topupQrCode: createSePayQrUrl(runtimeConfig.sepay, transferContent),
     entries,
     products: (products.results ?? []).map((product) => ({ code: String(product.code), amountVnd: Number(product.amount_vnd) })),
   })
@@ -78,9 +77,10 @@ billing.post('/checkout', async (c) => {
   const selected = product.results?.[0]
   if (!selected) return c.json({ error: 'Unknown or inactive product' }, 404)
   const amountVnd = Number(selected.amount_vnd)
+  const runtimeConfig = await getRuntimeConfig(db)
   const transferContent = transferContentForUser(user.id)
-  const qrCode = createSePayQrUrl(transferContent, amountVnd)
-  return c.json({ amountVnd, transferContent, paymentLink: qrCode, qrCode }, 201)
+  const qrCode = createSePayQrUrl(runtimeConfig.sepay, transferContent, amountVnd)
+  return c.json({ amountVnd, transferContent, qrCode }, 201)
 })
 
 billing.post('/sepay/webhook', async (c) => {
@@ -100,7 +100,8 @@ billing.post('/sepay/webhook', async (c) => {
   const amount = Number(body.transferAmount)
   const content = typeof body.content === 'string' ? body.content.toUpperCase() : ''
   const referenceCode = typeof body.referenceCode === 'string' ? body.referenceCode.trim() : ''
-  const prefix = APP_CONFIG.sepay.transferPrefix.toUpperCase()
+  const runtimeConfig = await getRuntimeConfig(db)
+  const prefix = TRANSFER_PREFIX
   const userMatch = content.match(new RegExp(`\\b${prefix}(\\d+)\\b`))
   const userId = Number(userMatch?.[1])
   if (!referenceCode || !Number.isSafeInteger(userId) || !Number.isSafeInteger(amount) || amount <= 0) {

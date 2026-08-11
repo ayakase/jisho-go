@@ -239,7 +239,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
       });
     }
 
-    function renderUser(user) {
+    function renderUser(user, roles = []) {
       const name = escapeHtml(user.display_name || user.email);
       const email = escapeHtml(user.email || '');
       const avatar = user.avatar_url ? escapeHtml(user.avatar_url) : null;
@@ -251,6 +251,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
         <div>
           <p class="text-sm font-semibold text-slate-900">${name}</p>
           <p class="text-xs text-slate-500">${email}</p>
+          ${Array.isArray(roles) && roles.length ? '<a href="/admin" class="mt-1 inline-block text-xs font-semibold text-sky-700 hover:underline">Mở Admin console</a>' : ''}
         </div>
       `;
     }
@@ -301,10 +302,10 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
           body: JSON.stringify({ productCode }),
         });
         const data = await res.json();
-        if (!res.ok || !data?.paymentLink) {
+        if (!res.ok || !data?.qrCode) {
           throw new Error(typeof data?.error === 'string' ? data.error : 'Không tạo được đơn thanh toán.');
         }
-        walletPaymentLinkEl.href = data.paymentLink;
+        walletPaymentLinkEl.href = data.qrCode;
         if (typeof data?.qrCode === 'string' && data.qrCode) {
           walletTopupQrEl.src = data.qrCode;
         }
@@ -381,7 +382,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
         return null;
       }
 
-      return data.user;
+      return data;
     }
 
     function updateHistoryPagination(total) {
@@ -504,10 +505,11 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     historyNextBtn?.addEventListener('click', () => loadHistory(historyPage + 1));
 
     (async () => {
-      const user = await requireAuth();
-      if (!user) return;
+      const auth = await requireAuth();
+      if (!auth) return;
+      const user = auth.user;
 
-      renderUser(user);
+      renderUser(user, auth.roles);
       logoutBtn?.classList.remove('hidden');
       walletSectionEl?.classList.remove('hidden');
       historySectionEl?.classList.remove('hidden');

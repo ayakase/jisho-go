@@ -3,6 +3,7 @@ import type { Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { cors } from 'hono/cors'
 import { APP_CONFIG, isExtensionOrigin, resolveCorsOrigin, resolveGoogleRedirectUri, resolveWebOrigin } from '../config/app'
+import { getUserRoles } from '../services/admin.service'
 import { Bindings } from '../types'
 import {
   createSession,
@@ -269,7 +270,7 @@ auth.get('/me', async (c) => {
     })
   }
 
-  return c.json({ user })
+  return c.json({ user, roles: await getUserRoles(db, user.id) })
 })
 
 auth.post('/logout', async (c) => {
