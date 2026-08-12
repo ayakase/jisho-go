@@ -58,12 +58,17 @@ admin.get('/overview', async (c) => {
   const db = getDb(c.env.DB!)
   const [userTotals, wallet, requests, payments] = await Promise.all([
     db.select({ total: count() }).from(users),
-    db.select({ total: sql<number>`COALESCE(SUM(${walletLedgerEntries.amountVnd}), 0)`, entries: count() }).from(walletLedgerEntries),
+    db.select({
+      total: sql<number>`COALESCE(SUM(${walletLedgerEntries.amountVnd}), 0)`,
+      topup: sql<number>`COALESCE(SUM(CASE WHEN ${walletLedgerEntries.amountVnd} > 0 THEN ${walletLedgerEntries.amountVnd} ELSE 0 END), 0)`,
+      aiSpent: sql<number>`COALESCE(SUM(CASE WHEN ${walletLedgerEntries.amountVnd} < 0 THEN -${walletLedgerEntries.amountVnd} ELSE 0 END), 0)`,
+      entries: count(),
+    }).from(walletLedgerEntries),
     db.select({ total: count(), successful: sql<number>`COALESCE(SUM(CASE WHEN ${openrouterRequests.success} THEN 1 ELSE 0 END), 0)` }).from(openrouterRequests),
     db.select({ total: count(), amount: sql<number>`COALESCE(SUM(${sepayTransactions.amountVnd}), 0)` }).from(sepayTransactions),
   ])
   return c.json({
-    users: userTotals[0]?.total ?? 0, walletBalanceVnd: Number(wallet[0]?.total ?? 0), walletEntries: wallet[0]?.entries ?? 0,
+    users: userTotals[0]?.total ?? 0, walletBalanceVnd: Number(wallet[0]?.total ?? 0), walletTopupVnd: Number(wallet[0]?.topup ?? 0), walletAiSpentVnd: Number(wallet[0]?.aiSpent ?? 0), walletEntries: wallet[0]?.entries ?? 0,
     requests: requests[0]?.total ?? 0, successfulRequests: Number(requests[0]?.successful ?? 0), sepayTransactions: payments[0]?.total ?? 0, sepayTopupVnd: Number(payments[0]?.amount ?? 0),
   })
 })
@@ -74,8 +79,17 @@ admin.get('/users', async (c) => {
   const offset = parseOffset(c.req.query('offset'))
   const search = c.req.query('search')?.trim() ?? ''
   const condition = search ? or(like(users.email, `%${search}%`), like(users.displayName, `%${search}%`)) : undefined
-  const rows = await db.select({ id: users.id, email: users.email, displayName: users.displayName, createdAt: users.createdAt, balanceVnd: sql<number>`COALESCE(SUM(${walletLedgerEntries.amountVnd}), 0)`, roles: sql<string | null>`GROUP_CONCAT(DISTINCT ${rolesTable.code})` }).from(users).leftJoin(walletLedgerEntries, eq(walletLedgerEntries.userId, users.id)).leftJoin(userRoles, eq(userRoles.userId, users.id)).leftJoin(rolesTable, eq(rolesTable.id, userRoles.roleId)).where(condition).groupBy(users.id).orderBy(desc(users.id)).limit(limit).offset(offset)
-  return c.json({ items: rows.map((row) => ({ ...row, balanceVnd: Number(row.balanceVnd), roles: row.roles ? row.roles.split(',') : [] })), limit, offset })
+  const rows = await db.select({
+    id: users.id,
+    email: users.email,
+    displayName: users.displayName,
+    createdAt: users.createdAt,
+    balanceVnd: sql<number>`COALESCE((SELECT SUM(amount_vnd) FROM wallet_ledger_entries WHERE user_id = ${users.id}), 0)`,
+    topupVnd: sql<number>`COALESCE((SELECT SUM(amount_vnd) FROM wallet_ledger_entries WHERE user_id = ${users.id} AND amount_vnd > 0), 0)`,
+    aiSpentVnd: sql<number>`COALESCE((SELECT SUM(-amount_vnd) FROM wallet_ledger_entries WHERE user_id = ${users.id} AND amount_vnd < 0), 0)`,
+    roles: sql<string | null>`GROUP_CONCAT(DISTINCT ${rolesTable.code})`,
+  }).from(users).leftJoin(userRoles, eq(userRoles.userId, users.id)).leftJoin(rolesTable, eq(rolesTable.id, userRoles.roleId)).where(condition).groupBy(users.id).orderBy(desc(users.id)).limit(limit).offset(offset)
+  return c.json({ items: rows.map((row) => ({ ...row, balanceVnd: Number(row.balanceVnd), topupVnd: Number(row.topupVnd), aiSpentVnd: Number(row.aiSpentVnd), roles: row.roles ? row.roles.split(',') : [] })), limit, offset })
 })
 
 admin.get('/users/:id/wallet', async (c) => {

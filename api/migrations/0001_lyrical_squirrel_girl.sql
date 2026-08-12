@@ -1,0 +1,1 @@
+ALTER TABLE `openrouter_requests` ADD `source_url` text;

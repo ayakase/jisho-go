@@ -44,6 +44,7 @@ export interface OpenRouterRequestLog {
   status_code: number | null
   duration_ms: number
   error_message: string | null
+  source_url: string | null
   client_ip: string | null
   client_colo: string | null
   openrouter_response_json: string | null

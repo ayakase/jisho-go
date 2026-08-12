@@ -102,6 +102,10 @@
   });
   let isPositionLoaded = $state(false);
 
+  function isExtensionContextInvalidated(error: unknown): boolean {
+    return error instanceof Error && error.message.includes("Extension context invalidated");
+  }
+
   (async () => {
     try {
       const mode = await storage.getItem<"highlight" | "remember" | "static">(
@@ -127,7 +131,9 @@
         }
       }
     } catch (e) {
-      console.error("Failed to load position config:", e);
+      if (!isExtensionContextInvalidated(e)) {
+        console.error("Failed to load position config:", e);
+      }
     } finally {
       isPositionLoaded = true;
     }
@@ -177,9 +183,13 @@
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
       if (positionMode === "remember") {
-        storage.setItem("local:popupRememberPosition", {
+        void storage.setItem("local:popupRememberPosition", {
           left: popupLeft,
           top: popupTop,
+        }).catch((error) => {
+          if (!isExtensionContextInvalidated(error)) {
+            console.error("Failed to save popup position:", error);
+          }
         });
       }
     };
@@ -288,36 +298,40 @@
         showRomaji = stored;
       }
     } catch (error) {
-      console.error("Failed to load romaji setting:", error);
+      if (!isExtensionContextInvalidated(error)) {
+        console.error("Failed to load romaji setting:", error);
+      }
     }
   })();
 
   $effect(() => {
-    const unwatchRomaji = storage.watch<boolean>(
-      "local:showRomaji",
-      (newMode) => {
+    let unwatchRomaji: (() => void) | undefined;
+    let unwatchPosition: (() => void) | undefined;
+    let unwatchStatic: (() => void) | undefined;
+
+    try {
+      unwatchRomaji = storage.watch<boolean>("local:showRomaji", (newMode) => {
         showRomaji = newMode ?? false;
-      },
-    );
-
-    const unwatchPosition = storage.watch<"highlight" | "remember" | "static">(
-      "local:popupPositionMode",
-      (newMode) => {
-        if (newMode) positionMode = newMode;
-      },
-    );
-
-    const unwatchStatic = storage.watch<any>(
-      "local:popupStaticConfig",
-      (newConfig) => {
+      });
+      unwatchPosition = storage.watch<"highlight" | "remember" | "static">(
+        "local:popupPositionMode",
+        (newMode) => {
+          if (newMode) positionMode = newMode;
+        },
+      );
+      unwatchStatic = storage.watch<any>("local:popupStaticConfig", (newConfig) => {
         if (newConfig) staticConfig = newConfig;
-      },
-    );
+      });
+    } catch (error) {
+      if (!isExtensionContextInvalidated(error)) {
+        console.error("Failed to watch popup settings:", error);
+      }
+    }
 
     return () => {
-      unwatchRomaji();
-      unwatchPosition();
-      unwatchStatic();
+      unwatchRomaji?.();
+      unwatchPosition?.();
+      unwatchStatic?.();
     };
   });
 
@@ -410,7 +424,7 @@
         const res = await fetch(url, {
           method: "POST",
           headers,
-          body: JSON.stringify({ q: text.trim() }),
+          body: JSON.stringify({ q: text.trim(), sourceUrl: window.location.href }),
         });
         const data = (await res.json()) as Record<string, unknown>;
         if (cancelled) return;

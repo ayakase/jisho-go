@@ -33,7 +33,7 @@ export const extensionWebLoginTokens = sqliteTable('extension_web_login_tokens',
 export const openrouterRequests = sqliteTable('openrouter_requests', {
   id: integer('id').primaryKey({ autoIncrement: true }), createdAt: timestamp(), query: text('query').notNull(),
   userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }), model: text('model').notNull(), success: integer('success', { mode: 'boolean' }).notNull(),
-  statusCode: integer('status_code'), durationMs: integer('duration_ms').notNull(), errorMessage: text('error_message'), clientIp: text('client_ip'), clientColo: text('client_colo'),
+  statusCode: integer('status_code'), durationMs: integer('duration_ms').notNull(), errorMessage: text('error_message'), sourceUrl: text('source_url'), clientIp: text('client_ip'), clientColo: text('client_colo'),
   openrouterResponseJson: text('openrouter_response_json'), providerErrorBody: text('provider_error_body'), usagePromptTokens: integer('usage_prompt_tokens'), usageCompletionTokens: integer('usage_completion_tokens'), usageTotalTokens: integer('usage_total_tokens'), providerCostUsd: text('provider_cost_usd'), walletLedgerEntryId: integer('wallet_ledger_entry_id'),
 }, (table) => [index('idx_openrouter_requests_created_at').on(table.createdAt), index('idx_openrouter_requests_user_id').on(table.userId), index('idx_openrouter_requests_wallet_ledger_entry_id').on(table.walletLedgerEntryId)])
 

@@ -22,6 +22,7 @@ type PublicHistoryEntry = {
   created_at: string
   query: string
   success: boolean
+  source_url: string | null
   lesson: ExplainResponse | null
 }
 
@@ -44,6 +45,7 @@ function toPublicHistoryEntry(entry: OpenRouterRequestLog): PublicHistoryEntry {
     created_at: entry.created_at,
     query: entry.query,
     success: entry.success,
+    source_url: entry.source_url,
     lesson: extractLesson(entry),
   }
 }

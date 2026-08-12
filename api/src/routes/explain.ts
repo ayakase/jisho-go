@@ -22,7 +22,21 @@ explain.use(
   }),
 )
 
-async function handleExplain(c: ExplainContext, query: string | undefined) {
+function normalizeSourceUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length > 2_000) return null
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    url.username = ''
+    url.password = ''
+    url.hash = ''
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+async function handleExplain(c: ExplainContext, query: string | undefined, sourceUrl: string | null) {
   if (!query) {
     return c.json({ error: 'Missing ?q=...' }, 400)
   }
@@ -99,6 +113,7 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
           statusCode: result.providerStatusCode,
           durationMs: Date.now() - startedAt,
           errorMessage: null,
+          sourceUrl,
           clientIp,
           clientColo,
           openRouterResponseJson: result.openRouterResponseJson,
@@ -157,6 +172,7 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
           statusCode: aiErr?.providerStatusCode ?? null,
           durationMs: Date.now() - startedAt,
           errorMessage: err?.message ? String(err.message) : 'Unknown error',
+          sourceUrl,
           clientIp,
           clientColo,
           openRouterResponseJson: aiErr?.openRouterResponseJson ?? null,
@@ -190,18 +206,18 @@ async function handleExplain(c: ExplainContext, query: string | undefined) {
 }
 
 explain.get('/', async (c) => {
-  return handleExplain(c, c.req.query('q'))
+  return handleExplain(c, c.req.query('q'), normalizeSourceUrl(c.req.query('sourceUrl')))
 })
 
 explain.post('/', async (c) => {
-  let body: { q?: string; query?: string } = {}
+  let body: { q?: string; query?: string; sourceUrl?: unknown } = {}
   try {
     body = await c.req.json()
   } catch {
     return c.json({ error: 'Invalid JSON body' }, 400)
   }
 
-  return handleExplain(c, body.q ?? body.query)
+  return handleExplain(c, body.q ?? body.query, normalizeSourceUrl(body.sourceUrl))
 })
 
 export default explain
