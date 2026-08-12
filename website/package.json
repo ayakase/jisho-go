@@ -1,5 +1,6 @@
 {
   "name": "website",
+  "packageManager": "yarn@1.22.22",
   "type": "module",
   "version": "0.0.1",
   "engines": {

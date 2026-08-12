@@ -56,11 +56,10 @@ yarn build
 WXT_API_URL=http://localhost:8787
 ```
 
-- Run auth migrations locally before testing login:
+- Apply API migrations locally before testing login:
 
 ```bash
-npx wrangler d1 execute jisho-go --local --file=./migrations/0003_auth_users_sessions.sql
-npx wrangler d1 execute jisho-go --local --file=./migrations/0004_extension_sessions.sql
+cd ../api && yarn db:migrate:local
 ```
 
 - Add the extension redirect URI from `browser.identity.getRedirectURL("auth")` to Google Cloud Console.

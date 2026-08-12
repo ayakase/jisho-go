@@ -1,5 +1,4 @@
 import { getUserByExtensionToken, getUserBySessionToken, type SessionUser } from '../services/auth.service'
-import { D1DatabaseCompat } from '../types'
 
 const EXTENSION_BEARER_PREFIX = 'Bearer '
 
@@ -13,7 +12,7 @@ export function getAuthorizationBearerToken(authHeader: string | undefined): str
 }
 
 export async function getAuthenticatedUser(
-  db: D1DatabaseCompat,
+  db: D1Database,
   params: {
     sessionToken?: string | null
     authorizationHeader?: string

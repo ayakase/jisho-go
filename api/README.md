@@ -1,19 +1,28 @@
 ```txt
-npm install
-npm run dev
+yarn install
+yarn dev
 ```
 
 ```txt
-npm run deploy
+yarn deploy
 ```
 
 ## Billing (SePay)
 
-Apply D1 migrations before deploying the billing code. Migration `0007_wallet_billing.sql`
-creates the VND wallet ledger and the three top-up products:
-`topup_20k`, `topup_50k`, and `topup_100k`.
-Migration `0009_sepay_transactions.sql` records SePay `referenceCode` values so a
-retried webhook cannot credit the wallet twice.
+The API uses Drizzle ORM with Cloudflare D1. `src/db/schema.ts` is the schema source
+of truth; Drizzle Kit generates SQL in `migrations/`, which Wrangler applies and
+records in D1's `d1_migrations` table.
+
+```sh
+# After changing src/db/schema.ts
+yarn db:generate
+yarn db:migrate:local
+yarn db:migrate:remote
+```
+
+The initial migration creates the VND wallet ledger, top-up products, roles, runtime
+config, and SePay transaction table. SePay `referenceCode` values prevent retried
+webhooks from crediting a wallet twice.
 
 Configure these Worker secrets (never commit their values):
 
@@ -36,7 +45,7 @@ Model, pricing, CORS, OAuth redirect and the default VietQR URL are in `src/conf
 [For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
 
 ```txt
-npm run cf-typegen
+yarn cf-typegen
 ```
 
 Pass the `CloudflareBindings` as generics when instantiation `Hono`:

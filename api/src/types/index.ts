@@ -1,17 +1,6 @@
-export type D1PreparedStatement = {
-  bind: (...values: unknown[]) => D1PreparedStatement
-  run: () => Promise<unknown>
-  all: <T = unknown>() => Promise<{ results?: T[] }>
-}
-
-export type D1DatabaseCompat = {
-  prepare: (query: string) => D1PreparedStatement
-  exec: (query: string) => Promise<unknown>
-}
-
 export type Bindings = {
   OPENROUTER_API_KEY: string
-  DB?: D1DatabaseCompat
+  DB?: D1Database
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   AUTH_COOKIE_SECRET?: string

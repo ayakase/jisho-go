@@ -4,6 +4,9 @@ import { getCookie } from 'hono/cookie'
 import { resolveCorsOrigin } from '../config/app'
 import { getRuntimeConfig, type SePayConfig } from '../services/runtime-config.service'
 import { WalletService } from '../services/wallet.service'
+import { and, eq } from 'drizzle-orm'
+import { getDb } from '../db'
+import { paymentProducts, sepayTransactions, users, walletLedgerEntries } from '../db/schema'
 import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
 
@@ -45,17 +48,18 @@ billing.get('/wallet', async (c) => {
   const wallet = new WalletService(db)
   const runtimeConfig = await getRuntimeConfig(db)
   const transferContent = transferContentForUser(user.id)
+  const orm = getDb(db)
   const [balance, entries, products] = await Promise.all([
     wallet.getBalance(user.id),
     wallet.listEntries(user.id),
-    db.prepare('SELECT code, amount_vnd FROM payment_products WHERE active = 1 ORDER BY amount_vnd ASC').all<{ code: string; amount_vnd: number }>(),
+    orm.select().from(paymentProducts).where(eq(paymentProducts.active, true)).orderBy(paymentProducts.amountVnd),
   ])
   return c.json({
     ...balance,
     transferContent,
     topupQrCode: createSePayQrUrl(runtimeConfig.sepay, transferContent),
     entries,
-    products: (products.results ?? []).map((product) => ({ code: String(product.code), amountVnd: Number(product.amount_vnd) })),
+    products: products.map((product) => ({ code: product.code, amountVnd: product.amountVnd })),
   })
 })
 
@@ -73,10 +77,9 @@ billing.post('/checkout', async (c) => {
   }
   const productCode = body.productCode?.trim()
   if (!productCode) return c.json({ error: 'productCode is required' }, 400)
-  const product = await db.prepare('SELECT code, amount_vnd FROM payment_products WHERE code = ? AND active = 1 LIMIT 1').bind(productCode).all<{ code: string; amount_vnd: number }>()
-  const selected = product.results?.[0]
+  const selected = (await getDb(db).select().from(paymentProducts).where(and(eq(paymentProducts.code, productCode), eq(paymentProducts.active, true))).limit(1))[0]
   if (!selected) return c.json({ error: 'Unknown or inactive product' }, 404)
-  const amountVnd = Number(selected.amount_vnd)
+  const amountVnd = selected.amountVnd
   const runtimeConfig = await getRuntimeConfig(db)
   const transferContent = transferContentForUser(user.id)
   const qrCode = createSePayQrUrl(runtimeConfig.sepay, transferContent, amountVnd)
@@ -107,26 +110,25 @@ billing.post('/sepay/webhook', async (c) => {
   if (!referenceCode || !Number.isSafeInteger(userId) || !Number.isSafeInteger(amount) || amount <= 0) {
     return c.json({ ok: true, ignored: 'invalid_payment_details' })
   }
-  const user = await db.prepare('SELECT id FROM users WHERE id = ? LIMIT 1').bind(userId).all<{ id: number }>()
-  if (!user.results?.[0]) return c.json({ ok: true, ignored: 'user_not_found' })
+  const orm = getDb(db)
+  const user = await orm.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1)
+  if (!user[0]) return c.json({ ok: true, ignored: 'user_not_found' })
 
   const payloadJson = JSON.stringify(body)
-  await db.prepare(`INSERT OR IGNORE INTO sepay_transactions (reference_code, user_id, amount_vnd, transfer_content, webhook_payload_json) VALUES (?, ?, ?, ?, ?)`).bind(referenceCode, userId, amount, `${prefix}${userId}`, payloadJson).run()
-  const transactionResult = await db.prepare('SELECT id, user_id, amount_vnd, wallet_ledger_entry_id FROM sepay_transactions WHERE reference_code = ? LIMIT 1').bind(referenceCode).all<{ id: number; user_id: number; amount_vnd: number; wallet_ledger_entry_id: number | null }>()
-  const transaction = transactionResult.results?.[0]
+  await orm.insert(sepayTransactions).values({ referenceCode, userId, amountVnd: amount, transferContent: `${prefix}${userId}`, webhookPayloadJson: payloadJson }).onConflictDoNothing()
+  const transaction = (await orm.select().from(sepayTransactions).where(eq(sepayTransactions.referenceCode, referenceCode)).limit(1))[0]
   if (!transaction) return c.json({ error: 'Unable to record SePay transaction' }, 500)
-  if (transaction.user_id !== userId || transaction.amount_vnd !== amount) return c.json({ ok: true, ignored: 'reference_mismatch' })
-  if (transaction.wallet_ledger_entry_id != null) return c.json({ ok: true, duplicate: true })
+  if (transaction.userId !== userId || transaction.amountVnd !== amount) return c.json({ ok: true, ignored: 'reference_mismatch' })
+  if (transaction.walletLedgerEntryId != null) return c.json({ ok: true, duplicate: true })
 
   try {
     const ledger = await new WalletService(db).createEntry({ userId, entryType: 'topup', amountVnd: amount, sepayTransactionId: transaction.id, note: `SePay ${referenceCode}` })
-    await db.prepare('UPDATE sepay_transactions SET wallet_ledger_entry_id = ?, webhook_payload_json = ? WHERE id = ?').bind(ledger.id, payloadJson, transaction.id).run()
+    await orm.update(sepayTransactions).set({ walletLedgerEntryId: ledger.id, webhookPayloadJson: payloadJson }).where(eq(sepayTransactions.id, transaction.id))
     return c.json({ ok: true, paid: true, ledgerEntryId: ledger.id })
   } catch (error) {
-    const existingLedger = await db.prepare('SELECT id FROM wallet_ledger_entries WHERE sepay_transaction_id = ? LIMIT 1').bind(transaction.id).all<{ id: number }>()
-    const existingLedgerId = existingLedger.results?.[0]?.id
+    const existingLedgerId = (await orm.select({ id: walletLedgerEntries.id }).from(walletLedgerEntries).where(eq(walletLedgerEntries.sepayTransactionId, transaction.id)).limit(1))[0]?.id
     if (existingLedgerId != null) {
-      await db.prepare('UPDATE sepay_transactions SET wallet_ledger_entry_id = ?, webhook_payload_json = ? WHERE id = ?').bind(existingLedgerId, payloadJson, transaction.id).run()
+      await orm.update(sepayTransactions).set({ walletLedgerEntryId: existingLedgerId, webhookPayloadJson: payloadJson }).where(eq(sepayTransactions.id, transaction.id))
       return c.json({ ok: true, duplicate: true })
     }
     throw error

@@ -8,6 +8,9 @@ import { getRuntimeConfig, invalidateRuntimeConfigCache, validateConfigValue } f
 import { WalletService } from '../services/wallet.service'
 import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
+import { and, asc, count, desc, eq, inArray, like, or, sql } from 'drizzle-orm'
+import { getDb } from '../db'
+import { adminAuditLogs, appConfig, openrouterRequests, roles as rolesTable, sepayTransactions, userRoles, users, walletLedgerEntries } from '../db/schema'
 
 type AdminEnv = {
   Bindings: Bindings
@@ -52,43 +55,27 @@ function parseOffset(value: string | undefined): number {
 admin.get('/me', (c) => c.json({ user: c.get('adminUser'), roles: c.get('adminRoles') }))
 
 admin.get('/overview', async (c) => {
-  const db = c.env.DB!
-  const [users, wallet, requests, payments] = await Promise.all([
-    db.prepare('SELECT COUNT(*) AS total FROM users').all<{ total: number }>(),
-    db.prepare('SELECT COALESCE(SUM(amount_vnd), 0) AS total, COUNT(*) AS entries FROM wallet_ledger_entries').all<{ total: number; entries: number }>(),
-    db.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END), 0) AS successful FROM openrouter_requests').all<{ total: number; successful: number }>(),
-    db.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(amount_vnd), 0) AS amount FROM sepay_transactions').all<{ total: number; amount: number }>(),
+  const db = getDb(c.env.DB!)
+  const [userTotals, wallet, requests, payments] = await Promise.all([
+    db.select({ total: count() }).from(users),
+    db.select({ total: sql<number>`COALESCE(SUM(${walletLedgerEntries.amountVnd}), 0)`, entries: count() }).from(walletLedgerEntries),
+    db.select({ total: count(), successful: sql<number>`COALESCE(SUM(CASE WHEN ${openrouterRequests.success} THEN 1 ELSE 0 END), 0)` }).from(openrouterRequests),
+    db.select({ total: count(), amount: sql<number>`COALESCE(SUM(${sepayTransactions.amountVnd}), 0)` }).from(sepayTransactions),
   ])
   return c.json({
-    users: Number(users.results?.[0]?.total ?? 0),
-    walletBalanceVnd: Number(wallet.results?.[0]?.total ?? 0),
-    walletEntries: Number(wallet.results?.[0]?.entries ?? 0),
-    requests: Number(requests.results?.[0]?.total ?? 0),
-    successfulRequests: Number(requests.results?.[0]?.successful ?? 0),
-    sepayTransactions: Number(payments.results?.[0]?.total ?? 0),
-    sepayTopupVnd: Number(payments.results?.[0]?.amount ?? 0),
+    users: userTotals[0]?.total ?? 0, walletBalanceVnd: Number(wallet[0]?.total ?? 0), walletEntries: wallet[0]?.entries ?? 0,
+    requests: requests[0]?.total ?? 0, successfulRequests: Number(requests[0]?.successful ?? 0), sepayTransactions: payments[0]?.total ?? 0, sepayTopupVnd: Number(payments[0]?.amount ?? 0),
   })
 })
 
 admin.get('/users', async (c) => {
-  const db = c.env.DB!
+  const db = getDb(c.env.DB!)
   const limit = parseLimit(c.req.query('limit'))
   const offset = parseOffset(c.req.query('offset'))
   const search = c.req.query('search')?.trim() ?? ''
-  const like = `%${search}%`
-  const rows = await db.prepare(`
-    SELECT u.id, u.email, u.display_name, u.created_at, COALESCE(SUM(w.amount_vnd), 0) AS balance_vnd,
-      GROUP_CONCAT(DISTINCT r.code) AS roles
-    FROM users u
-    LEFT JOIN wallet_ledger_entries w ON w.user_id = u.id
-    LEFT JOIN user_roles ur ON ur.user_id = u.id
-    LEFT JOIN roles r ON r.id = ur.role_id
-    WHERE (? = '' OR u.email LIKE ? OR u.display_name LIKE ?)
-    GROUP BY u.id
-    ORDER BY u.id DESC
-    LIMIT ? OFFSET ?
-  `).bind(search, like, like, limit, offset).all<{ id: number; email: string; display_name: string | null; created_at: string; balance_vnd: number; roles: string | null }>()
-  return c.json({ items: (rows.results ?? []).map((row) => ({ ...row, balanceVnd: Number(row.balance_vnd), roles: row.roles ? row.roles.split(',') : [] })), limit, offset })
+  const condition = search ? or(like(users.email, `%${search}%`), like(users.displayName, `%${search}%`)) : undefined
+  const rows = await db.select({ id: users.id, email: users.email, displayName: users.displayName, createdAt: users.createdAt, balanceVnd: sql<number>`COALESCE(SUM(${walletLedgerEntries.amountVnd}), 0)`, roles: sql<string | null>`GROUP_CONCAT(DISTINCT ${rolesTable.code})` }).from(users).leftJoin(walletLedgerEntries, eq(walletLedgerEntries.userId, users.id)).leftJoin(userRoles, eq(userRoles.userId, users.id)).leftJoin(rolesTable, eq(rolesTable.id, userRoles.roleId)).where(condition).groupBy(users.id).orderBy(desc(users.id)).limit(limit).offset(offset)
+  return c.json({ items: rows.map((row) => ({ ...row, balanceVnd: Number(row.balanceVnd), roles: row.roles ? row.roles.split(',') : [] })), limit, offset })
 })
 
 admin.get('/users/:id/wallet', async (c) => {
@@ -109,21 +96,25 @@ admin.put('/users/:id/roles', async (c) => {
     return c.json({ error: 'Roles are invalid' }, 400)
   }
   const roles = [...new Set(body.roles.map(String))]
-  const db = c.env.DB!
-  const user = await db.prepare('SELECT id FROM users WHERE id = ? LIMIT 1').bind(userId).all<{ id: number }>()
-  if (!user.results?.[0]) return c.json({ error: 'User not found' }, 404)
+  const binding = c.env.DB!
+  const db = getDb(binding)
+  const user = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1)
+  if (!user[0]) return c.json({ error: 'User not found' }, 404)
   if (!roles.includes('owner')) {
-    const owners = await db.prepare(`SELECT COUNT(*) AS total FROM user_roles ur INNER JOIN roles r ON r.id = ur.role_id WHERE r.code = 'owner' AND ur.user_id = ?`).bind(userId).all<{ total: number }>()
-    const ownerCount = await db.prepare(`SELECT COUNT(*) AS total FROM user_roles ur INNER JOIN roles r ON r.id = ur.role_id WHERE r.code = 'owner'`).all<{ total: number }>()
-    if (Number(owners.results?.[0]?.total ?? 0) > 0 && Number(ownerCount.results?.[0]?.total ?? 0) <= 1) {
+    const [owners, ownerCount] = await Promise.all([
+      db.select({ total: count() }).from(userRoles).innerJoin(rolesTable, eq(rolesTable.id, userRoles.roleId)).where(and(eq(rolesTable.code, 'owner'), eq(userRoles.userId, userId))),
+      db.select({ total: count() }).from(userRoles).innerJoin(rolesTable, eq(rolesTable.id, userRoles.roleId)).where(eq(rolesTable.code, 'owner')),
+    ])
+    if ((owners[0]?.total ?? 0) > 0 && (ownerCount[0]?.total ?? 0) <= 1) {
       return c.json({ error: 'At least one owner role must remain' }, 400)
     }
   }
-  await db.prepare('DELETE FROM user_roles WHERE user_id = ?').bind(userId).run()
+  await db.delete(userRoles).where(eq(userRoles.userId, userId))
   for (const role of roles) {
-    await db.prepare('INSERT INTO user_roles (user_id, role_id, granted_by_user_id) SELECT ?, id, ? FROM roles WHERE code = ?').bind(userId, c.get('adminUser').id, role).run()
+    const roleRow = (await db.select({ id: rolesTable.id }).from(rolesTable).where(eq(rolesTable.code, role as 'owner' | 'admin' | 'support' | 'viewer')).limit(1))[0]
+    if (roleRow) await db.insert(userRoles).values({ userId, roleId: roleRow.id, grantedByUserId: c.get('adminUser').id })
   }
-  await writeAdminAuditLog(db, c.get('adminUser').id, 'user.roles.update', 'user', String(userId), { roles })
+  await writeAdminAuditLog(binding, c.get('adminUser').id, 'user.roles.update', 'user', String(userId), { roles })
   return c.json({ userId, roles })
 })
 
@@ -150,26 +141,27 @@ admin.post('/users/:id/wallet-adjustments', async (c) => {
 })
 
 admin.get('/logs', async (c) => {
-  const db = c.env.DB!
+  const db = getDb(c.env.DB!)
   const limit = parseLimit(c.req.query('limit'))
-  const rows = await db.prepare(`SELECT id, created_at, user_id, query, model, success, status_code, duration_ms, error_message, usage_total_tokens, provider_cost_usd FROM openrouter_requests ORDER BY id DESC LIMIT ?`).bind(limit).all()
-  return c.json({ items: rows.results ?? [] })
+  const rows = await db.select({ id: openrouterRequests.id, created_at: openrouterRequests.createdAt, user_id: openrouterRequests.userId, query: openrouterRequests.query, model: openrouterRequests.model, success: openrouterRequests.success, status_code: openrouterRequests.statusCode, duration_ms: openrouterRequests.durationMs, error_message: openrouterRequests.errorMessage, usage_total_tokens: openrouterRequests.usageTotalTokens, provider_cost_usd: openrouterRequests.providerCostUsd }).from(openrouterRequests).orderBy(desc(openrouterRequests.id)).limit(limit)
+  return c.json({ items: rows })
 })
 
 admin.get('/sepay-transactions', async (c) => {
-  const db = c.env.DB!
+  const db = getDb(c.env.DB!)
   const limit = parseLimit(c.req.query('limit'))
-  const rows = await db.prepare(`SELECT id, created_at, reference_code, user_id, amount_vnd, transfer_content, wallet_ledger_entry_id FROM sepay_transactions ORDER BY id DESC LIMIT ?`).bind(limit).all()
-  return c.json({ items: rows.results ?? [] })
+  const rows = await db.select({ id: sepayTransactions.id, created_at: sepayTransactions.createdAt, reference_code: sepayTransactions.referenceCode, user_id: sepayTransactions.userId, amount_vnd: sepayTransactions.amountVnd, transfer_content: sepayTransactions.transferContent, wallet_ledger_entry_id: sepayTransactions.walletLedgerEntryId }).from(sepayTransactions).orderBy(desc(sepayTransactions.id)).limit(limit)
+  return c.json({ items: rows })
 })
 
 admin.get('/config', async (c) => {
-  const db = c.env.DB!
+  const binding = c.env.DB!
+  const db = getDb(binding)
   const [runtime, stored] = await Promise.all([
-    getRuntimeConfig(db),
-    db.prepare("SELECT key, value_json, version, updated_at, updated_by_user_id FROM app_config WHERE key IN ('ai_billing', 'sepay') ORDER BY key").all(),
+    getRuntimeConfig(binding),
+    db.select().from(appConfig).where(inArray(appConfig.key, ['ai_billing', 'sepay'])).orderBy(asc(appConfig.key)),
   ])
-  return c.json({ runtime, stored: stored.results ?? [] })
+  return c.json({ runtime, stored })
 })
 
 admin.put('/config/:key', async (c) => {
@@ -179,19 +171,20 @@ admin.put('/config/:key', async (c) => {
   try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
   const value = validateConfigValue(key, body.value)
   if (!value) return c.json({ error: 'Configuration does not match the allowed schema' }, 400)
-  const db = c.env.DB!
+  const binding = c.env.DB!
+  const db = getDb(binding)
   const serialized = JSON.stringify(value)
-  await db.prepare(`INSERT INTO app_config (key, value_json, version, updated_by_user_id) VALUES (?, ?, 1, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, version = app_config.version + 1, updated_at = CURRENT_TIMESTAMP, updated_by_user_id = excluded.updated_by_user_id`).bind(key, serialized, c.get('adminUser').id).run()
+  await db.insert(appConfig).values({ key, valueJson: serialized, updatedByUserId: c.get('adminUser').id }).onConflictDoUpdate({ target: appConfig.key, set: { valueJson: serialized, version: sql`${appConfig.version} + 1`, updatedAt: new Date().toISOString(), updatedByUserId: c.get('adminUser').id } })
   invalidateRuntimeConfigCache()
-  await writeAdminAuditLog(db, c.get('adminUser').id, 'config.update', 'app_config', key, { value })
+  await writeAdminAuditLog(binding, c.get('adminUser').id, 'config.update', 'app_config', key, { value })
   return c.json({ key, value })
 })
 
 admin.get('/audit-logs', async (c) => {
-  const db = c.env.DB!
+  const db = getDb(c.env.DB!)
   const limit = parseLimit(c.req.query('limit'))
-  const rows = await db.prepare(`SELECT a.id, a.created_at, a.actor_user_id, u.email AS actor_email, a.action, a.target_type, a.target_id, a.detail_json FROM admin_audit_logs a INNER JOIN users u ON u.id = a.actor_user_id ORDER BY a.id DESC LIMIT ?`).bind(limit).all()
-  return c.json({ items: rows.results ?? [] })
+  const rows = await db.select({ id: adminAuditLogs.id, created_at: adminAuditLogs.createdAt, actor_user_id: adminAuditLogs.actorUserId, actor_email: users.email, action: adminAuditLogs.action, target_type: adminAuditLogs.targetType, target_id: adminAuditLogs.targetId, detail_json: adminAuditLogs.detailJson }).from(adminAuditLogs).innerJoin(users, eq(users.id, adminAuditLogs.actorUserId)).orderBy(desc(adminAuditLogs.id)).limit(limit)
+  return c.json({ items: rows })
 })
 
 export default admin

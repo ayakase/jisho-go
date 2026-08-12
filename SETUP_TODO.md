@@ -4,38 +4,33 @@ This file lists work that needs access to infrastructure or provider dashboards.
 
 ## 1. Apply D1 migrations
 
-From `api/`, first inspect the remote migration history:
+This project uses Drizzle ORM. `api/src/db/schema.ts` is the source of truth and
+Drizzle generates SQL migration files in `api/migrations/`.
+
+For a new D1 database, apply the single baseline migration:
 
 ```sh
-npx wrangler d1 execute DB --remote --command="SELECT * FROM d1_migrations ORDER BY id;"
+yarn wrangler d1 migrations apply jisho-go --remote
 ```
 
-If earlier migrations are tracked there, apply all pending migrations, including wallet billing (`0007`) and removal of the obsolete request payload (`0008`):
+Wrangler creates and maintains the `d1_migrations` table. For local development:
 
 ```sh
-npx wrangler d1 migrations apply DB --remote
+yarn wrangler d1 migrations apply jisho-go --local
 ```
 
-For a local database, use `--local` instead of `--remote`.
-
-If this database was originally updated with `d1 execute` and has no `d1_migrations` table, do not run `migrations apply` blindly: it will try old migrations again. Apply only the required SQL files manually after inspecting the current schema.
-
-For the SePay reusable-QR flow, apply `0009` after `0007`:
+After changing `api/src/db/schema.ts`, generate a new migration, review its SQL, then apply it:
 
 ```sh
-npx wrangler d1 execute jisho-go --remote --file=./migrations/0009_sepay_transactions.sql
+cd api
+yarn db:generate
+yarn db:migrate:remote
 ```
 
-Apply the Admin console schema after `0009`:
+After the database reset, sign in once through Google so the user row is created. Then grant the first owner role. Replace `OWNER_EMAIL` with that Google email:
 
 ```sh
-npx wrangler d1 execute jisho-go --remote --file=./migrations/0010_admin_console.sql
-```
-
-Then grant the first owner role. Replace `OWNER_EMAIL` with the Google email that has already logged into Jisho Go:
-
-```sh
-npx wrangler d1 execute jisho-go --remote --command="INSERT INTO user_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'OWNER_EMAIL' AND r.code = 'owner';"
+yarn wrangler d1 execute jisho-go --remote --command="INSERT INTO user_roles (user_id, role_id) SELECT u.id, r.id FROM users u, roles r WHERE u.email = 'OWNER_EMAIL' AND r.code = 'owner';"
 ```
 
 ## 2. Configure Worker environment
@@ -46,11 +41,11 @@ For production, set secrets with Wrangler. Do not put secret values in `wrangler
 
 ```sh
 cd api
-npx wrangler secret put OPENROUTER_API_KEY
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GOOGLE_CLIENT_SECRET
-npx wrangler secret put AUTH_COOKIE_SECRET
-npx wrangler secret put SEPAY_WEBHOOK_API_KEY
+yarn wrangler secret put OPENROUTER_API_KEY
+yarn wrangler secret put GOOGLE_CLIENT_ID
+yarn wrangler secret put GOOGLE_CLIENT_SECRET
+yarn wrangler secret put AUTH_COOKIE_SECRET
+yarn wrangler secret put SEPAY_WEBHOOK_API_KEY
 ```
 
 The Admin console (`/admin`) can update non-secret AI billing and the base VietQR URL at runtime. Initial defaults remain in `api/src/config/app.ts`. CORS and OAuth settings intentionally remain source configuration because they are security-sensitive.
@@ -67,7 +62,7 @@ The wallet exposes a reusable QR with a user-specific transfer content. The chec
 
 ## 4. Deploy and verify
 
-1. Deploy the Worker: `cd api && npm run deploy`.
+1. Deploy the Worker: `cd api && yarn deploy`.
 2. Build/deploy the website with `PUBLIC_API_BASE_URL` pointing at the Worker.
 3. In `api/src/config/app.ts`, set `auth.websiteOrigin` and `auth.extensionOrigin` when production CORS should be locked to those origins. Leaving both blank keeps the request-origin fallback.
 4. Sign in, top up the wallet, then run an AI explanation from the extension.
