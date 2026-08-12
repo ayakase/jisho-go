@@ -8,6 +8,8 @@ export type OpenRouterBillingConfig = {
   minimumChargeVnd: number
 }
 
+export type SignupQuotaConfig = { amountVnd: number }
+
 export const APP_CONFIG = {
   openRouter: {
     // Current model. Other candidates: 'openai/gpt-5-mini' and 'openai/gpt-5-nano'.
@@ -34,6 +36,10 @@ export const APP_CONFIG = {
     // Public VietQR base URL. The Worker adds the amount and user-specific transfer content.
     qrCodeUrl: 'https://vietqr.app/img?bank=BIDV&acc=96247OW8RC&template=compact&showinfo=true&holder=DANG%20THAI%20AN',
   },
+  signupQuota: {
+    // Credit granted once to each newly created account. Set to 0 to disable.
+    amountVnd: 10_000,
+  } satisfies SignupQuotaConfig,
 } as const
 
 export function isExtensionOrigin(origin: string | undefined): boolean {

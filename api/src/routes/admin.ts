@@ -10,7 +10,7 @@ import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
 import { and, asc, count, desc, eq, inArray, like, or, sql } from 'drizzle-orm'
 import { getDb } from '../db'
-import { adminAuditLogs, appConfig, openrouterRequests, roles as rolesTable, sepayTransactions, userRoles, users, walletLedgerEntries } from '../db/schema'
+import { adminAuditLogs, appConfig, openrouterRequests, paymentProducts, roles as rolesTable, sepayTransactions, userRoles, users, walletLedgerEntries } from '../db/schema'
 
 type AdminEnv = {
   Bindings: Bindings
@@ -176,6 +176,26 @@ admin.get('/config', async (c) => {
     db.select().from(appConfig).where(inArray(appConfig.key, ['ai_billing', 'sepay'])).orderBy(asc(appConfig.key)),
   ])
   return c.json({ runtime, stored })
+})
+
+admin.get('/payment-products', async (c) => {
+  const rows = await getDb(c.env.DB!).select().from(paymentProducts).orderBy(asc(paymentProducts.amountVnd))
+  return c.json({ items: rows })
+})
+
+admin.put('/payment-products/:code', async (c) => {
+  if (!canManageConfig(c.get('adminRoles'))) return c.json({ error: 'Owner role required' }, 403)
+  const code = c.req.param('code').trim()
+  if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(code)) return c.json({ error: 'Invalid product code' }, 400)
+  let body: { amountVnd?: unknown; active?: unknown }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body' }, 400) }
+  const amountVnd = Number(body.amountVnd)
+  if (!Number.isSafeInteger(amountVnd) || amountVnd < 1_000 || amountVnd > 10_000_000) return c.json({ error: 'Invalid amount' }, 400)
+  const active = body.active !== false
+  const db = getDb(c.env.DB!)
+  await db.insert(paymentProducts).values({ code, amountVnd, active }).onConflictDoUpdate({ target: paymentProducts.code, set: { amountVnd, active } })
+  await writeAdminAuditLog(c.env.DB!, c.get('adminUser').id, 'payment_product.update', 'payment_product', code, { amountVnd, active })
+  return c.json({ code, amountVnd, active })
 })
 
 admin.put('/config/:key', async (c) => {

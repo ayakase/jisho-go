@@ -129,6 +129,15 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
           Chưa có lịch sử nào.
         </div>
 
+        <form id="history-filters" class="mb-4 grid gap-2 border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+          <input id="history-query" type="search" class="min-w-0 border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Tìm nội dung đã tra" />
+          <input id="history-from" type="date" class="border border-slate-300 bg-white px-3 py-2 text-sm" aria-label="Từ ngày" />
+          <input id="history-to" type="date" class="border border-slate-300 bg-white px-3 py-2 text-sm" aria-label="Đến ngày" />
+          <label class="inline-flex items-center gap-2 whitespace-nowrap px-1 text-sm text-slate-700"><input id="history-favorite" type="checkbox" /> Đã lưu</label>
+          <div class="flex gap-2"><button class="border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">Lọc</button><button id="history-export" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">CSV</button></div>
+        </form>
+        <div id="history-export-options" class="mb-4 hidden border border-slate-200 bg-white p-3 text-sm"><div class="mb-3 flex gap-2"><button id="history-export-select-all" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Chọn hết</button><button id="history-export-clear-all" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Bỏ chọn hết</button></div><div class="grid gap-4 sm:grid-cols-3"><div><p class="mb-2 font-semibold text-slate-800">Bài học</p><div class="grid gap-2"><label><input type="checkbox" name="csv-field" value="query" checked /> Nội dung</label><label><input type="checkbox" name="csv-field" value="sentence_hiragana" /> Hiragana</label><label><input type="checkbox" name="csv-field" value="meaning_vi" checked /> Nghĩa Việt</label><label><input type="checkbox" name="csv-field" value="notes" /> Ghi chú</label><label><input type="checkbox" name="csv-field" value="vocabularies" checked /> Từ vựng</label><label><input type="checkbox" name="csv-field" value="grammar" checked /> Ngữ pháp</label></div></div><div><p class="mb-2 font-semibold text-slate-800">Lịch sử</p><div class="grid gap-2"><label><input type="checkbox" name="csv-field" value="id" /> ID</label><label><input type="checkbox" name="csv-field" value="created_at" checked /> Thời gian</label><label><input type="checkbox" name="csv-field" value="source_url" checked /> URL nguồn</label><label><input type="checkbox" name="csv-field" value="favorite" /> Đã lưu</label><label><input type="checkbox" name="csv-field" value="success" /> Thành công</label><label><input type="checkbox" name="csv-field" value="error_message" /> Lỗi</label></div></div><div><p class="mb-2 font-semibold text-slate-800">Kỹ thuật</p><div class="grid gap-2"><label><input type="checkbox" name="csv-field" value="model" /> Model</label><label><input type="checkbox" name="csv-field" value="duration_ms" /> Thời gian xử lý (ms)</label><label><input type="checkbox" name="csv-field" value="usage_total_tokens" /> Tổng tokens</label></div></div></div><button id="history-export-download" type="button" class="mt-4 border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100">Tải CSV</button></div>
+
         <div id="account-table-wrap" class="hidden overflow-x-auto rounded-xl border border-slate-200">
           <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-100 text-left text-xs uppercase tracking-[0.08em] text-slate-600">
@@ -138,6 +147,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
                 <th class="px-3 py-2">Nghĩa</th>
                 <th class="px-3 py-2">Trọng tâm</th>
                 <th class="px-3 py-2">Nguồn</th>
+                <th class="px-3 py-2">Lưu</th>
                 <th class="px-3 py-2">Bài học</th>
               </tr>
             </thead>
@@ -189,6 +199,16 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     const historyPageStatusEl = document.getElementById('history-page-status');
     const historyPrevBtn = document.getElementById('history-prev-btn');
     const historyNextBtn = document.getElementById('history-next-btn');
+    const historyFiltersEl = document.getElementById('history-filters');
+    const historyQueryEl = document.getElementById('history-query');
+    const historyFromEl = document.getElementById('history-from');
+    const historyToEl = document.getElementById('history-to');
+    const historyFavoriteEl = document.getElementById('history-favorite');
+    const historyExportBtn = document.getElementById('history-export');
+    const historyExportOptionsEl = document.getElementById('history-export-options');
+    const historyExportDownloadBtn = document.getElementById('history-export-download');
+    const historyExportSelectAllBtn = document.getElementById('history-export-select-all');
+    const historyExportClearAllBtn = document.getElementById('history-export-clear-all');
     const HISTORY_PAGE_SIZE = 20;
     let historyPage = 1;
     let historyPageCount = 0;
@@ -412,6 +432,11 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
         const url = new URL(historyUrl);
         url.searchParams.set('page', String(historyPage));
         url.searchParams.set('pageSize', String(HISTORY_PAGE_SIZE));
+        const search = historyQueryEl?.value.trim();
+        if (search) url.searchParams.set('q', search);
+        if (historyFromEl?.value) url.searchParams.set('from', historyFromEl.value);
+        if (historyToEl?.value) url.searchParams.set('to', historyToEl.value);
+        if (historyFavoriteEl?.checked) url.searchParams.set('favorite', '1');
         const res = await fetch(url, { credentials: 'include' });
         const raw = await res.text();
         let data = null;
@@ -459,6 +484,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
             const createdAt = escapeHtml(formatDateTime(item.created_at));
             const detailHref = `/account/request?id=${Number(item.id || 0)}`;
             const sourceUrl = typeof item.source_url === 'string' ? item.source_url : '';
+            const favorite = item.is_favorite === true;
             let sourceLink = '-';
             try {
               const source = new URL(sourceUrl);
@@ -486,6 +512,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
                   </div>
                 </td>
                 <td class="max-w-32 px-3 py-3 break-all">${sourceLink}</td>
+                <td class="whitespace-nowrap px-3 py-3"><div class="flex gap-1"><button type="button" data-favorite-id="${Number(item.id || 0)}" data-favorite="${favorite ? '1' : '0'}" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold ${favorite ? 'text-rose-700' : 'text-slate-600'}">${favorite ? 'Đã lưu' : 'Lưu'}</button><button type="button" data-delete-id="${Number(item.id || 0)}" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-rose-300 hover:text-rose-700">Xoá</button></div></td>
                 <td class="whitespace-nowrap p-0">
                   <a class="block h-full w-full px-3 py-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none" href="${detailHref}">Mở bài học</a>
                 </td>
@@ -496,6 +523,18 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
 
         tableBodyEl.innerHTML = rowsHtml;
         bindRowNavigation();
+        tableBodyEl.querySelectorAll('button[data-favorite-id]').forEach((button) => button.addEventListener('click', async () => {
+          const id = button.getAttribute('data-favorite-id');
+          const favorite = button.getAttribute('data-favorite') !== '1';
+          await fetch(`${historyUrl}/${id}/favorite`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ favorite }) });
+          loadHistory();
+        }));
+        tableBodyEl.querySelectorAll('button[data-delete-id]').forEach((button) => button.addEventListener('click', async () => {
+          const id = button.getAttribute('data-delete-id');
+          if (!window.confirm('Xoá mục lịch sử này?')) return;
+          await fetch(`${historyUrl}/${id}`, { method: 'DELETE', credentials: 'include' });
+          loadHistory();
+        }));
         tableWrapEl.classList.remove('hidden');
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to load history';
@@ -520,6 +559,21 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     walletPaymentRefreshBtn?.addEventListener('click', loadWallet);
     historyPrevBtn?.addEventListener('click', () => loadHistory(historyPage - 1));
     historyNextBtn?.addEventListener('click', () => loadHistory(historyPage + 1));
+    historyFiltersEl?.addEventListener('submit', (event) => { event.preventDefault(); loadHistory(1); });
+    historyExportBtn?.addEventListener('click', () => historyExportOptionsEl?.classList.toggle('hidden'));
+    historyExportSelectAllBtn?.addEventListener('click', () => document.querySelectorAll('input[name="csv-field"]').forEach((field) => { field.checked = true; }));
+    historyExportClearAllBtn?.addEventListener('click', () => document.querySelectorAll('input[name="csv-field"]').forEach((field) => { field.checked = false; }));
+    historyExportDownloadBtn?.addEventListener('click', () => {
+      const url = new URL(`${historyUrl}/export.csv`);
+      if (historyQueryEl?.value.trim()) url.searchParams.set('q', historyQueryEl.value.trim());
+      if (historyFromEl?.value) url.searchParams.set('from', historyFromEl.value);
+      if (historyToEl?.value) url.searchParams.set('to', historyToEl.value);
+      if (historyFavoriteEl?.checked) url.searchParams.set('favorite', '1');
+      const fields = [...document.querySelectorAll('input[name="csv-field"]:checked')].map((field) => field.value);
+      if (!fields.length) { window.alert('Chọn ít nhất một cột để export.'); return; }
+      url.searchParams.set('fields', fields.join(','));
+      window.location.href = url.toString();
+    });
 
     const accountTabs = new Set(['learning', 'wallet']);
     function activateAccountTab(name, updateUrl = false) {

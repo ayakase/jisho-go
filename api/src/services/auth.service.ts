@@ -1,6 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { extensionSessions, extensionWebLoginTokens, userSessions, users } from '../db/schema'
+import { walletSignupGrants } from '../db/schema'
+import { WalletService } from './wallet.service'
+import { APP_CONFIG } from '../config/app'
 
 const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_ENDPOINT = 'https://openidconnect.googleapis.com/v1/userinfo'
@@ -181,10 +184,23 @@ function toSessionUser(row: typeof users.$inferSelect): SessionUser { return { i
 
 export async function upsertGoogleUser(binding: D1Database, profile: GoogleUserInfo): Promise<SessionUser> {
   const db = getDb(binding)
+  const existingUser = (await db.select({ id: users.id }).from(users).where(eq(users.email, profile.email)).limit(1))[0]
   await db.insert(users).values({ email: profile.email, googleSub: profile.sub, displayName: profile.name ?? null, avatarUrl: profile.picture ?? null, emailVerified: !!profile.email_verified }).onConflictDoUpdate({ target: users.email, set: { googleSub: profile.sub, displayName: profile.name ?? null, avatarUrl: profile.picture ?? null, emailVerified: !!profile.email_verified, updatedAt: new Date().toISOString() } })
   const row = (await db.select().from(users).where(eq(users.email, profile.email)).limit(1))[0]
   if (!row) {
     throw new Error('Failed to load user after upsert')
+  }
+
+  if (!existingUser && APP_CONFIG.signupQuota.amountVnd > 0) {
+    const grant = (await db.select({ userId: walletSignupGrants.userId }).from(walletSignupGrants).where(eq(walletSignupGrants.userId, row.id)).limit(1))[0]
+    if (!grant) {
+      try {
+        const ledger = await new WalletService(binding).createEntry({ userId: row.id, entryType: 'adjustment', amountVnd: APP_CONFIG.signupQuota.amountVnd, note: 'New user free AI quota' })
+        await db.insert(walletSignupGrants).values({ userId: row.id, walletLedgerEntryId: ledger.id })
+      } catch {
+        // A concurrent login may have created the one-time grant.
+      }
+    }
   }
 
   return toSessionUser(row)

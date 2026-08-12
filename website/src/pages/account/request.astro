@@ -8,7 +8,6 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
     <div class="mx-auto w-full max-w-5xl">
       <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <a href="/account" class="inline-flex text-sm text-slate-600 hover:text-slate-900">← Về Learning History</a>
-        <p id="detail-source" class="text-xs text-slate-500">Nguồn dữ liệu: -</p>
       </div>
 
       <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -69,7 +68,6 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
     const numericId = Number(idParam);
     const detailUrl = apiBase && Number.isFinite(numericId) && numericId > 0 ? `${apiBase}/history/${numericId}` : '';
 
-    const sourceEl = document.getElementById('detail-source');
     const errorEl = document.getElementById('detail-error');
     const contentEl = document.getElementById('lesson-content');
     const titleEl = document.getElementById('lesson-title');
@@ -82,7 +80,6 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
     const vocabListEl = document.getElementById('lesson-vocab-list');
     const grammarListEl = document.getElementById('lesson-grammar-list');
 
-    sourceEl.textContent = `Nguồn dữ liệu: ${detailUrl || '-'}`;
 
     function escapeHtml(value) {
       return String(value)
