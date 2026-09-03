@@ -60,6 +60,7 @@
   let expandedKanji = $state<Set<number>>(new Set());
   let isSearching = false;
   let showRomaji = $state<boolean>(false);
+  let darkMode = $state(false);
   type ResultTab = "vocab" | "kanji" | "explain";
   let activeTab = $state<ResultTab>("kanji");
   let translatedText = $state<string | null>(null);
@@ -336,6 +337,7 @@
 
   (async () => {
     try {
+      darkMode = (await storage.getItem<boolean>("local:darkMode")) ?? false;
       const mode = await storage.getItem<"highlight" | "remember" | "static">(
         "local:popupPositionMode",
       );
@@ -534,12 +536,16 @@
 
   $effect(() => {
     let unwatchRomaji: (() => void) | undefined;
+    let unwatchDarkMode: (() => void) | undefined;
     let unwatchPosition: (() => void) | undefined;
     let unwatchStatic: (() => void) | undefined;
 
     try {
       unwatchRomaji = storage.watch<boolean>("local:showRomaji", (newMode) => {
         showRomaji = newMode ?? false;
+      });
+      unwatchDarkMode = storage.watch<boolean>("local:darkMode", (newMode) => {
+        darkMode = newMode ?? false;
       });
       unwatchPosition = storage.watch<"highlight" | "remember" | "static">(
         "local:popupPositionMode",
@@ -558,6 +564,7 @@
 
     return () => {
       unwatchRomaji?.();
+      unwatchDarkMode?.();
       unwatchPosition?.();
       unwatchStatic?.();
     };
@@ -710,6 +717,7 @@
 <div
   id="jisho-go-selection-popup"
   class="popup {popupDragging ? 'dragging' : ''}"
+  class:dark-mode={darkMode}
   style={popupStyle}
   role="dialog"
   aria-label="Dictionary popup"
@@ -1157,6 +1165,118 @@
 
   .popup.dragging .popup-drag-handle {
     cursor: grabbing;
+  }
+
+  .popup.dark-mode {
+    background: #111827;
+    color: #e5e7eb;
+    border-color: #374151;
+  }
+
+  .popup.dark-mode .result-header,
+  .popup.dark-mode .extracted-text-section,
+  .popup.dark-mode .vocab-section,
+  .popup.dark-mode .kanji-accordion-header,
+  .popup.dark-mode .kanji-accordion-content,
+  .popup.dark-mode .explain-section {
+    background: #111827;
+    color: #e5e7eb;
+  }
+
+  .popup.dark-mode .popup-drag-handle {
+    background: #1f2937;
+    border-bottom-color: #374151;
+  }
+
+  .popup.dark-mode .drag-grip span {
+    background: #9ca3af;
+  }
+
+  .popup.dark-mode .extracted-text-section {
+    border-bottom-color: #374151;
+  }
+
+  .popup.dark-mode .translated-text,
+  .popup.dark-mode .kanji-detail-summary,
+  .popup.dark-mode .translated-text-loading,
+  .popup.dark-mode .example-reading,
+  .popup.dark-mode .radio-description {
+    color: #9ca3af;
+  }
+
+  .popup.dark-mode .tabs {
+    background: #111827;
+    border-bottom-color: #374151;
+  }
+
+  .popup.dark-mode .tab {
+    background: #1f2937;
+    border-color: #4b5563;
+    color: #d1d5db;
+  }
+
+  .popup.dark-mode .tab:hover:not(:disabled) {
+    background: #374151;
+    border-color: #6b7280;
+  }
+
+  .popup.dark-mode .tab.active {
+    background: #4c1d1d;
+    border-color: #f87171;
+    color: #fecaca;
+  }
+
+  .popup.dark-mode .vocab-group,
+  .popup.dark-mode .kanji-accordion-item {
+    border-bottom-color: #374151;
+  }
+
+  .popup.dark-mode .vocab-group:hover,
+  .popup.dark-mode .kanji-accordion-header:hover,
+  .popup.dark-mode .kanji-selected {
+    background: #292524;
+  }
+
+  .popup.dark-mode .vocab-item {
+    border-bottom-color: #374151;
+  }
+
+  .popup.dark-mode .vocab-word,
+  .popup.dark-mode .vocab-meaning,
+  .popup.dark-mode .vocab-group-reading,
+  .popup.dark-mode .kanji-reading-summary,
+  .popup.dark-mode .kanji-detail-summary,
+  .popup.dark-mode .meta-item,
+  .popup.dark-mode .section-title,
+  .popup.dark-mode .example-word,
+  .popup.dark-mode .example-mean,
+  .popup.dark-mode .detail-text,
+  .popup.dark-mode .detail-text p,
+  .popup.dark-mode .kanji-meta-summary,
+  .popup.dark-mode .explain-section,
+  .popup.dark-mode .ev-mean,
+  .popup.dark-mode .ev-jp,
+  .popup.dark-mode .ev-hiragana,
+  .popup.dark-mode .grammar-example-label {
+    color: #f3f4f6 !important;
+  }
+
+  .popup.dark-mode .vocab-meaning,
+  .popup.dark-mode .translated-text {
+    color: #d1d5db !important;
+  }
+
+  .popup.dark-mode .kanji-accordion-content {
+    border-top-color: #374151;
+  }
+
+  .popup.dark-mode .example-item {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .popup.dark-mode .source-kanji-clickable:hover {
+    background: #450a0a;
   }
 
   .loading {

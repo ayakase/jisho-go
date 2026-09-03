@@ -57,7 +57,24 @@ function normalizeHoverParagraphSections(value: unknown): HoverParagraphSections
 let ocrWorkerPromise: ReturnType<typeof createWorker> | null = null;
 
 let ocrLoadingEl: HTMLDivElement | null = null;
+let ocrGlyphTimer: ReturnType<typeof setInterval> | null = null;
+let ocrDarkMode = false;
 let ocrLastProgress = 0;
+
+function applyOcrTheme() {
+  if (!ocrLoadingEl) return;
+
+  const isDark = ocrDarkMode;
+  ocrLoadingEl.style.setProperty('--ocr-bg', isDark ? 'rgba(20, 23, 28, 0.94)' : 'rgba(255, 255, 255, 0.96)');
+  ocrLoadingEl.style.setProperty('--ocr-border', isDark ? '#3a424f' : '#d9dee7');
+  ocrLoadingEl.style.setProperty('--ocr-shadow', isDark
+    ? '0 10px 26px rgba(0, 0, 0, 0.35)'
+    : '0 10px 26px rgba(31, 41, 55, 0.16)');
+  ocrLoadingEl.style.setProperty('--ocr-ring-bg', isDark ? '#3a424f' : '#dfe5ec');
+  ocrLoadingEl.style.setProperty('--ocr-ring-fg', isDark ? '#9ec3e8' : '#5b8fc5');
+  ocrLoadingEl.style.setProperty('--ocr-pct', isDark ? '#f4f6f8' : '#1f2937');
+  ocrLoadingEl.style.setProperty('--ocr-glyph', isDark ? '#cbd5e1' : '#465466');
+}
 
 function setOcrLoading(visible: boolean, progress?: number) {
   if (!visible) {
@@ -65,22 +82,15 @@ function setOcrLoading(visible: boolean, progress?: number) {
       ocrLoadingEl.remove();
       ocrLoadingEl = null;
     }
+    if (ocrGlyphTimer) {
+      clearInterval(ocrGlyphTimer);
+      ocrGlyphTimer = null;
+    }
     ocrLastProgress = 0;
     return;
   }
 
   if (!ocrLoadingEl) {
-    const prefersDark =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const bg = prefersDark ? 'rgba(17, 24, 39, 0.92)' : 'rgba(255, 255, 255, 0.92)';
-    const fg = prefersDark ? 'rgba(255, 255, 255, 0.95)' : 'rgba(17, 24, 39, 0.95)';
-    const border = prefersDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.10)';
-    const shadow = prefersDark
-      ? '0 10px 15px -3px rgba(0,0,0,0.35), 0 4px 6px -4px rgba(0,0,0,0.30)'
-      : '0 10px 15px -3px rgba(0,0,0,0.12), 0 4px 6px -4px rgba(0,0,0,0.10)';
-
     ocrLoadingEl = document.createElement('div');
     ocrLoadingEl.id = 'jisho-go-ocr-loading';
     ocrLoadingEl.style.cssText = `
@@ -88,23 +98,58 @@ function setOcrLoading(visible: boolean, progress?: number) {
       z-index: 2147483647;
       right: 16px;
       bottom: 16px;
-      max-width: 280px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: ${bg};
-      color: ${fg};
-      border: 1px solid ${border};
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 13px;
-      line-height: 1.3;
-      box-shadow: ${shadow};
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: var(--ocr-bg);
+      border: 1px solid var(--ocr-border);
       backdrop-filter: blur(6px);
+      padding: 12px;
+      border-radius: 10px;
+      box-shadow: var(--ocr-shadow);
+      font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    `;
+    ocrLoadingEl.innerHTML = `
+      <div style="position:relative;width:46px;height:46px">
+        <svg width="46" height="46" style="transform:rotate(-90deg)" aria-hidden="true">
+          <circle cx="23" cy="23" r="19" fill="none" stroke="var(--ocr-ring-bg)" stroke-width="3"></circle>
+          <circle id="jisho-go-ocr-ring-fg" cx="23" cy="23" r="19" fill="none"
+            stroke="var(--ocr-ring-fg)" stroke-width="3" stroke-linecap="round"
+            stroke-dasharray="119.4" stroke-dashoffset="119.4"
+            style="transition:stroke-dashoffset .05s linear"></circle>
+        </svg>
+        <div id="jisho-go-ocr-ring-pct"
+          style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;color:var(--ocr-pct)">
+          0%
+        </div>
+      </div>
+      <div id="jisho-go-ocr-glyph"
+        style="font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;font-size:15px;font-weight:600;line-height:1;color:var(--ocr-glyph);letter-spacing:.03em">
+        認
+      </div>
     `;
     document.body.appendChild(ocrLoadingEl);
+    applyOcrTheme();
+
+    const glyphEl = ocrLoadingEl.querySelector<HTMLElement>('#jisho-go-ocr-glyph');
+    const glyphs = '日語文認識走査解析頁像形態抽出符号照合精度基準確定終了完成整合読了処理演算構文';
+    ocrGlyphTimer = setInterval(() => {
+      if (glyphEl) {
+        glyphEl.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+      }
+    }, 260);
   }
 
   const pct = Math.max(0, Math.min(100, Math.round((progress ?? ocrLastProgress) * 100)));
-  ocrLoadingEl.textContent = pct > 0 ? `Đang nhận dạng (OCR)… ${pct}%` : 'Đang nhận dạng (OCR)…';
+  const ring = ocrLoadingEl.querySelector<HTMLElement>('#jisho-go-ocr-ring-fg');
+  const pctEl = ocrLoadingEl.querySelector<HTMLElement>('#jisho-go-ocr-ring-pct');
+  if (ring) {
+    ring.style.strokeDashoffset = String(119.4 * (1 - pct / 100));
+  }
+  if (pctEl) {
+    pctEl.textContent = `${pct}%`;
+  }
 }
 
 function handleTesseractLog(m: any) {
@@ -207,6 +252,7 @@ export default defineContentScript({
     await loadBlacklist();
     await loadPopupOpacity();
     await loadSearchButtonSettings();
+    await loadOcrTheme();
 
     // Watch blacklist changes so updates from the popup apply without reload
     storage.watch<unknown>('local:blacklist', (value) => {
@@ -246,9 +292,7 @@ export default defineContentScript({
     storage.watch<number>('local:popupOpacity', (newOpacity) => {
       popupOpacity =
         typeof newOpacity === "number" ? clampPopupOpacity(newOpacity) : 1;
-      if (popupContainer) popupContainer.style.opacity = popupOpacity.toString();
-      if (hoverPopupContainer)
-        hoverPopupContainer.style.opacity = popupOpacity.toString();
+      applyPopupOpacity();
     });
 
     storage.watch<SearchButtonSize>('local:searchButtonSize', (newSize) => {
@@ -257,6 +301,11 @@ export default defineContentScript({
       } else {
         searchButtonSize = 'medium';
       }
+    });
+
+    storage.watch<boolean>('local:darkMode', (newMode) => {
+      ocrDarkMode = newMode === true;
+      applyOcrTheme();
     });
 
     // Show a small popup next to highlighted text on the page
@@ -371,6 +420,14 @@ async function loadPopupMode() {
   }
 }
 
+async function loadOcrTheme() {
+  try {
+    ocrDarkMode = (await storage.getItem<boolean>('local:darkMode')) === true;
+  } catch (error) {
+    console.error('Failed to load OCR theme:', error);
+  }
+}
+
 async function loadHoverMode() {
   try {
     const stored = await storage.getItem<boolean>('local:hoverMode');
@@ -446,6 +503,11 @@ async function loadPopupOpacity() {
     console.error('Failed to load popup opacity:', error);
     popupOpacity = 1;
   }
+}
+
+function applyPopupOpacity() {
+  if (popupContainer) popupContainer.style.opacity = popupOpacity.toString();
+  if (hoverPopupContainer) hoverPopupContainer.style.opacity = popupOpacity.toString();
 }
 
 async function loadSearchButtonSettings() {
@@ -621,7 +683,7 @@ function showPopupNear(rect: DOMRect, text: string, sourceRange?: Range | null) 
   popupContainer.style.position = 'absolute';
   popupContainer.style.zIndex = '2147483647';
   document.body.appendChild(popupContainer);
-  popupContainer.style.opacity = popupOpacity.toString();
+  applyPopupOpacity();
 
   // Store the text so we can keep the popup even if selection is cleared
   popupText = text;
@@ -1035,7 +1097,7 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   hoverPopupContainer.style.position = 'absolute';
   hoverPopupContainer.style.zIndex = '2147483647';
   document.body.appendChild(hoverPopupContainer);
-  hoverPopupContainer.style.opacity = popupOpacity.toString();
+  applyPopupOpacity();
 
   // Popup dimensions
   const POPUP_WIDTH = 500;
@@ -1105,7 +1167,7 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
   hoverPopupContainer.style.position = 'absolute';
   hoverPopupContainer.style.zIndex = '2147483647';
   document.body.appendChild(hoverPopupContainer);
-  hoverPopupContainer.style.opacity = popupOpacity.toString();
+  applyPopupOpacity();
 
   // Popup dimensions
   const POPUP_WIDTH = 440; // Match CSS width in HoverParagraphPopup.svelte

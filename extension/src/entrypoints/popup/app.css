@@ -1,17 +1,35 @@
-:global(body) {
+  html,
+  body {
     margin: 0;
     padding: 0;
-    background-color: #ffffff;
     outline: none;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 
-  :global(html) {
-    background-color: #ffffff;
+  html {
+    background: #ffffff;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  #app {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+    box-sizing: border-box;
   }
 
   main {
+    box-sizing: border-box;
     padding: 1rem;
-    width: 550px;
+    width: 100%;
+    min-width: 550px;
     font-family:
       system-ui,
       -apple-system,
@@ -21,6 +39,176 @@
     outline: none;
     border: none;
     margin: 0;
+    box-shadow: none;
+  }
+
+  .theme-toggle {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .theme-toggle:hover {
+    background: #f3f4f6;
+  }
+
+  .theme-toggle svg {
+    width: 1.35rem;
+    height: 1.35rem;
+    display: block;
+    margin: auto;
+  }
+
+  main.dark-mode {
+    background: #111827;
+    color: #f3f4f6;
+  }
+
+  body.dark-mode #app,
+  #app.dark-mode,
+  main.dark-mode {
+    background: #111827 !important;
+  }
+
+  html.dark-mode,
+  body.dark-mode {
+    background: #111827 !important;
+  }
+
+  main.dark-mode .theme-toggle {
+    border-color: #4b5563;
+    background: #1f2937;
+    color: #fbbf24;
+  }
+
+  main.dark-mode .theme-toggle:hover {
+    background: #374151;
+  }
+
+  main.dark-mode h1,
+  main.dark-mode .setting-item h3,
+  main.dark-mode .auth-user-info strong,
+  main.dark-mode .radio-label strong,
+  main.dark-mode .toggle-label strong,
+  main.dark-mode .blacklist-website {
+    color: #f3f4f6;
+  }
+
+  main.dark-mode .tab-button,
+  main.dark-mode .radio-option,
+  main.dark-mode .toggle-option,
+  main.dark-mode .blacklist-item,
+  main.dark-mode .blacklist-input,
+  main.dark-mode .edit-button,
+  main.dark-mode .save-button,
+  main.dark-mode .cancel-button,
+  main.dark-mode .delete-button,
+  main.dark-mode .wallet-refresh,
+  main.dark-mode .auth-button-secondary {
+    background: #1f2937;
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+
+  main.dark-mode .tab-button.active {
+    background: #4c1d1d;
+    border-color: #f87171;
+    color: #fecaca;
+  }
+
+  main.dark-mode .radio-option:hover,
+  main.dark-mode .toggle-option:hover,
+  main.dark-mode .blacklist-item:hover,
+  main.dark-mode .cancel-button:hover,
+  main.dark-mode .wallet-refresh:hover,
+  main.dark-mode .auth-button-secondary:hover:enabled {
+    background: #374151;
+  }
+
+  main.dark-mode .radio-description,
+  main.dark-mode .toggle-description,
+  main.dark-mode .auth-status,
+  main.dark-mode .auth-user-info span,
+  main.dark-mode .wallet-entries > div,
+  main.dark-mode .blacklist-empty {
+    color: #9ca3af;
+  }
+
+  main.dark-mode .blacklist-empty {
+    border-color: #4b5563;
+  }
+
+  main.dark-mode .auth-card {
+    background: #1f2937;
+    border-color: #4b5563;
+  }
+
+  main.dark-mode .auth-avatar {
+    background-color: #111827;
+    border-color: #7f1d1d;
+  }
+
+  main.dark-mode .auth-avatar-fallback {
+    background: #4c1d1d;
+    color: #fecaca;
+  }
+
+  main.dark-mode .auth-button-secondary {
+    background: #374151;
+    border-color: #6b7280;
+    color: #f3f4f6;
+  }
+
+  main.dark-mode .auth-button-secondary:hover:enabled {
+    background: #4b5563;
+    border-color: #9ca3af;
+  }
+
+  main.dark-mode .auth-error {
+    background: #450a0a;
+    border-color: #7f1d1d;
+    color: #fecaca;
+  }
+
+  main.dark-mode .wallet-balance {
+    background: #052e16;
+    color: #bbf7d0;
+  }
+
+  main.dark-mode .wallet-qr-card {
+    background: #422006;
+    border-color: #92400e;
+  }
+
+  main.dark-mode .wallet-qr-card p {
+    color: #fde68a;
+  }
+
+  main.dark-mode .wallet-qr {
+    background: #ffffff;
+    border-color: #f59e0b;
+  }
+
+  main.dark-mode .wallet-entries {
+    border-color: #4b5563;
+  }
+
+  main.dark-mode .wallet-entries > div {
+    border-bottom-color: #374151;
+  }
+
+  main.dark-mode .wallet-entries strong {
+    color: #86efac;
+  }
+
+  main.dark-mode .wallet-entries strong.wallet-negative {
+    color: #fda4af;
   }
 
   .header-section {

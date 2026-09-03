@@ -644,4 +644,59 @@
     width: 85px;
     text-align: right;
   }
+
+  :global(main.dark-mode) .position-radio-card,
+  :global(main.dark-mode) .opacity-control,
+  :global(main.dark-mode) .static-config-panel {
+    background: #1f2937;
+    border-color: #4b5563;
+    color: #e5e7eb;
+  }
+
+  :global(main.dark-mode) .position-radio-card:hover {
+    background: #374151;
+    border-color: #6b7280;
+  }
+
+  :global(main.dark-mode) .position-radio-card.active {
+    background: #4c1d1d;
+    border-color: #f87171;
+  }
+
+  :global(main.dark-mode) .position-radio-text,
+  :global(main.dark-mode) .config-row,
+  :global(main.dark-mode) .opacity-value {
+    color: #f3f4f6;
+  }
+
+  :global(main.dark-mode) .position-radio-card.active .position-radio-text {
+    color: #fecaca;
+  }
+
+  :global(main.dark-mode) .ui-select,
+  :global(main.dark-mode) .ui-input {
+    background: #111827;
+    border-color: #4b5563;
+    color: #f3f4f6;
+  }
+
+  :global(main.dark-mode) .opacity-range {
+    background: linear-gradient(
+      90deg,
+      #f87171 0%,
+      #f87171 var(--progress),
+      #374151 var(--progress),
+      #374151 100%
+    );
+  }
+
+  :global(main.dark-mode) .opacity-range::-moz-range-track {
+    background: linear-gradient(
+      90deg,
+      #f87171 0%,
+      #f87171 var(--progress),
+      #374151 var(--progress),
+      #374151 100%
+    );
+  }
 </style>
