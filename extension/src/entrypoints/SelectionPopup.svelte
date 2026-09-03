@@ -57,7 +57,7 @@
   let error: string | null = $state(null);
   let loading = $state(true);
   let skipped = $state(false);
-  let expandedKanji = $state<Set<number>>(new Set());
+  let expandedKanjiWord = $state<string | null>(null);
   let isSearching = false;
   let showRomaji = $state<boolean>(false);
   let darkMode = $state(false);
@@ -299,6 +299,14 @@
     const index = text.indexOf(entry.w);
     if (index < 0) return;
 
+    if (
+      selectedKanjiWord === entry.w &&
+      expandedKanjiWord === entry.w
+    ) {
+      clearSourceSelection();
+      return;
+    }
+
     handleKanjiSourceClick(entry.w, index);
   }
 
@@ -307,9 +315,18 @@
     if (!entry) return;
 
     selectedKanjiWord = entry.w;
+    expandedKanjiWord = entry.w;
     activeKanjiSource = { index, char };
     hoveredVocabEntry = null;
     selectedSourceMatch = null;
+  }
+
+  function clearSourceSelection() {
+    selectedKanjiWord = null;
+    activeKanjiSource = null;
+    selectedSourceMatch = null;
+    hoveredVocabEntry = null;
+    expandedKanjiWord = null;
   }
 
   // Drag the whole popup (fixed-position panel).
@@ -489,14 +506,8 @@
     }
   }
 
-  function toggleKanji(index: number) {
-    const newSet = new Set(expandedKanji);
-    if (newSet.has(index)) {
-      newSet.delete(index);
-    } else {
-      newSet.add(index);
-    }
-    expandedKanji = newSet;
+  function toggleKanji(word: string) {
+    expandedKanjiWord = expandedKanjiWord === word ? null : word;
   }
 
   function getDetailSummary(detail: string | undefined): string {
@@ -598,7 +609,7 @@
     activeKanjiSource = null;
     selectedKanjiWord = null;
     skipped = false;
-    expandedKanji = new Set(); // Reset expanded state when starting new search
+    expandedKanjiWord = null;
 
     const trimmed = query.trim();
     if (!trimmed) {
@@ -721,6 +732,7 @@
   style={popupStyle}
   role="dialog"
   aria-label="Dictionary popup"
+  onclick={clearSourceSelection}
 >
   <div
     class="popup-drag-handle"
@@ -784,6 +796,7 @@
                     event.stopPropagation();
                     handleSourceMatchClick(segment.entry!);
                   }}
+                  onclick={(event) => event.stopPropagation()}
                   onkeydown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -865,8 +878,8 @@
 
         {#if activeTab === "kanji" && kanjiResults.length > 0}
           <div class="kanji-section">
-            {#each getDisplayedKanjiResults() as kanjiEntry, index}
-              {@const isExpanded = expandedKanji.has(index)}
+            {#each getDisplayedKanjiResults() as kanjiEntry}
+              {@const isExpanded = expandedKanjiWord === kanjiEntry.w}
               <div class="kanji-accordion-item">
                 <button
                   class:kanji-selected={selectedKanjiWord === kanjiEntry.w}
@@ -875,7 +888,6 @@
                     e.stopPropagation();
                     e.preventDefault();
                     handleKanjiClick(kanjiEntry);
-                    toggleKanji(index);
                   }}
                   type="button"
                 >

@@ -779,7 +779,6 @@ function showPopupNear(rect: DOMRect, text: string, sourceRange?: Range | null) 
   };
   popupContainer.addEventListener('mousedown', stopPropagation, true);
   popupContainer.addEventListener('mouseup', stopPropagation, true);
-  popupContainer.addEventListener('click', stopPropagation, true);
 
   document.addEventListener('mousedown', handleClickOutside);
 }
