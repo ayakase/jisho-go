@@ -10,157 +10,137 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
 ---
 
 <Layout>
-  <main
-    class="min-h-screen bg-slate-50 px-6 py-12 text-slate-800"
-    data-history-url={historyUrl}
-    data-me-url={meUrl}
-    data-logout-url={logoutUrl}
-    data-wallet-url={walletUrl}
-    data-checkout-url={checkoutUrl}
-  >
-    <div class="mx-auto w-full max-w-6xl">
-      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <a href="/" class="inline-flex text-sm text-slate-600 hover:text-slate-900">← Về trang chủ</a>
+  <main class="app-shell text-base-content" data-history-url={historyUrl} data-me-url={meUrl} data-logout-url={logoutUrl} data-wallet-url={walletUrl} data-checkout-url={checkoutUrl}>
+    <aside class="app-sidebar">
+      <a href="/" class="mb-6 flex items-center gap-3 font-bold text-[#333333]">
+        <span class="grid size-9 place-items-center rounded-lg border-2 border-[#fecaca] bg-[#ffe4e6] text-[#9f1239]">字</span>
+        <span>Jisho Go</span>
+      </a>
+      <div id="user-area" class="mb-6 flex items-center gap-3 rounded-lg border border-base-300 bg-base-200 p-3">
+        <div class="skeleton h-10 w-10 rounded-full"></div>
+        <div class="min-w-0 space-y-2">
+          <div class="skeleton h-4 w-32"></div>
+          <div class="skeleton h-3 w-40"></div>
+        </div>
       </div>
-
-      <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div id="user-area" class="flex items-center gap-3">
-            <div class="size-10 animate-pulse rounded-full bg-slate-200"></div>
-            <div>
-              <p class="h-4 w-36 animate-pulse rounded bg-slate-200"></p>
-              <p class="mt-2 h-3 w-52 animate-pulse rounded bg-slate-100"></p>
-            </div>
-          </div>
-          <button
-            id="logout-btn"
-            type="button"
-            class="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-          >
-            Logout
-          </button>
-        </div>
-      </section>
-
-      <nav class="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200" aria-label="Các khu vực tài khoản">
-        <button data-tab="learning" type="button" class="account-tab border-b-2 border-rose-400 px-3 py-3 text-sm font-semibold text-rose-700">Học tập</button>
-        <button data-tab="wallet" type="button" class="account-tab border-b-2 border-transparent px-3 py-3 text-sm font-semibold text-slate-500 hover:text-slate-900">Ví AI</button>
+      <nav class="grid gap-1">
+        <button data-tab="learning" type="button" class="sidebar-link tab-active">History</button>
+        <button data-tab="wallet" type="button" class="sidebar-link">Ví AI</button>
       </nav>
+      <div class="mt-6 grid gap-1 border-t border-base-300 pt-4">
+        <a href="/" class="sidebar-link">Trang chủ</a>
+        <button id="logout-btn" type="button" class="sidebar-link hidden">Logout</button>
+      </div>
+    </aside>
 
-      <section id="wallet-section" data-panel="wallet" class="mb-6 hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 class="text-2xl font-bold tracking-[-0.02em]">Ví AI</h1>
-            <p class="mt-1.5 text-sm text-slate-600">Nạp số dư để dùng phần giải thích AI trong extension.</p>
+    <div class="app-main">
+      <section id="wallet-section" data-panel="wallet" class="panel-surface hidden min-h-[calc(100vh-2rem)] rounded-xl p-5">
+        <div class="grid gap-6">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 class="text-3xl font-bold">Ví AI</h1>
+            </div>
+            <button id="wallet-refresh-btn" type="button" class="btn btn-outline btn-sm">Tải lại số dư</button>
           </div>
-          <button id="wallet-refresh-btn" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Tải lại số dư</button>
-        </div>
 
-        <div class="mt-5 grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-          <div class="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-4">
-            <p class="text-sm text-emerald-800">Số dư hiện tại</p>
-            <p id="wallet-balance" class="mt-1 text-3xl font-bold text-emerald-950">...</p>
-            <p class="mt-2 text-xs text-emerald-800">Phí AI được trừ sau mỗi lần phân tích thành công.</p>
-          </div>
-          <div>
-            <h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-700">Nạp tiền</h2>
-            <div id="wallet-products" class="mt-3 grid gap-2 sm:grid-cols-3"></div>
-            <p id="wallet-product-empty" class="hidden mt-3 text-sm text-slate-500">Chưa có gói nạp khả dụng.</p>
-            <div class="mt-4 flex flex-wrap items-center gap-4 border border-amber-200 bg-amber-50 p-3">
-              <img
-                id="wallet-topup-qr"
-                src="https://vietqr.app/img?bank=BIDV&amp;acc=96247OW8RC&amp;template=compact&amp;holder=DANG%20THAI%20AN"
-                alt="QR chuyển khoản BIDV tới DANG THAI AN"
-                width="132"
-                height="132"
-                class="border border-amber-200 bg-white"
-              />
-              <div class="min-w-0 flex-1 text-sm text-amber-950">
-                <p class="font-semibold">Chuyển khoản thủ công (tạm thời)</p>
-                <p id="wallet-topup-qr-note" class="mt-1 text-xs leading-relaxed text-amber-900">Đang tải QR nạp tiền...</p>
+          <div class="wallet-overview-grid">
+            <div class="wallet-balance-card">
+              <p class="text-sm">Số dư hiện tại</p>
+              <p id="wallet-balance" class="mt-2 text-4xl font-black">...</p>
+              <p class="mt-2 text-sm">Phí AI được trừ sau mỗi lần phân tích thành công.</p>
+            </div>
+            <div class="wallet-topup-card">
+              <div class="wallet-topup-layout">
+                <div class="wallet-qr-column">
+                  <img id="wallet-topup-qr" src="https://vietqr.app/img?bank=BIDV&amp;acc=96247OW8RC&amp;template=compact" alt="Mã QR chuyển khoản nạp tiền" width="220" height="220" class="wallet-qr-image" />
+                  <a id="wallet-payment-link" class="btn btn-outline btn-sm mt-3 w-full" target="_blank" rel="noopener noreferrer">Mở mã QR</a>
+                </div>
+                <div class="wallet-topup-options">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 class="text-lg font-bold">Nạp tiền vào ví</h2>
+                      <p class="mt-1 text-sm text-base-content/60">Chọn số tiền bạn muốn nạp.</p>
+                    </div>
+                    <span class="wallet-secure-label">SePay · Chuyển khoản</span>
+                  </div>
+                  <div id="wallet-products" class="wallet-product-grid mt-4"></div>
+                  <p id="wallet-product-empty" class="hidden mt-3 text-sm text-base-content/60">Chưa có gói nạp.</p>
+                  <div id="wallet-payment" class="wallet-payment-card hidden mt-4">
+                    <span class="wallet-step-label">Đã tạo mã thanh toán</span>
+                    <p class="mt-1 text-lg font-bold">Nạp <strong id="wallet-payment-amount"></strong></p>
+                    <button id="wallet-payment-refresh" type="button" class="btn btn-primary btn-sm mt-3">Đã thanh toán · Kiểm tra số dư</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div id="wallet-payment" class="hidden mt-5 border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
-          <p class="font-semibold">Đơn thanh toán đã được tạo.</p>
-          <p class="mt-1 text-sky-800">Quét QR SePay vừa tạo và giữ nguyên nội dung chuyển khoản. Số dư sẽ được cộng sau khi SePay xác nhận giao dịch.</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <a id="wallet-payment-link" class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-3 py-2 font-semibold text-white hover:bg-sky-800" target="_blank" rel="noopener noreferrer">Mở QR nạp tiền</a>
-            <button id="wallet-payment-refresh" type="button" class="rounded-lg border border-sky-300 bg-white px-3 py-2 font-semibold text-sky-800 hover:bg-sky-100">Tải lại sau khi thanh toán</button>
-          </div>
-        </div>
+          <div id="wallet-error" class="alert alert-error hidden"></div>
 
-        <div id="wallet-error" class="hidden mt-5 border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
-
-        <div class="mt-6">
-          <h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-700">Lịch sử giao dịch</h2>
-          <div id="wallet-entry-empty" class="hidden mt-3 border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">Chưa có giao dịch nào.</div>
-          <div id="wallet-entry-table-wrap" class="hidden mt-3 overflow-x-auto border border-slate-200">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-slate-100 text-left text-xs uppercase tracking-[0.08em] text-slate-600">
-                <tr><th class="px-3 py-2">Thời gian</th><th class="px-3 py-2">Loại</th><th class="px-3 py-2">Thay đổi</th><th class="px-3 py-2">Số dư sau giao dịch</th></tr>
-              </thead>
-              <tbody id="wallet-entry-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
-            </table>
+          <div>
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/70">Lịch sử giao dịch</h2>
+            <div id="wallet-entry-empty" class="hidden mt-3 alert">Chưa có giao dịch.</div>
+            <div id="wallet-entry-table-wrap" class="hidden mt-3 overflow-x-auto rounded-box border border-base-300">
+              <table class="table table-zebra">
+                <thead>
+                  <tr><th>Thời gian</th><th>Loại</th><th>Thay đổi</th><th>Số dư sau giao dịch</th></tr>
+                </thead>
+                <tbody id="wallet-entry-table-body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="history-section" data-panel="learning" class="hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 class="text-2xl font-bold tracking-[-0.02em]">Learning History</h1>
-            <p class="mt-1.5 text-sm text-slate-600">Xem nhanh các đoạn tiếng Nhật bạn đã học và mở lại từng bài chi tiết.</p>
+      <section id="history-section" data-panel="learning" class="panel-surface min-h-[calc(100vh-2rem)] rounded-xl p-5">
+        <div class="grid gap-5">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 class="text-3xl font-bold">Learning History</h1>
+            </div>
+            <div id="account-stats" class="grid gap-2 text-sm"></div>
           </div>
-          <div id="account-stats" class="grid gap-2 text-sm text-slate-700"></div>
-        </div>
 
-        <div
-          id="account-error"
-          class="hidden rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-        ></div>
+          <div id="account-error" class="alert alert-error hidden"></div>
+          <div id="account-empty" class="alert hidden">Chưa có lịch sử.</div>
 
-        <div
-          id="account-empty"
-          class="hidden rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
-        >
-          Chưa có lịch sử nào.
-        </div>
+          <form id="history-filters" class="grid gap-2 rounded-box border border-base-300 bg-base-200 p-3 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+            <input id="history-query" type="search" class="input input-bordered min-w-0" placeholder="Tìm nội dung đã tra" />
+            <input id="history-from" type="date" class="input input-bordered" aria-label="Từ ngày" />
+            <input id="history-to" type="date" class="input input-bordered" aria-label="Đến ngày" />
+            <label class="label cursor-pointer justify-start gap-2 px-1 text-sm"><input id="history-favorite" type="checkbox" class="checkbox checkbox-sm" /> Đã lưu</label>
+            <div class="flex gap-2">
+              <button class="btn btn-primary btn-sm">Lọc</button>
+              <button id="history-export" type="button" class="btn btn-outline btn-sm">CSV</button>
+            </div>
+          </form>
+          <div id="history-export-options" class="hidden rounded-box border border-base-300 bg-base-200 p-4 text-sm"></div>
 
-        <form id="history-filters" class="mb-4 grid gap-2 border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
-          <input id="history-query" type="search" class="min-w-0 border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Tìm nội dung đã tra" />
-          <input id="history-from" type="date" class="border border-slate-300 bg-white px-3 py-2 text-sm" aria-label="Từ ngày" />
-          <input id="history-to" type="date" class="border border-slate-300 bg-white px-3 py-2 text-sm" aria-label="Đến ngày" />
-          <label class="inline-flex items-center gap-2 whitespace-nowrap px-1 text-sm text-slate-700"><input id="history-favorite" type="checkbox" /> Đã lưu</label>
-          <div class="flex gap-2"><button class="border border-rose-300 bg-white px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">Lọc</button><button id="history-export" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">CSV</button></div>
-        </form>
-        <div id="history-export-options" class="mb-4 hidden border border-slate-200 bg-white p-3 text-sm"><div class="mb-3 flex gap-2"><button id="history-export-select-all" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Chọn hết</button><button id="history-export-clear-all" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">Bỏ chọn hết</button></div><div class="grid gap-4 sm:grid-cols-3"><div><p class="mb-2 font-semibold text-slate-800">Bài học</p><div class="grid gap-2"><label><input type="checkbox" name="csv-field" value="query" checked /> Nội dung</label><label><input type="checkbox" name="csv-field" value="sentence_hiragana" /> Hiragana</label><label><input type="checkbox" name="csv-field" value="meaning_vi" checked /> Nghĩa Việt</label><label><input type="checkbox" name="csv-field" value="notes" /> Ghi chú</label><label><input type="checkbox" name="csv-field" value="vocabularies" checked /> Từ vựng</label><label><input type="checkbox" name="csv-field" value="grammar" checked /> Ngữ pháp</label></div></div><div><p class="mb-2 font-semibold text-slate-800">Lịch sử</p><div class="grid gap-2"><label><input type="checkbox" name="csv-field" value="id" /> ID</label><label><input type="checkbox" name="csv-field" value="created_at" checked /> Thời gian</label><label><input type="checkbox" name="csv-field" value="source_url" checked /> URL nguồn</label><label><input type="checkbox" name="csv-field" value="favorite" /> Đã lưu</label><label><input type="checkbox" name="csv-field" value="success" /> Thành công</label><label><input type="checkbox" name="csv-field" value="error_message" /> Lỗi</label></div></div><div><p class="mb-2 font-semibold text-slate-800">Kỹ thuật</p><div class="grid gap-2"><label><input type="checkbox" name="csv-field" value="model" /> Model</label><label><input type="checkbox" name="csv-field" value="duration_ms" /> Thời gian xử lý (ms)</label><label><input type="checkbox" name="csv-field" value="usage_total_tokens" /> Tổng tokens</label></div></div></div><button id="history-export-download" type="button" class="mt-4 border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100">Tải CSV</button></div>
-
-        <div id="account-table-wrap" class="hidden overflow-x-auto rounded-xl border border-slate-200">
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-100 text-left text-xs uppercase tracking-[0.08em] text-slate-600">
-              <tr>
-                <th class="px-3 py-2">Thời gian</th>
-                <th class="px-3 py-2">Nội dung</th>
-                <th class="px-3 py-2">Nghĩa</th>
-                <th class="px-3 py-2">Trọng tâm</th>
-                <th class="px-3 py-2">Nguồn</th>
-                <th class="px-3 py-2">Lưu</th>
-                <th class="px-3 py-2">Bài học</th>
-              </tr>
-            </thead>
-            <tbody id="account-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
-          </table>
-        </div>
-        <nav id="history-pagination" class="mt-4 hidden items-center justify-between gap-3" aria-label="Phân trang lịch sử học">
-          <p id="history-page-status" class="text-sm text-slate-600"></p>
-          <div class="flex items-center gap-2">
-            <button id="history-prev-btn" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">Trang trước</button>
-            <button id="history-next-btn" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">Trang sau</button>
+          <div id="account-table-wrap" class="hidden overflow-x-auto rounded-box border border-base-300">
+            <table class="table table-zebra">
+              <thead>
+                <tr>
+                  <th>Thời gian</th>
+                  <th>Nội dung</th>
+                  <th>Nghĩa</th>
+                  <th>Trọng tâm</th>
+                  <th>Nguồn</th>
+                  <th>Lưu</th>
+                  <th>Bài học</th>
+                </tr>
+              </thead>
+              <tbody id="account-table-body"></tbody>
+            </table>
           </div>
-        </nav>
+
+          <nav id="history-pagination" class="mt-1 hidden items-center justify-between gap-3" aria-label="Phân trang lịch sử học">
+            <p id="history-page-status" class="text-sm text-base-content/70"></p>
+            <div class="flex items-center gap-2">
+              <button id="history-prev-btn" type="button" class="btn btn-outline btn-sm">Trang trước</button>
+              <button id="history-next-btn" type="button" class="btn btn-outline btn-sm">Trang sau</button>
+            </div>
+          </nav>
+        </div>
       </section>
     </div>
   </main>
@@ -185,10 +165,10 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     const walletEntryTableBodyEl = document.getElementById('wallet-entry-table-body');
     const walletRefreshBtn = document.getElementById('wallet-refresh-btn');
     const walletPaymentEl = document.getElementById('wallet-payment');
+    const walletPaymentAmountEl = document.getElementById('wallet-payment-amount');
     const walletPaymentLinkEl = document.getElementById('wallet-payment-link');
     const walletPaymentRefreshBtn = document.getElementById('wallet-payment-refresh');
     const walletTopupQrEl = document.getElementById('wallet-topup-qr');
-    const walletTopupQrNoteEl = document.getElementById('wallet-topup-qr-note');
 
     const statsEl = document.getElementById('account-stats');
     const errorEl = document.getElementById('account-error');
@@ -225,10 +205,10 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     function setStats(total, success, withLesson) {
       const failure = total - success;
       statsEl.innerHTML = `
-        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">Trang này: <strong>${total}</strong></div>
-        <div class="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">Có nội dung bài học: <strong>${withLesson}</strong></div>
-        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">Thành công: <strong>${success}</strong></div>
-        <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">Cần thử lại: <strong>${failure}</strong></div>
+        <div class="extension-stat">Trang này <strong>${total}</strong></div>
+        <div class="extension-pill rounded-full px-3 py-1.5 text-sm font-bold">Bài học <strong>${withLesson}</strong></div>
+        <div class="extension-stat">OK <strong>${success}</strong></div>
+        <div class="extension-stat">Lỗi <strong>${failure}</strong></div>
       `;
     }
 
@@ -272,12 +252,12 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
 
       userAreaEl.innerHTML = `
         ${avatar
-          ? `<img src="${avatar}" alt="Avatar" class="size-10 rounded-full border border-slate-200 object-cover" referrerpolicy="no-referrer" />`
-          : `<div class="grid size-10 place-items-center rounded-full border border-slate-200 bg-slate-100 text-sm font-bold text-slate-700">${name.charAt(0).toUpperCase()}</div>`}
+          ? `<img src="${avatar}" alt="Avatar" class="avatar size-10 rounded-full border border-base-300 object-cover" referrerpolicy="no-referrer" />`
+          : `<div class="grid size-10 place-items-center rounded-full border border-base-300 bg-base-200 text-sm font-bold">${name.charAt(0).toUpperCase()}</div>`}
         <div>
-          <p class="text-sm font-semibold text-slate-900">${name}</p>
-          <p class="text-xs text-slate-500">${email}</p>
-          ${Array.isArray(roles) && roles.length ? '<a href="/admin" class="mt-1 inline-block text-xs font-semibold text-sky-700 hover:underline">Mở Admin console</a>' : ''}
+          <p class="text-sm font-semibold">${name}</p>
+          <p class="text-xs opacity-70">${email}</p>
+          ${Array.isArray(roles) && roles.length ? '<a href="/admin" class="link link-primary mt-1 inline-block text-xs font-semibold">Mở Admin console</a>' : ''}
         </div>
       `;
     }
@@ -332,12 +312,15 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
           throw new Error(typeof data?.error === 'string' ? data.error : 'Không tạo được đơn thanh toán.');
         }
         walletPaymentLinkEl.href = data.qrCode;
+        if (walletPaymentAmountEl) walletPaymentAmountEl.textContent = formatVnd(data.amountVnd);
         if (typeof data?.qrCode === 'string' && data.qrCode) {
           walletTopupQrEl.src = data.qrCode;
         }
-        if (typeof data?.transferContent === 'string' && data.transferContent) {
-          walletTopupQrNoteEl.textContent = `Quét QR và giữ nguyên nội dung ${data.transferContent} để số dư được cộng tự động.`;
-        }
+        walletProductsEl.querySelectorAll('button[data-product-code]').forEach((productButton) => {
+          const selected = productButton === button;
+          productButton.classList.toggle('wallet-product-selected', selected);
+          productButton.setAttribute('aria-pressed', String(selected));
+        });
         walletPaymentEl.classList.remove('hidden');
       } catch (err) {
         showWalletError(err instanceof Error ? err.message : 'Không tạo được đơn thanh toán.');
@@ -349,17 +332,11 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
 
     function renderWallet(data) {
       walletBalanceEl.textContent = formatVnd(data?.balanceVnd);
-      if (typeof data?.topupQrCode === 'string' && data.topupQrCode) {
-        walletTopupQrEl.src = data.topupQrCode;
-      }
-      walletTopupQrNoteEl.textContent = data?.transferContent
-        ? `Quét QR và giữ nguyên nội dung ${data.transferContent} để số dư được cộng tự động.`
-        : 'Không tải được thông tin QR nạp tiền.';
       const products = Array.isArray(data?.products) ? data.products : [];
       walletProductsEl.innerHTML = products.map((product) => `
-        <button type="button" data-product-code="${escapeHtml(product.code)}" class="border border-slate-200 bg-white px-3 py-3 text-left hover:border-emerald-400 hover:bg-emerald-50">
-          <span class="block text-sm font-semibold text-slate-900">${formatVnd(product.amountVnd)}</span>
-          <span class="mt-1 block text-xs text-slate-600">Nạp vào ví</span>
+        <button type="button" aria-pressed="false" data-product-code="${escapeHtml(product.code)}" class="wallet-product-button">
+          <span class="text-base font-bold">${formatVnd(product.amountVnd)}</span>
+          <span class="text-xs opacity-70">Nạp vào ví</span>
         </button>
       `).join('');
       walletProductEmptyEl.classList.toggle('hidden', products.length > 0);
@@ -372,13 +349,12 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
       walletEntryTableWrapEl.classList.toggle('hidden', entries.length === 0);
       walletEntryTableBodyEl.innerHTML = entries.map((entry) => {
         const amount = Number(entry.amountVnd || 0);
-        const amountClass = amount >= 0 ? 'text-emerald-700' : 'text-rose-700';
         const amountText = `${amount >= 0 ? '+' : ''}${formatVnd(amount)}`;
         return `<tr>
-          <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500">${escapeHtml(formatDateTime(entry.createdAt))}</td>
-          <td class="px-3 py-3 text-slate-700">${escapeHtml(walletEntryLabel(entry.entryType))}</td>
-          <td class="whitespace-nowrap px-3 py-3 font-semibold ${amountClass}">${amountText}</td>
-          <td class="whitespace-nowrap px-3 py-3 text-slate-700">${formatVnd(entry.balanceAfterVnd)}</td>
+          <td class="whitespace-nowrap px-3 py-3 text-xs opacity-70">${escapeHtml(formatDateTime(entry.createdAt))}</td>
+          <td class="px-3 py-3">${escapeHtml(walletEntryLabel(entry.entryType))}</td>
+          <td class="whitespace-nowrap px-3 py-3 font-semibold ${amount >= 0 ? 'text-[#047857]' : 'text-[#be123c]'}">${amountText}</td>
+          <td class="whitespace-nowrap px-3 py-3">${formatVnd(entry.balanceAfterVnd)}</td>
         </tr>`;
       }).join('');
     }
@@ -496,25 +472,25 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
             }
 
             return `
-              <tr class="align-top cursor-pointer hover:bg-slate-50 focus-within:bg-slate-50" data-href="${detailHref}" tabindex="0">
-                <td class="whitespace-nowrap px-3 py-3 text-xs text-slate-500">${createdAt}</td>
+              <tr class="align-top cursor-pointer hover:bg-base-200 focus-within:bg-base-200" data-href="${detailHref}" tabindex="0">
+                <td class="whitespace-nowrap px-3 py-3 text-xs opacity-70">${createdAt}</td>
                 <td class="max-w-[300px] px-3 py-3">
-                  <p class="line-clamp-2 break-words text-sm font-semibold text-slate-900" title="${query}">${query}</p>
-                  <p class="mt-1 line-clamp-2 break-words text-xs text-slate-500" title="${notes}">${notes}</p>
+                  <p class="line-clamp-2 break-words text-sm font-semibold" title="${query}">${query}</p>
+                  <p class="mt-1 line-clamp-2 break-words text-xs opacity-70" title="${notes}">${notes}</p>
                 </td>
                 <td class="max-w-[300px] px-3 py-3">
-                  <p class="line-clamp-3 break-words text-sm text-slate-700" title="${meaning}">${meaning}</p>
+                  <p class="line-clamp-3 break-words text-sm" title="${meaning}">${meaning}</p>
                 </td>
                 <td class="whitespace-nowrap px-3 py-3">
                   <div class="flex flex-wrap gap-2 text-xs">
-                    <span class="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-sky-700">Từ vựng: ${vocabCount}</span>
-                    <span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Ngữ pháp: ${grammarCount}</span>
+                    <span class="extension-pill rounded-full px-2 py-1 text-xs font-bold">Từ vựng: ${vocabCount}</span>
+                    <span class="extension-muted-pill rounded-full px-2 py-1 text-xs font-bold">Ngữ pháp: ${grammarCount}</span>
                   </div>
                 </td>
                 <td class="max-w-32 px-3 py-3 break-all">${sourceLink}</td>
-                <td class="whitespace-nowrap px-3 py-3"><div class="flex gap-1"><button type="button" data-favorite-id="${Number(item.id || 0)}" data-favorite="${favorite ? '1' : '0'}" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold ${favorite ? 'text-rose-700' : 'text-slate-600'}">${favorite ? 'Đã lưu' : 'Lưu'}</button><button type="button" data-delete-id="${Number(item.id || 0)}" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-rose-300 hover:text-rose-700">Xoá</button></div></td>
+                <td class="whitespace-nowrap px-3 py-3"><div class="flex gap-1"><button type="button" data-favorite-id="${Number(item.id || 0)}" data-favorite="${favorite ? '1' : '0'}" class="btn btn-outline btn-xs ${favorite ? 'btn-error' : ''}">${favorite ? 'Đã lưu' : 'Lưu'}</button><button type="button" data-delete-id="${Number(item.id || 0)}" class="btn btn-outline btn-xs">Xoá</button></div></td>
                 <td class="whitespace-nowrap p-0">
-                  <a class="block h-full w-full px-3 py-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 focus-visible:bg-slate-100 focus-visible:outline-none" href="${detailHref}">Mở bài học</a>
+                  <a class="btn btn-ghost btn-xs h-full w-full justify-start" href="${detailHref}">Mở bài học</a>
                 </td>
               </tr>
             `;
@@ -555,14 +531,68 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
       window.location.href = '/login';
     });
 
-    walletRefreshBtn?.addEventListener('click', loadWallet);
+      walletRefreshBtn?.addEventListener('click', loadWallet);
     walletPaymentRefreshBtn?.addEventListener('click', loadWallet);
     historyPrevBtn?.addEventListener('click', () => loadHistory(historyPage - 1));
     historyNextBtn?.addEventListener('click', () => loadHistory(historyPage + 1));
     historyFiltersEl?.addEventListener('submit', (event) => { event.preventDefault(); loadHistory(1); });
+    function renderExportOptions() {
+      if (!historyExportOptionsEl) return;
+      historyExportOptionsEl.innerHTML = `
+        <div class="mb-3 flex gap-2">
+          <button id="history-export-select-all" type="button" class="btn btn-outline btn-xs">Chọn hết</button>
+          <button id="history-export-clear-all" type="button" class="btn btn-outline btn-xs">Bỏ chọn hết</button>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p class="mb-2 font-semibold">Bài học</p>
+            <div class="grid gap-2">
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="query" checked /> Nội dung</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="sentence_hiragana" /> Hiragana</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="meaning_vi" checked /> Nghĩa Việt</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="notes" /> Ghi chú</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="vocabularies" checked /> Từ vựng</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="grammar" checked /> Ngữ pháp</label>
+            </div>
+          </div>
+          <div>
+            <p class="mb-2 font-semibold">Lịch sử</p>
+            <div class="grid gap-2">
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="id" /> ID</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="created_at" checked /> Thời gian</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="source_url" checked /> URL nguồn</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="favorite" /> Đã lưu</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="success" /> Thành công</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="error_message" /> Lỗi</label>
+            </div>
+          </div>
+          <div>
+            <p class="mb-2 font-semibold">Kỹ thuật</p>
+            <div class="grid gap-2">
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="model" /> Model</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="duration_ms" /> Thời gian xử lý (ms)</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="usage_total_tokens" /> Tổng tokens</label>
+            </div>
+          </div>
+        </div>
+        <button id="history-export-download" type="button" class="btn btn-success btn-sm mt-4">Tải CSV</button>
+      `;
+      document.getElementById('history-export-select-all')?.addEventListener('click', () => document.querySelectorAll('input[name="csv-field"]').forEach((field) => { field.checked = true; }));
+      document.getElementById('history-export-clear-all')?.addEventListener('click', () => document.querySelectorAll('input[name="csv-field"]').forEach((field) => { field.checked = false; }));
+      document.getElementById('history-export-download')?.addEventListener('click', () => {
+        const url = new URL(`${historyUrl}/export.csv`);
+        if (historyQueryEl?.value.trim()) url.searchParams.set('q', historyQueryEl.value.trim());
+        if (historyFromEl?.value) url.searchParams.set('from', historyFromEl.value);
+        if (historyToEl?.value) url.searchParams.set('to', historyToEl.value);
+        if (historyFavoriteEl?.checked) url.searchParams.set('favorite', '1');
+        const fields = [...document.querySelectorAll('input[name="csv-field"]:checked')].map((field) => field.value);
+        if (!fields.length) { window.alert('Chọn ít nhất một cột để export.'); return; }
+        url.searchParams.set('fields', fields.join(','));
+        window.location.href = url.toString();
+      });
+    }
+    renderExportOptions();
     historyExportBtn?.addEventListener('click', () => historyExportOptionsEl?.classList.toggle('hidden'));
-    historyExportSelectAllBtn?.addEventListener('click', () => document.querySelectorAll('input[name="csv-field"]').forEach((field) => { field.checked = true; }));
-    historyExportClearAllBtn?.addEventListener('click', () => document.querySelectorAll('input[name="csv-field"]').forEach((field) => { field.checked = false; }));
     historyExportDownloadBtn?.addEventListener('click', () => {
       const url = new URL(`${historyUrl}/export.csv`);
       if (historyQueryEl?.value.trim()) url.searchParams.set('q', historyQueryEl.value.trim());
@@ -580,10 +610,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
       const tabName = accountTabs.has(name) ? name : 'learning';
       document.querySelectorAll('[data-tab]').forEach((tab) => {
         const active = tab.getAttribute('data-tab') === tabName;
-        tab.classList.toggle('border-rose-400', active);
-        tab.classList.toggle('text-rose-700', active);
-        tab.classList.toggle('border-transparent', !active);
-        tab.classList.toggle('text-slate-500', !active);
+        tab.classList.toggle('tab-active', active);
       });
       document.querySelectorAll('[data-panel]').forEach((panel) => {
         panel.classList.toggle('hidden', panel.getAttribute('data-panel') !== tabName);

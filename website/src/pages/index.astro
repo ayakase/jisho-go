@@ -3,265 +3,360 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout>
-	<main class="min-h-screen bg-slate-50 text-slate-800 font-sans">
-		<nav class="sticky top-0 z-50 border-b border-slate-200 bg-slate-50/95 backdrop-blur">
-			<div class="mx-auto flex w-[min(1100px,calc(100%-48px))] flex-wrap items-center justify-between gap-3 py-3">
-				<a href="#" class="text-sm font-bold tracking-[-0.01em] text-slate-800">Jisho Go</a>
-				<div class="flex flex-wrap items-center gap-2 text-sm">
-					<a class="rounded-md px-2 py-1 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900" href="#tinh-nang"
-						>Tính năng</a
-					>
-					<a class="rounded-md px-2 py-1 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900" href="#cai-dat"
-						>Cài đặt</a
-					>
-					<a class="rounded-md px-2 py-1 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900" href="#su-dung"
-						>Cách dùng</a
-					>
-					<a
-						class="rounded-md px-2 py-1 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-						href="#quyen-rieng-tu">Quyền riêng tư</a
-					>
-					<a
-						class="ml-1 inline-flex items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-rose-700 transition-colors hover:bg-rose-100"
-						href="https://github.com/ayakase/jisho-go"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						<svg
-							class="mr-1.5 size-4"
-							viewBox="0 -0.5 25 25"
-							fill="currentColor"
-							xmlns="http://www.w3.org/2000/svg"
-							aria-hidden="true"
-						>
-							<path
-								d="m12.301 0h.093c2.242 0 4.34.613 6.137 1.68l-.055-.031c1.871 1.094 3.386 2.609 4.449 4.422l.031.058c1.04 1.769 1.654 3.896 1.654 6.166 0 5.406-3.483 10-8.327 11.658l-.087.026c-.063.02-.135.031-.209.031-.162 0-.312-.054-.433-.144l.002.001c-.128-.115-.208-.281-.208-.466 0-.005 0-.01 0-.014v.001q0-.048.008-1.226t.008-2.154c.007-.075.011-.161.011-.249 0-.792-.323-1.508-.844-2.025.618-.061 1.176-.163 1.718-.305l-.076.017c.573-.16 1.073-.373 1.537-.642l-.031.017c.508-.28.938-.636 1.292-1.058l.006-.007c.372-.476.663-1.036.84-1.645l.009-.035c.209-.683.329-1.468.329-2.281 0-.045 0-.091-.001-.136v.007c0-.022.001-.047.001-.072 0-1.248-.482-2.383-1.269-3.23l.003.003c.168-.44.265-.948.265-1.479 0-.649-.145-1.263-.404-1.814l.011.026c-.115-.022-.246-.035-.381-.035-.334 0-.649.078-.929.216l.012-.005c-.568.21-1.054.448-1.512.726l.038-.022-.609.384c-.922-.264-1.981-.416-3.075-.416s-2.153.152-3.157.436l.081-.02q-.256-.176-.681-.433c-.373-.214-.814-.421-1.272-.595l-.066-.022c-.293-.154-.64-.244-1.009-.244-.124 0-.246.01-.364.03l.013-.002c-.248.524-.393 1.139-.393 1.788 0 .531.097 1.04.275 1.509l-.01-.029c-.785.844-1.266 1.979-1.266 3.227 0 .025 0 .051.001.076v-.004c-.001.039-.001.084-.001.13 0 .809.12 1.591.344 2.327l-.015-.057c.189.643.476 1.202.85 1.693l-.009-.013c.354.435.782.793 1.267 1.062l.022.011c.432.252.933.465 1.46.614l.046.011c.466.125 1.024.227 1.595.284l.046.004c-.431.428-.718 1-.784 1.638l-.001.012c-.207.101-.448.183-.699.236l-.021.004c-.256.051-.549.08-.85.08-.022 0-.044 0-.066 0h.003c-.394-.008-.756-.136-1.055-.348l.006.004c-.371-.259-.671-.595-.881-.986l-.007-.015c-.198-.336-.459-.614-.768-.827l-.009-.006c-.225-.169-.49-.301-.776-.38l-.016-.004-.32-.048c-.023-.002-.05-.003-.077-.003-.14 0-.273.028-.394.077l.007-.003q-.128.072-.08.184c.039.086.087.16.145.225l-.001-.001c.061.072.13.135.205.19l.003.002.112.08c.283.148.516.354.693.603l.004.006c.191.237.359.505.494.792l.01.024.16.368c.135.402.38.738.7.981l.005.004c.3.234.662.402 1.057.478l.016.002c.33.064.714.104 1.106.112h.007c.045.002.097.002.15.002.261 0 .517-.021.767-.062l-.027.004.368-.064q0 .609.008 1.418t.008.873v.014c0 .185-.08.351-.208.466h-.001c-.119.089-.268.143-.431.143-.075 0-.147-.011-.214-.032l.005.001c-4.929-1.689-8.409-6.283-8.409-11.69 0-2.268.612-4.393 1.681-6.219l-.032.058c1.094-1.871 2.609-3.386 4.422-4.449l.058-.031c1.739-1.034 3.835-1.645 6.073-1.645h.098-.005zm-7.64 17.666q.048-.112-.112-.192-.16-.048-.208.032-.048.112.112.192.144.096.208-.032zm.497.545q.112-.08-.032-.256-.16-.144-.256-.048-.112.08.032.256.159.157.256.047zm.48.72q.144-.112 0-.304-.128-.208-.272-.096-.144.08 0 .288t.272.112zm.672.673q.128-.128-.064-.304-.192-.192-.32-.048-.144.128.064.304.192.192.32.044zm.913.4q.048-.176-.208-.256-.24-.064-.304.112t.208.24q.24.097.304-.096zm1.009.08q0-.208-.272-.176-.256 0-.256.176 0 .208.272.176.256.001.256-.175zm.929-.16q-.032-.176-.288-.144-.256.048-.224.24t.288.128.225-.224z"
-							></path>
-						</svg>
-						GitHub</a
-					>
-						<a
-							class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-slate-700 transition-colors hover:bg-slate-100"
-							href="/login"
-							>Login</a
-						>
-						<a
-							class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-slate-700 transition-colors hover:bg-slate-100"
-							href="/account"
-							>Account</a
-						>
-						<a
-							class="inline-flex items-center justify-center rounded-md border border-rose-400 bg-rose-400 px-2.5 py-1 font-semibold text-white transition-colors hover:bg-rose-500"
-							href="/register"
-							>Register</a
-						>
+	<main class="landing-page min-h-screen bg-base-100 text-base-content">
+		<nav class="navbar sticky top-0 z-50 border-b border-base-300 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+			<div class="navbar-start">
+				<a href="/" class="flex items-center gap-3 font-bold text-[#111827]">
+					<span class="grid size-9 place-items-center rounded-lg border-2 border-[#fecaca] bg-[#ffe4e6] text-[#9f1239]">字</span>
+					<span>Jisho Go</span>
+				</a>
+			</div>
+			<div class="navbar-center hidden lg:flex">
+				<div class="join">
+					<a class="btn join-item btn-sm bg-white" href="#popup">Popup</a>
+					<a class="btn join-item btn-sm bg-white" href="#hover">Hover</a>
+					<a class="btn join-item btn-sm bg-white" href="#ai">AI</a>
+					<a class="btn join-item btn-sm bg-white" href="#settings">Tùy chỉnh</a>
 				</div>
 			</div>
+			<div class="navbar-end gap-2">
+				<a class="btn btn-ghost btn-sm" href="/login">Login</a>
+				<a class="btn btn-primary btn-sm" href="/register">Cài extension</a>
+			</div>
 		</nav>
-		<header class="border-b border-slate-200 pb-10 pt-14 md:pt-[72px]">
-			<div class="mx-auto grid w-[min(1100px,calc(100%-48px))] items-center gap-7 md:grid-cols-[1.15fr_0.85fr]">
-				<div>
-					<p class="mb-3.5 inline-flex items-center gap-2.5 text-xs uppercase tracking-[0.12em] text-slate-500">
-						Tiện ích trình duyệt
+
+		<section class="hero landing-hero min-h-[calc(100vh-64px)] overflow-hidden border-b border-base-300">
+			<div class="hero-content grid w-full max-w-none gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[0.76fr_1.24fr] lg:px-8 xl:px-12">
+				<div class="max-w-2xl">
+					<div class="extension-pill mb-5 inline-flex rounded-full px-3 py-1.5 text-sm font-bold">Japanese reading extension</div>
+					<h1 class="text-5xl font-black leading-[1.02] text-[#111827] sm:text-6xl lg:text-7xl">
+						Đọc ở đâu, tra ngay ở đó.
+					</h1>
+					<p class="mt-6 max-w-xl text-lg leading-8 text-[#4b5563]">
+						Bôi đen câu, hover Kanji, dịch đoạn, hỏi AI về vocab và grammar mà không rời khỏi trang đang đọc.
 					</p>
-					<h1 class="m-0 text-[clamp(42px,4.8vw,64px)] leading-[1.03] tracking-[-0.03em]">Jisho Go</h1>
-					<p class="mt-3.5 max-w-[58ch] text-base leading-relaxed text-slate-600">
-						Tra từ Nhật nhanh ngay trên trang bạn đang đọc. Chỉ cần bôi đen hoặc rê chuột - nghĩa, cách đọc, và
-						ví dụ hiện ra tức thì.
-					</p>
-					<div class="mt-[22px] flex flex-wrap gap-3">
-						<a
-							class="inline-flex items-center justify-center rounded-lg border border-rose-400 bg-rose-400 px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-500"
-							href="#cai-dat">Cài đặt</a
-						>
-						<a
-							class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-							href="#tinh-nang">Xem tính năng</a
-						>
+					<div class="mt-8 flex flex-wrap gap-3">
+						<a class="btn btn-primary btn-lg" href="/register">Cài extension</a>
+						<a class="btn btn-outline btn-lg border-base-300 bg-white text-[#374151]" href="#popup">Xem flow</a>
 					</div>
-					<ul class="mt-[18px] grid gap-2.5 text-sm text-slate-700">
-						<li class="flex items-center gap-2.5">
-							<span class="size-2 rounded-full bg-rose-400"></span>
-							Tra nhanh bằng bôi đen / hover
+					<div class="mt-8 flex flex-wrap gap-2">
+						<kbd class="kbd kbd-sm">select</kbd>
+						<kbd class="kbd kbd-sm">hover</kbd>
+						<kbd class="kbd kbd-sm">AI</kbd>
+						<kbd class="kbd kbd-sm">save</kbd>
+					</div>
+				</div>
+
+				<div class="landing-stage">
+					<div class="hover-3d landing-hover-3d">
+						<div class="indicator w-full">
+							<span class="indicator-item badge badge-primary shadow-md">Live popup</span>
+							<div class="mockup-browser w-full border border-base-300 bg-white shadow-2xl">
+								<div class="mockup-browser-toolbar border-b border-base-300">
+									<div class="input border border-base-300 bg-base-200 text-sm text-[#6b7280]">mainichi.jp/nihongo/article</div>
+								</div>
+								<div class="landing-reader-grid bg-white">
+									<div class="min-h-[500px] p-5 sm:p-7">
+										<div class="mb-5 flex flex-wrap items-center gap-2">
+											<span class="badge border-[#fca5a5] bg-[#fee2e2] text-[#991b1b]">Selection</span>
+											<span class="badge border-base-300 bg-base-200">Kanji dict</span>
+											<span class="badge border-base-300 bg-base-200">Vocab</span>
+											<span class="badge border-base-300 bg-base-200">Translate</span>
+										</div>
+										<article class="space-y-5">
+											<p class="jp-text text-3xl font-black leading-relaxed text-[#111827] sm:text-4xl">
+												新しい言葉に出会うたび、読む力は少しずつ伸びていく。
+											</p>
+											<div class="space-y-3">
+												<div class="h-3 w-11/12 rounded-full bg-base-200"></div>
+												<div class="h-3 w-9/12 rounded-full bg-base-200"></div>
+												<div class="h-3 w-10/12 rounded-full bg-base-200"></div>
+											</div>
+											<p class="jp-text max-w-2xl text-2xl font-bold leading-relaxed text-[#374151]">
+												<span class="landing-mark">出会うたび</span>、知らない表現が自然に自分の言葉になる。
+											</p>
+										</article>
+
+										<div class="landing-popup extension-card mt-8 rounded-xl p-4">
+											<div class="tabs tabs-box bg-base-200">
+												<span class="tab tab-active bg-[#fee2e2] text-[#991b1b]">Vocab</span>
+												<span class="tab">Kanji</span>
+												<span class="tab">Explain</span>
+											</div>
+											<div class="mt-4 grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
+												<div class="rounded-lg border border-base-300 bg-base-200 p-3">
+													<p class="jp-text text-4xl font-black text-primary">出会う</p>
+													<p class="mt-1 text-sm font-semibold text-[#6b7280]">であう</p>
+												</div>
+												<div class="space-y-3">
+													<div class="h-2 w-11/12 rounded-full bg-[#fee2e2]"></div>
+													<div class="h-2 w-8/12 rounded-full bg-base-300"></div>
+													<div class="flex flex-wrap gap-2">
+														<span class="badge badge-outline">JLPT</span>
+														<span class="badge badge-outline">romaji</span>
+														<span class="badge badge-primary">save</span>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
+									<aside class="landing-side-panel border-t border-base-300 bg-base-200 p-4 lg:border-l lg:border-t-0">
+										<div class="mockup-phone scale-[0.82] origin-top">
+											<div class="mockup-phone-camera"></div>
+											<div class="mockup-phone-display bg-white p-4">
+												<div class="mb-3 flex items-center justify-between">
+													<span class="font-bold">Extension</span>
+													<input type="checkbox" class="toggle toggle-primary toggle-sm" checked />
+												</div>
+												<div class="space-y-3">
+													<div class="rounded-lg border border-base-300 bg-base-200 p-3">
+														<p class="text-xs font-bold text-[#6b7280]">Hover mode</p>
+														<p class="mt-1 font-bold">Từng Kanji / Cả đoạn</p>
+													</div>
+													<div class="rounded-lg border border-base-300 bg-white p-3">
+														<p class="text-xs font-bold text-[#6b7280]">Popup</p>
+														<input type="range" min="0" max="100" value="72" class="range range-primary range-xs mt-3" />
+													</div>
+													<div class="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-3 text-[#065f46]">
+														<p class="text-xs font-bold">AI explain</p>
+														<p class="text-2xl font-black">Ready</p>
+													</div>
+												</div>
+											</div>
+										</div>
+									</aside>
+								</div>
+							</div>
+						</div>
+						<div></div>
+						<div></div>
+						<div></div>
+						<div></div>
+						<div></div>
+						<div></div>
+						<div></div>
+						<div></div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="popup" class="bg-white py-16 sm:py-20">
+			<div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
+				<div class="grid items-end gap-6 lg:grid-cols-[0.78fr_1.22fr]">
+					<div>
+						<div class="extension-pill mb-4 inline-flex rounded-full px-3 py-1 text-sm font-bold">Core flow</div>
+						<h2 class="max-w-2xl text-4xl font-black leading-tight text-[#111827] sm:text-5xl">
+							Popup là trung tâm, không phải dashboard.
+						</h2>
+					</div>
+					<div class="stats stats-vertical border border-base-300 bg-base-100 shadow-sm sm:stats-horizontal">
+						<div class="stat">
+							<div class="stat-title">Trigger</div>
+							<div class="stat-value text-2xl">Select</div>
+						</div>
+						<div class="stat">
+							<div class="stat-title">Result</div>
+							<div class="stat-value text-2xl text-primary">Dict + AI</div>
+						</div>
+						<div class="stat">
+							<div class="stat-title">Memory</div>
+							<div class="stat-value text-2xl">Saved</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="carousel carousel-center mt-10 w-full gap-4 rounded-box">
+					<div class="carousel-item w-[86vw] max-w-md">
+						<div class="landing-feature-tile w-full">
+							<div class="text-5xl">選</div>
+							<h3>Bôi đen mở popup</h3>
+							<p>Tức thì hoặc qua nút nhỏ.</p>
+						</div>
+					</div>
+					<div class="carousel-item w-[86vw] max-w-md">
+						<div class="landing-feature-tile w-full">
+							<div class="text-5xl">漢</div>
+							<h3>Kanji + vocab local</h3>
+							<p>Tra nhanh, có đọc, nghĩa, ví dụ.</p>
+						</div>
+					</div>
+					<div class="carousel-item w-[86vw] max-w-md">
+						<div class="landing-feature-tile w-full">
+							<div class="text-5xl">文</div>
+							<h3>Hover cả đoạn</h3>
+							<p>Dịch, vocab, Kanji theo đoạn đang trỏ.</p>
+						</div>
+					</div>
+					<div class="carousel-item w-[86vw] max-w-md">
+						<div class="landing-feature-tile w-full">
+							<div class="text-5xl">AI</div>
+							<h3>Explain ngữ cảnh</h3>
+							<p>Tách câu, từ vựng, grammar, note.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="hover" class="landing-soft-band border-y border-base-300 py-16 sm:py-20">
+			<div class="grid w-full gap-10 px-4 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 xl:px-12">
+				<div class="mockup-browser border border-base-300 bg-white shadow-xl">
+					<div class="mockup-browser-toolbar border-b border-base-300">
+						<div class="input border border-base-300 bg-base-200 text-sm text-[#6b7280]">hover paragraph</div>
+					</div>
+					<div class="p-5 sm:p-7">
+						<div class="diff aspect-[16/9] rounded-xl border border-base-300" tabindex="0">
+							<div class="diff-item-1" role="img">
+								<div class="grid h-full place-items-center bg-white p-6">
+									<p class="jp-text max-w-xl text-3xl font-black leading-relaxed text-[#111827]">
+										難しい文章でも、文脈をつかめば読みやすくなる。
+									</p>
+								</div>
+							</div>
+							<div class="diff-item-2" role="img">
+								<div class="grid h-full place-items-center bg-[#fff1f2] p-6">
+									<div class="max-w-md rounded-xl border border-[#fca5a5] bg-white p-4 shadow-lg">
+										<p class="text-xs font-black uppercase text-[#991b1b]">Hover popup</p>
+										<p class="mt-2 text-sm leading-6 text-[#374151]">Bản dịch nhanh + vocab rút gọn + Kanji chính.</p>
+										<div class="mt-3 flex flex-wrap gap-2">
+											<span class="badge badge-primary">文脈</span>
+											<span class="badge">つかむ</span>
+											<span class="badge">読みやすい</span>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="diff-resizer"></div>
+						</div>
+					</div>
+				</div>
+
+				<div class="flex flex-col justify-center">
+					<div class="extension-pill mb-4 inline-flex w-fit rounded-full px-3 py-1 text-sm font-bold">Hover mode</div>
+					<h2 class="text-4xl font-black leading-tight text-[#111827]">Không cần chọn text cũng tra được.</h2>
+					<ul class="timeline timeline-vertical mt-8">
+						<li>
+							<div class="timeline-start text-sm font-bold text-[#6b7280]">01</div>
+							<div class="timeline-middle"><span class="status status-primary"></span></div>
+							<div class="timeline-end timeline-box border-base-300 bg-white">Từng Kanji</div>
+							<hr class="bg-base-300" />
 						</li>
-						<li class="flex items-center gap-2.5">
-							<span class="size-2 rounded-full bg-emerald-500"></span>
-							Gọn nhẹ, không làm gián đoạn việc đọc
+						<li>
+							<hr class="bg-base-300" />
+							<div class="timeline-start text-sm font-bold text-[#6b7280]">02</div>
+							<div class="timeline-middle"><span class="status status-primary"></span></div>
+							<div class="timeline-end timeline-box border-base-300 bg-white">Cả đoạn văn</div>
+							<hr class="bg-base-300" />
 						</li>
-						<li class="flex items-center gap-2.5">
-							<span class="size-2 rounded-full bg-amber-500"></span>
-							Tôn trọng quyền riêng tư
+						<li>
+							<hr class="bg-base-300" />
+							<div class="timeline-start text-sm font-bold text-[#6b7280]">03</div>
+							<div class="timeline-middle"><span class="status status-primary"></span></div>
+							<div class="timeline-end timeline-box border-base-300 bg-white">Delay tùy chỉnh</div>
 						</li>
 					</ul>
 				</div>
+			</div>
+		</section>
 
-				<div class="justify-self-start md:justify-self-end" role="img" aria-label="Minh hoạ popup tra từ">
-					<div class="w-full max-w-[420px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-						<div class="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-3.5 py-3">
-							<span class="rounded-full border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700"
-								>選択 / Hover</span
-							>
-							<span class="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700"
-								>Jisho Go</span
-							>
+		<section id="ai" class="bg-white py-16 sm:py-20">
+			<div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
+				<div class="mb-10 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+					<div>
+						<div class="extension-pill mb-4 inline-flex rounded-full px-3 py-1 text-sm font-bold">AI Explain</div>
+						<h2 class="max-w-2xl text-4xl font-black leading-tight text-[#111827]">Một câu được bẻ ra thành thứ học được.</h2>
+					</div>
+					<div class="steps steps-horizontal overflow-x-auto">
+						<div class="step step-primary">Sentence</div>
+						<div class="step step-primary">Vocab</div>
+						<div class="step step-primary">Grammar</div>
+						<div class="step">Saved</div>
+					</div>
+				</div>
+
+				<div class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+					<div class="stack">
+						<div class="landing-ai-card border-[#fecaca] bg-[#fff1f2]">
+							<p class="jp-text text-3xl font-black">読みやすくなる</p>
+							<p class="mt-2 text-[#6b7280]">sentence meaning</p>
 						</div>
-						<div class="px-4 pb-3.5 pt-4">
-							<div class="text-3xl font-extrabold tracking-[-0.02em]">勉強</div>
-							<div class="mt-1.5 text-slate-500">べんきょう</div>
-							<div class="mt-2.5 text-[15px] text-slate-800">học tập; học hành</div>
-							<div class="my-3.5 h-px bg-slate-200"></div>
-							<div class="grid gap-1.5 text-[13px] text-slate-600">
-								<span class="text-slate-700">毎日、日本語を勉強しています。</span>
-								<span class="text-slate-500">Mỗi ngày mình đều học tiếng Nhật.</span>
+						<div class="landing-ai-card bg-white">
+							<p class="font-black">Vocabularies</p>
+							<div class="mt-3 flex flex-wrap gap-2">
+								<span class="badge badge-primary">文脈</span>
+								<span class="badge">難しい</span>
+								<span class="badge">つかむ</span>
 							</div>
 						</div>
-						<div class="flex items-center justify-between border-t border-slate-200 bg-slate-50/70 px-3.5 py-3">
-							<span class="text-xs text-slate-500">Nhấn Esc để đóng</span>
-							<span class="text-xs text-slate-500">Enter để ghim</span>
+						<div class="landing-ai-card bg-base-200">
+							<p class="font-black">Grammar</p>
+							<p class="mt-2 text-sm text-[#6b7280]">~ば / conditional pattern</p>
 						</div>
 					</div>
-				</div>
-			</div>
-		</header>
 
-		<section id="tinh-nang" class="border-b border-slate-200 py-[54px]">
-			<div class="mx-auto w-[min(1100px,calc(100%-48px))]">
-				<h2 class="mb-[18px] text-[26px] tracking-[-0.02em]">Tính năng nổi bật</h2>
-				<div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-					<article class="rounded-xl border border-rose-100 bg-rose-50/40 p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Tra ngay tại chỗ</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Bôi đen từ/cụm từ hoặc rê chuột để xem popup. Không cần chuyển tab, không mất nhịp đọc.
-						</p>
-					</article>
-					<article class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Thông tin rõ ràng</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Hiển thị cách đọc, nghĩa, và ví dụ theo bố cục dễ nhìn - phù hợp cả người mới học lẫn nâng cao.
-						</p>
-					</article>
-					<article class="rounded-xl border border-sky-100 bg-sky-50/40 p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Tuỳ chọn linh hoạt</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Bật/tắt hover, điều chỉnh hành vi popup, và chọn cách tra phù hợp với thói quen của bạn.
-						</p>
-					</article>
-					<article class="rounded-xl border border-amber-100 bg-amber-50/45 p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Nhanh & gọn</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Giao diện tối giản, phản hồi nhanh. Ưu tiên trải nghiệm: ít "phiền", nhiều thông tin đúng lúc.
-						</p>
-					</article>
-					<article class="rounded-xl border border-violet-100 bg-violet-50/40 p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Tôn trọng quyền riêng tư</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Không thu thập dữ liệu cá nhân một cách không cần thiết. Bạn chủ động trong việc sử dụng và chia sẻ.
-						</p>
-					</article>
-					<article class="rounded-xl border border-teal-100 bg-teal-50/40 p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Phù hợp mọi trang</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Dùng tốt khi đọc báo, tài liệu, blog, hoặc bất kỳ nội dung tiếng Nhật nào trên web.
-						</p>
-					</article>
-				</div>
-			</div>
-		</section>
-
-		<section id="cai-dat" class="border-b border-slate-200 py-[54px]">
-			<div class="mx-auto w-[min(1100px,calc(100%-48px))]">
-				<h2 class="mb-[18px] text-[26px] tracking-[-0.02em]">Cài đặt</h2>
-				<div class="mt-4 grid gap-3">
-					<div class="grid grid-cols-[40px_1fr] items-start gap-3 rounded-xl border border-rose-100 bg-rose-50/40 p-3.5">
-						<div
-							class="grid size-9 place-items-center rounded-full border border-rose-200 bg-white text-sm font-extrabold text-rose-700"
-						>
-							1
-						</div>
-						<div>
-							<h3 class="mb-2 text-base tracking-[-0.01em]">Thêm tiện ích</h3>
-							<p class="m-0 leading-relaxed text-slate-600">Cài từ cửa hàng tiện ích của trình duyệt (Chrome/Firefox).</p>
-						</div>
-					</div>
-					<div class="grid grid-cols-[40px_1fr] items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3.5">
-						<div
-							class="grid size-9 place-items-center rounded-full border border-emerald-200 bg-white text-sm font-extrabold text-emerald-700"
-						>
-							2
-						</div>
-						<div>
-							<h3 class="mb-2 text-base tracking-[-0.01em]">Mở trang tiếng Nhật</h3>
-							<p class="m-0 leading-relaxed text-slate-600">Ví dụ: bài báo, truyện, tài liệu học tập.</p>
-						</div>
-					</div>
-					<div class="grid grid-cols-[40px_1fr] items-start gap-3 rounded-xl border border-sky-100 bg-sky-50/40 p-3.5">
-						<div
-							class="grid size-9 place-items-center rounded-full border border-sky-200 bg-white text-sm font-extrabold text-sky-700"
-						>
-							3
-						</div>
-						<div>
-							<h3 class="mb-2 text-base tracking-[-0.01em]">Bôi đen hoặc hover</h3>
-							<p class="m-0 leading-relaxed text-slate-600">Popup hiện ra với nghĩa, cách đọc, và ví dụ.</p>
-						</div>
-					</div>
-				</div>
-				<div class="mt-[22px] flex flex-wrap justify-center gap-3">
-					<a
-						class="inline-flex items-center justify-center rounded-lg border border-rose-400 bg-rose-400 px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-500"
-						href="#su-dung">Cách dùng nhanh</a
-					>
-					<a
-						class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-						href="#quyen-rieng-tu">Quyền riêng tư</a
-					>
-				</div>
-			</div>
-		</section>
-
-		<section id="su-dung" class="border-b border-slate-200 py-[54px]">
-			<div class="mx-auto w-[min(1100px,calc(100%-48px))]">
-				<h2 class="mb-[18px] text-[26px] tracking-[-0.02em]">Cách dùng nhanh</h2>
-				<div class="mt-4 grid grid-cols-1 gap-3.5 md:grid-cols-2">
-					<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Bôi đen để tra</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Khi gặp từ mới, hãy bôi đen. Popup sẽ hiện ngay cạnh vùng chọn để bạn xem nghĩa và cách đọc.
-						</p>
-					</div>
-					<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-						<h3 class="mb-2 text-base tracking-[-0.01em]">Hover để tra</h3>
-						<p class="m-0 leading-relaxed text-slate-600">
-							Nếu bạn thích tra "nhẹ nhàng" hơn, bật chế độ hover để xem nhanh khi rê chuột qua từ.
-						</p>
+					<div class="mockup-code border border-base-300 bg-[#111827] text-primary-content shadow-xl">
+						<pre data-prefix="$"><code>explain selected sentence</code></pre>
+						<pre data-prefix=">" class="text-success"><code>hiragana: よみやすくなる</code></pre>
+						<pre data-prefix=">" class="text-warning"><code>vocab: 3 items</code></pre>
+						<pre data-prefix=">" class="text-info"><code>grammar: conditional nuance</code></pre>
+						<pre data-prefix=">" class="text-primary"><code>saved to history</code></pre>
 					</div>
 				</div>
 			</div>
 		</section>
 
-		<section id="quyen-rieng-tu" class="border-b border-slate-200 py-[54px]">
-			<div class="mx-auto w-[min(1100px,calc(100%-48px))]">
-				<h2 class="mb-[18px] text-[26px] tracking-[-0.02em]">Quyền riêng tư</h2>
-				<p class="m-0 leading-relaxed text-slate-600">
-					Jisho Go được thiết kế để hỗ trợ việc học mà không gây lo lắng về dữ liệu. Nếu dự án của bạn có trang
-					chính sách riêng tư/nguồn mở, bạn có thể liên kết tại đây.
-				</p>
-				<div class="mt-3.5 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3.5">
-					<p class="m-0 text-[13px] leading-relaxed text-amber-800">
-						Gợi ý: thêm link tới trang GitHub, chính sách quyền riêng tư, và trang cửa hàng tiện ích để tăng độ tin cậy.
-					</p>
+		<section id="settings" class="landing-soft-band border-y border-base-300 py-16 sm:py-20">
+			<div class="grid w-full gap-10 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8 xl:px-12">
+				<div>
+					<div class="extension-pill mb-4 inline-flex rounded-full px-3 py-1 text-sm font-bold">Fine controls</div>
+					<h2 class="text-4xl font-black leading-tight text-[#111827]">Extension chỉnh được theo cách đọc của từng người.</h2>
+				</div>
+
+				<div class="grid gap-4 md:grid-cols-2">
+					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
+						<legend class="fieldset-legend text-base">Popup trigger</legend>
+						<div class="join w-full">
+							<button class="btn join-item btn-primary flex-1">Tức thì</button>
+							<button class="btn join-item flex-1 bg-white">Nút nhỏ</button>
+						</div>
+					</fieldset>
+					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
+						<legend class="fieldset-legend text-base">Popup position</legend>
+						<select class="select select-bordered w-full">
+							<option>Ngay cạnh vùng chọn</option>
+							<option>Nhớ vị trí kéo thả</option>
+							<option>Cố định ở góc</option>
+						</select>
+					</fieldset>
+					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
+						<legend class="fieldset-legend text-base">Độ mờ</legend>
+						<input type="range" min="0" max="100" value="82" class="range range-primary" />
+					</fieldset>
+					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
+						<legend class="fieldset-legend text-base">Paragraph hover</legend>
+						<div class="flex flex-wrap gap-3">
+							<label class="label cursor-pointer gap-2"><input type="checkbox" class="checkbox checkbox-primary checkbox-sm" checked />Dịch</label>
+							<label class="label cursor-pointer gap-2"><input type="checkbox" class="checkbox checkbox-primary checkbox-sm" checked />Vocab</label>
+							<label class="label cursor-pointer gap-2"><input type="checkbox" class="checkbox checkbox-primary checkbox-sm" />Kanji</label>
+						</div>
+					</fieldset>
 				</div>
 			</div>
 		</section>
 
-		<footer class="pb-11 pt-8.5">
-			<div class="mx-auto flex w-[min(1100px,calc(100%-48px))] flex-wrap items-center justify-between gap-3">
-				<p class="m-0 inline-flex items-center gap-2.5 font-extrabold tracking-[-0.01em]">
-					<span class="size-2 rounded-full bg-rose-400" aria-hidden="true"></span>
-					Jisho Go
-				</p>
-				<p class="m-0 text-[13px] text-slate-500">Tra từ Nhật nhanh ngay trên web.</p>
+		<section class="bg-white px-4 py-14 sm:px-6 lg:px-8 xl:px-12">
+			<div class="flex flex-col items-start justify-between gap-5 rounded-xl border border-base-300 bg-base-200 p-5 sm:flex-row sm:items-center">
+				<div>
+					<p class="text-sm font-bold uppercase text-[#6b7280]">Account chỉ là sync</p>
+					<h2 class="mt-1 text-2xl font-black text-[#111827]">History, saved items, ví AI và export khi cần.</h2>
+				</div>
+				<div class="flex gap-2">
+					<a class="btn btn-outline bg-white" href="/account">Account</a>
+					<a class="btn btn-primary" href="/register">Cài extension</a>
+				</div>
 			</div>
-		</footer>
+		</section>
 	</main>
 </Layout>

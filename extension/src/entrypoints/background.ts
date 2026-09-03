@@ -34,8 +34,17 @@ export default defineBackground(() => {
       void browser.runtime.lastError;
       browser.contextMenus.create({
         id: "capture-selection",
-        title: "Xử lý",
+        title: "Khoanh vùng OCR",
         contexts: ["all"],
+      });
+    });
+
+    browser.contextMenus.remove("ocr-image", () => {
+      void browser.runtime.lastError;
+      browser.contextMenus.create({
+        id: "ocr-image",
+        title: "OCR ảnh này",
+        contexts: ["image"],
       });
     });
   }
@@ -114,6 +123,16 @@ export default defineBackground(() => {
         func: () => {
           window.postMessage({ type: "START_SELECTION" }, "*");
         },
+      });
+    }
+
+    if (info.menuItemId === "ocr-image" && tab?.id) {
+      browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (srcUrl) => {
+          window.postMessage({ type: "START_IMAGE_OCR", srcUrl }, "*");
+        },
+        args: [info.srcUrl],
       });
     }
   });

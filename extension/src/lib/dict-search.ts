@@ -22,6 +22,12 @@ export function findKanjiEntry(
   return kanjiDict.find((entry) => entry.w === trimmed);
 }
 
+type RankedVocabEntry = VocabEntry & {
+  matchLength: number;
+  matchIndex: number;
+  order: number;
+};
+
 export function searchSelection(
   trimmed: string,
   kanjiDict: DictEntry[],
@@ -39,19 +45,23 @@ export function searchSelection(
     return { skipped: true, kanjiResults: [], vocabResults: [] };
   }
 
-  const vocabResults: VocabEntry[] = [];
+  const vocabResults: RankedVocabEntry[] = [];
   const seenWords = new Set<string>();
+  let order = 0;
   if (vocabData[trimmed]) {
     vocabResults.push({
       word: trimmed,
       r: vocabData[trimmed].r,
       m: vocabData[trimmed].m,
+      matchStart: 0,
+      matchLength: trimmed.length,
+      matchIndex: 0,
+      order: order++,
     });
     seenWords.add(trimmed);
   }
 
   const includeLongerMatches = options?.includeLongerMatches ?? false;
-  let matchCount = 0;
   for (const key in vocabData) {
     if (seenWords.has(key)) continue;
 
@@ -65,16 +75,33 @@ export function searchSelection(
     const broaderMatch = containsTrimmed || readingContainsTrimmed;
 
     if (strictMatch || (includeLongerMatches && broaderMatch)) {
+      const keyIndex = trimmed.indexOf(key);
+      const readingIndex = trimmed.indexOf(reading);
+      const matchIndexes = [keyIndex, readingIndex].filter((index) => index >= 0);
+      const matchIndex = matchIndexes.length > 0 ? Math.min(...matchIndexes) : Number.MAX_SAFE_INTEGER;
+      const matchLength = Math.max(
+        keyIndex >= 0 ? key.length : 0,
+        readingIndex >= 0 ? reading.length : 0,
+      );
       vocabResults.push({
         word: key,
         r: reading,
         m: vocabData[key].m,
+        matchStart: matchIndex,
+        matchLength,
+        matchIndex,
+        order: order++,
       });
       seenWords.add(key);
-      matchCount++;
-      if (matchCount >= 10) break;
     }
   }
+
+  vocabResults.sort(
+    (a, b) =>
+      b.matchLength - a.matchLength ||
+      a.matchIndex - b.matchIndex ||
+      a.order - b.order,
+  );
 
   const kanjiList = extractKanji(trimmed);
   const foundKanji: DictEntry[] = [];
@@ -85,5 +112,9 @@ export function searchSelection(
     }
   }
 
-  return { skipped: false, kanjiResults: foundKanji, vocabResults };
+  return {
+    skipped: false,
+    kanjiResults: foundKanji,
+    vocabResults: vocabResults.map(({ matchIndex, order, ...entry }) => entry),
+  };
 }

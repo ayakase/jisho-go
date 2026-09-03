@@ -34,7 +34,7 @@ export const APP_CONFIG = {
   },
   sepay: {
     // Public VietQR base URL. The Worker adds the amount and user-specific transfer content.
-    qrCodeUrl: 'https://vietqr.app/img?bank=BIDV&acc=96247OW8RC&template=compact&showinfo=true&holder=DANG%20THAI%20AN',
+    qrCodeUrl: 'https://vietqr.app/img?bank=BIDV&acc=96247OW8RC&template=compact',
   },
   signupQuota: {
     // Credit granted once to each newly created account. Set to 0 to disable.

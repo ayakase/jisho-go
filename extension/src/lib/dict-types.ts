@@ -24,4 +24,6 @@ export type VocabEntry = {
   word: string;
   r: string;
   m: string;
+  matchStart?: number;
+  matchLength?: number;
 };

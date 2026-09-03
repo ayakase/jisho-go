@@ -4,58 +4,61 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
 ---
 
 <Layout>
-  <main class="min-h-screen bg-slate-50 px-6 py-12 text-slate-800" data-api-base={apiBase}>
+  <main class="min-h-screen bg-base-200 px-4 py-8 text-base-content sm:px-6" data-api-base={apiBase}>
     <div class="mx-auto w-full max-w-5xl">
       <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <a href="/account" class="inline-flex text-sm text-slate-600 hover:text-slate-900">← Về Learning History</a>
+        <a href="/account" class="link link-neutral text-sm">← Về Learning History</a>
       </div>
 
-      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="mb-5">
-          <h1 id="lesson-title" class="text-2xl font-bold tracking-[-0.02em]">Bài học</h1>
-          <p class="mt-1.5 text-sm text-slate-600">Xem lại nghĩa, từ vựng và ngữ pháp từ đoạn tiếng Nhật bạn đã tra.</p>
+      <section class="extension-card rounded-xl p-5">
+        <div class="grid gap-5">
+        <div>
+          <h1 id="lesson-title" class="text-3xl font-bold">Bài học</h1>
+          <p class="mt-2 text-sm opacity-70">Xem lại nghĩa, từ vựng và ngữ pháp từ đoạn tiếng Nhật bạn đã tra.</p>
         </div>
 
-        <div
-          id="detail-error"
-          class="hidden rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-        ></div>
+        <div id="detail-error" class="alert alert-error hidden"></div>
 
         <div id="lesson-content" class="hidden space-y-5">
-          <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p class="mb-2 text-xs uppercase tracking-[0.08em] text-slate-600">Câu tiếng Nhật</p>
-            <p id="lesson-input" class="text-lg font-semibold text-slate-900 break-words"></p>
-            <p id="lesson-hiragana" class="mt-1 text-sm text-slate-600 break-words"></p>
+          <article class="rounded-box bg-base-200 p-4">
+            <p class="mb-2 text-xs uppercase tracking-wide opacity-70">Câu tiếng Nhật</p>
+            <p id="lesson-input" class="break-words text-xl font-semibold"></p>
+            <p id="lesson-hiragana" class="mt-1 break-words text-sm opacity-70"></p>
           </article>
 
-          <article class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <p class="mb-2 text-xs uppercase tracking-[0.08em] text-emerald-700">Nghĩa tiếng Việt</p>
-            <p id="lesson-meaning" class="text-base text-emerald-900 break-words"></p>
+          <article class="rounded-lg border border-[#fecaca] bg-[#fff1f2] p-4">
+            <p class="mb-2 text-xs uppercase tracking-wide text-[#be123c]">Nghĩa tiếng Việt</p>
+            <p id="lesson-meaning" class="break-words text-base"></p>
           </article>
 
-          <article class="rounded-xl border border-sky-200 bg-sky-50 p-4">
-            <p class="mb-2 text-xs uppercase tracking-[0.08em] text-sky-700">Ghi chú</p>
-            <p id="lesson-notes" class="text-sm text-sky-900 whitespace-pre-wrap break-words"></p>
+          <article class="rounded-lg border border-base-300 bg-base-200 p-4">
+            <p class="mb-2 text-xs uppercase tracking-wide text-[#6b7280]">Ghi chú</p>
+            <p id="lesson-notes" class="whitespace-pre-wrap break-words text-sm"></p>
           </article>
 
           <section class="grid gap-4 md:grid-cols-2">
-            <article class="rounded-xl border border-slate-200 bg-white p-4">
+            <article class="rounded-lg border border-base-300 bg-base-200 p-4">
+              <div class="grid gap-3">
               <div class="mb-3 flex items-center justify-between">
-                <h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-700">Từ vựng</h2>
-                <span id="lesson-vocab-count" class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600"></span>
+                <h2 class="text-sm font-semibold uppercase tracking-wide opacity-70">Từ vựng</h2>
+                <span id="lesson-vocab-count" class="extension-pill rounded-full px-2 py-0.5 text-xs font-bold"></span>
               </div>
               <div id="lesson-vocab-list" class="space-y-2"></div>
+              </div>
             </article>
 
-            <article class="rounded-xl border border-slate-200 bg-white p-4">
+            <article class="rounded-lg border border-base-300 bg-base-200 p-4">
+              <div class="grid gap-3">
               <div class="mb-3 flex items-center justify-between">
-                <h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-slate-700">Ngữ pháp</h2>
-                <span id="lesson-grammar-count" class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600"></span>
+                <h2 class="text-sm font-semibold uppercase tracking-wide opacity-70">Ngữ pháp</h2>
+                <span id="lesson-grammar-count" class="extension-muted-pill rounded-full px-2 py-0.5 text-xs font-bold"></span>
               </div>
               <div id="lesson-grammar-list" class="space-y-2"></div>
+              </div>
             </article>
           </section>
 
+        </div>
         </div>
       </section>
     </div>
@@ -96,7 +99,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
 
     function renderVocabList(vocabularies) {
       if (!Array.isArray(vocabularies) || vocabularies.length === 0) {
-        vocabListEl.innerHTML = '<p class="text-sm text-slate-500">Không có từ vựng.</p>';
+        vocabListEl.innerHTML = '<p class="text-sm opacity-70">Không có từ vựng.</p>';
         vocabCountEl.textContent = '0 mục';
         return;
       }
@@ -108,10 +111,10 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
           const hira = escapeHtml(toText(v?.hiragana, '-'));
           const meaning = escapeHtml(toText(v?.meaning_vi, '-'));
           return `
-            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p class="text-sm font-semibold text-slate-900">${word}</p>
-              <p class="text-xs text-slate-500">${hira}</p>
-              <p class="mt-1 text-sm text-slate-700">${meaning}</p>
+            <div class="rounded-box bg-base-100 p-3">
+              <p class="text-sm font-semibold">${word}</p>
+              <p class="text-xs opacity-70">${hira}</p>
+              <p class="mt-1 text-sm">${meaning}</p>
             </div>
           `;
         })
@@ -120,7 +123,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
 
     function renderGrammarList(grammarPoints) {
       if (!Array.isArray(grammarPoints) || grammarPoints.length === 0) {
-        grammarListEl.innerHTML = '<p class="text-sm text-slate-500">Không có điểm ngữ pháp.</p>';
+        grammarListEl.innerHTML = '<p class="text-sm opacity-70">Không có điểm ngữ pháp.</p>';
         grammarCountEl.textContent = '0 mục';
         return;
       }
@@ -134,13 +137,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http
           const exHira = escapeHtml(toText(g?.example?.hiragana, '-'));
           const exMeaning = escapeHtml(toText(g?.example?.meaning_vi, '-'));
           return `
-            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p class="text-sm font-semibold text-slate-900">${point}</p>
-              <p class="mt-1 text-sm text-slate-700">${exp}</p>
-              <div class="mt-2 rounded-md border border-slate-200 bg-white p-2">
-                <p class="text-xs text-slate-900">${exJp}</p>
-                <p class="text-xs text-slate-500">${exHira}</p>
-                <p class="mt-1 text-xs text-slate-700">${exMeaning}</p>
+            <div class="rounded-box bg-base-100 p-3">
+              <p class="text-sm font-semibold">${point}</p>
+              <p class="mt-1 text-sm">${exp}</p>
+              <div class="mt-2 rounded-box border border-base-300 bg-base-200 p-2">
+                <p class="text-xs">${exJp}</p>
+                <p class="text-xs opacity-70">${exHira}</p>
+                <p class="mt-1 text-xs">${exMeaning}</p>
               </div>
             </div>
           `;

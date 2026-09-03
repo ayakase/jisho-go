@@ -40,8 +40,18 @@
     word: string;
     r: string;
     m: string;
+    matchStart?: number;
+    matchLength?: number;
   };
-  let { text, position }: { text: string; position: Position } = $props();
+  type VocabReadingGroup = {
+    reading: string;
+    entries: VocabEntry[];
+  };
+  let {
+    text,
+    position,
+    sourceRange,
+  }: { text: string; position: Position; sourceRange?: Range | null } = $props();
   let kanjiResults: DictEntry[] = $state([]);
   let vocabResults: VocabEntry[] = $state([]);
   let error: string | null = $state(null);
@@ -55,6 +65,16 @@
   let translatedText = $state<string | null>(null);
   let translateLoading = $state(false);
   let translateError = $state<string | null>(null);
+  let hoveredVocabEntry = $state<VocabEntry | null>(null);
+  let selectedSourceMatch = $state<{
+    start: number;
+    length: number;
+  } | null>(null);
+  let activeKanjiSource = $state<{
+    index: number;
+    char: string;
+  } | null>(null);
+  let selectedKanjiWord = $state<string | null>(null);
 
   type ExplainVocab = {
     word?: string;
@@ -82,6 +102,214 @@
     grammar: ExplainGrammar[];
   } | null>(null);
   let explainFetchedText = $state<string | null>(null);
+
+  function groupVocabResults(results: VocabEntry[]): VocabReadingGroup[] {
+    const groups: VocabReadingGroup[] = [];
+    const byReading = new Map<string, VocabReadingGroup>();
+
+    for (const entry of results) {
+      let group = byReading.get(entry.r);
+      if (!group) {
+        group = { reading: entry.r, entries: [] };
+        byReading.set(entry.r, group);
+        groups.push(group);
+      }
+      group.entries.push(entry);
+    }
+
+    return groups;
+  }
+
+  function getSourceSegments() {
+    if (activeTab === "kanji") {
+      if (!activeKanjiSource) {
+        return [{ text, start: 0, end: text.length }];
+      }
+
+      const activeIndex = activeKanjiSource.index;
+      return [
+        ...(activeIndex > 0
+          ? [{ text: text.slice(0, activeIndex), start: 0, end: activeIndex }]
+          : []),
+        {
+          text: activeKanjiSource.char,
+          start: activeIndex,
+          end: activeIndex + 1,
+          isActiveKanji: true,
+        },
+        ...(activeIndex + 1 < text.length
+          ? [{
+              text: text.slice(activeIndex + 1),
+              start: activeIndex + 1,
+              end: text.length,
+            }]
+          : []),
+      ];
+    }
+
+    const trimmedOffset = text.length - text.trimStart().length;
+    let candidates = vocabResults
+      .filter(
+        (entry) =>
+          entry.matchStart !== undefined &&
+          entry.matchLength !== undefined &&
+          entry.matchLength > 0,
+      )
+      .map((entry) => ({
+        entry,
+        start: trimmedOffset + entry.matchStart!,
+        end: trimmedOffset + entry.matchStart! + entry.matchLength!,
+      }))
+      .filter(
+        (match) =>
+          match.start >= 0 &&
+          match.end <= text.length &&
+          match.end > match.start,
+      )
+      .sort(
+        (a, b) =>
+          a.start - b.start ||
+          b.entry.matchLength! - a.entry.matchLength!,
+      );
+
+    const activeEntry = hoveredVocabEntry;
+    if (
+      activeEntry?.matchStart !== undefined &&
+      activeEntry.matchLength !== undefined &&
+      activeEntry.matchLength > 0
+    ) {
+      const activeStart = trimmedOffset + activeEntry.matchStart;
+      const activeEnd = activeStart + activeEntry.matchLength;
+      candidates = candidates.filter(
+        (match) =>
+          match.entry === activeEntry ||
+          match.end <= activeStart ||
+          match.start >= activeEnd,
+      );
+      if (
+        activeStart >= 0 &&
+        activeEnd <= text.length &&
+        activeEnd > activeStart &&
+        !candidates.some((match) => match.entry === activeEntry)
+      ) {
+        candidates.push({
+          entry: activeEntry,
+          start: activeStart,
+          end: activeEnd,
+        });
+        candidates.sort(
+          (a, b) =>
+            a.start - b.start ||
+            b.entry.matchLength! - a.entry.matchLength!,
+        );
+      }
+    }
+
+    const segments: Array<{
+      text: string;
+      entry?: VocabEntry;
+      start: number;
+      end: number;
+      isActiveKanji?: boolean;
+    }> = [];
+    let cursor = 0;
+
+    for (const match of candidates) {
+      if (match.start < cursor) continue;
+      if (match.start > cursor) {
+        segments.push({
+          text: text.slice(cursor, match.start),
+          start: cursor,
+          end: match.start,
+        });
+      }
+      segments.push({
+        text: text.slice(match.start, match.end),
+        entry: match.entry,
+        start: match.start,
+        end: match.end,
+      });
+      cursor = match.end;
+    }
+
+    if (cursor < text.length) {
+      segments.push({ text: text.slice(cursor), start: cursor, end: text.length });
+    }
+
+    const sourceSegments = segments.length > 0
+      ? segments
+      : [{ text, start: 0, end: text.length }];
+
+    return sourceSegments;
+  }
+
+  function getDisplayedVocabResults(): VocabEntry[] {
+    if (!selectedSourceMatch) return vocabResults;
+    return vocabResults.filter(
+      (entry) => {
+        if (entry.matchStart === undefined || entry.matchLength === undefined) {
+          return false;
+        }
+
+        const selectedEnd =
+          selectedSourceMatch.start + selectedSourceMatch.length;
+        const entryEnd = entry.matchStart + entry.matchLength;
+
+        return (
+          entry.matchStart >= selectedSourceMatch.start &&
+          entryEnd <= selectedEnd
+        );
+      },
+    );
+  }
+
+  function getDisplayedKanjiResults(): DictEntry[] {
+    if (!selectedKanjiWord) return kanjiResults;
+
+    const selected = kanjiResults.filter((entry) => entry.w === selectedKanjiWord);
+    const rest = kanjiResults.filter((entry) => entry.w !== selectedKanjiWord);
+    return [...selected, ...rest];
+  }
+
+  function isSourceMatchActive(entry: VocabEntry): boolean {
+    return (
+      hoveredVocabEntry?.r === entry.r ||
+      (selectedSourceMatch?.start === entry.matchStart &&
+        selectedSourceMatch?.length === entry.matchLength)
+    );
+  }
+
+  function handleSourceMatchClick(entry: VocabEntry) {
+    if (entry.matchStart === undefined || entry.matchLength === undefined) return;
+    if (
+      selectedSourceMatch?.start === entry.matchStart &&
+      selectedSourceMatch.length === entry.matchLength
+    ) {
+      selectedSourceMatch = null;
+    } else {
+      selectedSourceMatch = {
+        start: entry.matchStart,
+        length: entry.matchLength,
+      };
+    }
+  }
+
+  function handleKanjiClick(entry: DictEntry) {
+    const index = text.indexOf(entry.w);
+    if (index < 0) return;
+
+    handleKanjiSourceClick(entry.w, index);
+  }
+
+  function handleKanjiSourceClick(char: string, index: number) {
+    const entry = kanjiResults.find((kanji) => kanji.w === char);
+    if (!entry) return;
+
+    selectedKanjiWord = entry.w;
+    activeKanjiSource = { index, char };
+    hoveredVocabEntry = null;
+    selectedSourceMatch = null;
+  }
 
   // Drag the whole popup (fixed-position panel).
   let popupLeft = $state(position.left);
@@ -163,7 +391,7 @@
     const target = e.target as HTMLElement | null;
 
     // Don't steal the interaction from form controls / buttons.
-    if (target?.closest("button, input, textarea, select, a")) return;
+    if (target?.closest("button, input, textarea, select, a, .source-match")) return;
 
     e.stopPropagation();
     e.preventDefault();
@@ -358,6 +586,10 @@
     error = null;
     kanjiResults = [];
     vocabResults = [];
+    hoveredVocabEntry = null;
+    selectedSourceMatch = null;
+    activeKanjiSource = null;
+    selectedKanjiWord = null;
     skipped = false;
     expandedKanji = new Set(); // Reset expanded state when starting new search
 
@@ -481,8 +713,18 @@
   style={popupStyle}
   role="dialog"
   aria-label="Dictionary popup"
-  onpointerdown={startDragPopup}
 >
+  <div
+    class="popup-drag-handle"
+    role="presentation"
+    aria-hidden="true"
+    onpointerdown={startDragPopup}
+  >
+    <span class="drag-grip" aria-hidden="true">
+      <span></span><span></span><span></span>
+      <span></span><span></span><span></span>
+    </span>
+  </div>
   {#if loading}
     <div class="loading">Searching...</div>
   {:else if skipped}
@@ -491,16 +733,70 @@
     <div class="error">{error}</div>
   {:else}
     <div class="result">
-      <div class="extracted-text-section">
-        {text}
-        <div class="translated-text-section">
-          {#if translateLoading}
-            <span class="translated-text-loading">Đang dịch...</span>
-          {:else if translatedText}
-            <span class="translated-text">{translatedText}</span>
-          {:else if translateError}
-            <span class="translated-text-error">{translateError}</span>
-          {/if}
+      <div class="result-header">
+        <div class="extracted-text-section">
+          <div class="source-text">
+            {#each getSourceSegments() as segment}
+              {#if activeTab === "kanji"}
+                {#each Array.from(segment.text) as char, charOffset}
+                  {@const charIndex = segment.start + charOffset}
+                  {@const isKanji = kanjiResults.some((entry) => entry.w === char)}
+                  {#if isKanji}
+                    <span
+                      class:source-highlight={activeKanjiSource?.index === charIndex}
+                      class="source-kanji-clickable"
+                      role="button"
+                      tabindex="0"
+                      onpointerdown={(event) => event.stopPropagation()}
+                      onclick={(event) => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        handleKanjiSourceClick(char, charIndex);
+                      }}
+                      onkeydown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleKanjiSourceClick(char, charIndex);
+                        }
+                      }}
+                    >{char}</span>
+                  {:else}
+                    <span>{char}</span>
+                  {/if}
+                {/each}
+              {:else if segment.entry}
+                <span
+                  class:source-highlight={isSourceMatchActive(segment.entry)}
+                  class="source-match"
+                  role="button"
+                  tabindex="0"
+                  aria-pressed={selectedSourceMatch?.start === segment.entry.matchStart && selectedSourceMatch?.length === segment.entry.matchLength}
+                  onpointerdown={(event) => event.stopPropagation()}
+                  onpointerup={(event) => {
+                    event.stopPropagation();
+                    handleSourceMatchClick(segment.entry!);
+                  }}
+                  onkeydown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleSourceMatchClick(segment.entry!);
+                    }
+                  }}
+                >{segment.text}</span>
+              {:else}
+                <span>{segment.text}</span>
+              {/if}
+            {/each}
+          </div>
+          <div class="translated-text-section">
+            {#if translateLoading}
+              <span class="translated-text-loading">Đang dịch...</span>
+            {:else if translatedText}
+              <span class="translated-text">{translatedText}</span>
+            {:else if translateError}
+              <span class="translated-text-error">{translateError}</span>
+            {/if}
+          </div>
         </div>
       </div>
       {#if vocabResults.length > 0 || kanjiResults.length > 0 || !skipped}
@@ -531,38 +827,50 @@
         </div>
       {/if}
 
-      {#if activeTab === "vocab" && vocabResults.length > 0}
-        <div class="vocab-section">
-          <div class="vocab-list">
-            {#each vocabResults as v}
-              <div class="vocab-item">
-                <div class="vocab-header">
-                  <div class="vocab-word">{v.word}</div>
-                  <div class="vocab-reading">{v.r}</div>
+      <div class="result-body">
+        {#if activeTab === "vocab" && vocabResults.length > 0}
+          <div class="vocab-section">
+            <div class="vocab-list">
+            {#each groupVocabResults(getDisplayedVocabResults()) as group}
+                <div
+                  class="vocab-group"
+                  role="article"
+                  onmouseenter={() => (hoveredVocabEntry = group.entries[0])}
+                  onmouseleave={() => (hoveredVocabEntry = null)}
+                >
+                  <div class="vocab-group-reading">{group.reading}</div>
+                  {#each group.entries as v}
+                    <div class="vocab-item">
+                      <div class="vocab-header">
+                        <div class="vocab-word">{v.word}</div>
+                      </div>
+                      <div class="vocab-meaning">
+                        {v.m}
+                      </div>
+                    </div>
+                  {/each}
                 </div>
-                <div class="vocab-meaning">
-                  {v.m}
-                </div>
-              </div>
-            {/each}
+              {/each}
+            </div>
           </div>
-        </div>
-      {/if}
+        {/if}
 
-      {#if activeTab === "kanji" && kanjiResults.length > 0}
-        <div class="kanji-section">
-          {#each kanjiResults as kanjiEntry, index}
-            {@const isExpanded = expandedKanji.has(index)}
-            <div class="kanji-accordion-item">
-              <button
-                class="kanji-accordion-header"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  toggleKanji(index);
-                }}
-                type="button"
-              >
+        {#if activeTab === "kanji" && kanjiResults.length > 0}
+          <div class="kanji-section">
+            {#each getDisplayedKanjiResults() as kanjiEntry, index}
+              {@const isExpanded = expandedKanji.has(index)}
+              <div class="kanji-accordion-item">
+                <button
+                  class:kanji-selected={selectedKanjiWord === kanjiEntry.w}
+                  class="kanji-accordion-header"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleKanjiClick(kanjiEntry);
+                    toggleKanji(index);
+                  }}
+                  type="button"
+                >
                 <div class="kanji-summary">
                   <div class="kanji-char-small-111">{kanjiEntry.w}</div>
                   <div class="kanji-summary-info">
@@ -597,10 +905,10 @@
                   </div>
                 </div>
                 <div class="accordion-icon">{isExpanded ? "−" : "+"}</div>
-              </button>
+                </button>
 
-              {#if isExpanded}
-                <div class="kanji-accordion-content">
+                {#if isExpanded}
+                  <div class="kanji-accordion-content">
                   {#if kanjiEntry.detail}
                     <div class="detail-section">
                       <div class="section-title">Chi tiết {kanjiEntry.w}</div>
@@ -668,15 +976,15 @@
                       </div>
                     </div>
                   {/if}
-                </div>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {/if}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
 
-      {#if activeTab === "explain"}
-        <div class="explain-section">
+        {#if activeTab === "explain"}
+          <div class="explain-section">
           {#if explainLoading}
             <div class="explain-loading">Đang tải giải thích…</div>
           {:else if explainError}
@@ -779,12 +1087,13 @@
               </div>
             {/if}
           {/if}
-        </div>
-      {/if}
+          </div>
+        {/if}
 
-      {#if kanjiResults.length === 0 && vocabResults.length === 0 && activeTab !== "explain"}
-        <div class="no-results">Không tìm thấy Kanji hoặc Từ vựng</div>
-      {/if}
+        {#if kanjiResults.length === 0 && vocabResults.length === 0 && activeTab !== "explain"}
+          <div class="no-results">Không tìm thấy Kanji hoặc Từ vựng</div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
@@ -795,7 +1104,7 @@
     width: 700px;
     max-width: 90vw;
     max-height: min(600px, 80vh);
-    overflow-y: auto;
+    overflow: hidden;
     overflow-x: hidden;
     background: #ffffff;
     color: #111827;
@@ -817,6 +1126,37 @@
       sans-serif;
     display: flex;
     flex-direction: column;
+  }
+
+  .popup-drag-handle {
+    flex: 0 0 0.7rem;
+    width: 100%;
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    cursor: grab;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .drag-grip {
+    display: grid;
+    grid-template-columns: repeat(3, 0.22rem);
+    grid-template-rows: repeat(2, 0.22rem);
+    gap: 0.12rem 0.18rem;
+    pointer-events: none;
+  }
+
+  .drag-grip span {
+    width: 0.22rem;
+    height: 0.22rem;
+    border-radius: 50%;
+    background: #9ca3af;
+  }
+
+  .popup.dragging .popup-drag-handle {
+    cursor: grabbing;
   }
 
   .loading {
@@ -842,14 +1182,21 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+    min-height: 0;
+    height: 100%;
   }
 
-  .popup {
-    cursor: grab;
+  .result-header {
+    flex: 0 0 auto;
+    background: #ffffff;
+    position: relative;
+    z-index: 1;
   }
 
-  .popup.dragging {
-    cursor: grabbing;
+  .result-body {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .extracted-text-section {
@@ -860,6 +1207,30 @@
     border-bottom: 1px solid #e5e7eb;
     line-height: 1.5;
     word-break: break-word;
+  }
+
+  .source-text {
+    white-space: pre-wrap;
+  }
+
+  .source-highlight {
+    background: #fecaca;
+    color: #b91c1c;
+    border-radius: 0.2rem;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+  }
+
+  .source-match {
+    cursor: pointer;
+  }
+
+  .source-kanji-clickable {
+    cursor: pointer;
+    border-radius: 0.2rem;
+  }
+
+  .source-kanji-clickable:hover {
+    background: #fee2e2;
   }
 
   .translated-text-section {
@@ -935,9 +1306,34 @@
     gap: 0.5rem;
   }
 
+  .vocab-group {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    border-radius: 0.35rem;
+    transition: background-color 0.12s ease;
+  }
+
+  .vocab-group:hover {
+    background: #fff7ed;
+  }
+
+  .vocab-group:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .vocab-group-reading {
+    margin-bottom: 0.35rem;
+    font-size: 24px;
+    font-weight: bold;
+    color: #f87171;
+  }
+
   .vocab-item {
     padding-bottom: 0.5rem;
     border-bottom: 1px dashed #e5e7eb;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
   }
 
   .vocab-item:last-child {
@@ -953,14 +1349,9 @@
   }
 
   .vocab-word {
-    font-size: 24px;
-    font-weight: bold;
-    color: #f87171;
-  }
-
-  .vocab-reading {
-    font-size: 1rem;
-    color: #6b7280;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #374151;
   }
 
   .vocab-meaning {
@@ -1000,6 +1391,10 @@
 
   .kanji-accordion-header:hover {
     background: #f9fafb;
+  }
+
+  .kanji-selected {
+    background: #fff7ed;
   }
 
   .kanji-summary {
@@ -1061,7 +1456,23 @@
   .kanji-accordion-content {
     padding: 0.75rem;
     background: #ffffff;
+    color: #374151 !important;
+    font-family:
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      -system-ui,
+      sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important;
+    opacity: 1 !important;
     border-top: 1px solid #e5e7eb;
+  }
+
+  .kanji-accordion-content * {
+    font-family: inherit !important;
+    opacity: 1 !important;
   }
 
   .detail-section {
@@ -1070,17 +1481,26 @@
   }
 
   .detail-text {
-    color: #374151;
-    font-size: 0.9rem;
-    line-height: 1.5;
+    color: #374151 !important;
+    font-family: inherit !important;
+    font-size: 0.9rem !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important;
+    text-shadow: none !important;
   }
 
   .detail-text p {
-    margin-bottom: 0.35rem;
+    color: #374151 !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    font-weight: 400 !important;
+    line-height: inherit !important;
+    margin: 0 0 0.35rem !important;
+    text-shadow: none !important;
   }
 
   .detail-text p:last-child {
-    margin-bottom: 0;
+    margin-bottom: 0 !important;
   }
 
   .examples-section {

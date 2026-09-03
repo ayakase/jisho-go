@@ -24,8 +24,11 @@
     r: string;
     m: string;
   };
+  type VocabReadingGroup = {
+    reading: string;
+    entries: VocabEntry[];
+  };
 
-  const MAX_VOCAB_ITEMS = 4;
   const MAX_KANJI_ITEMS = 5;
 
   let {
@@ -42,6 +45,23 @@
   let dictError = $state<string | null>(null);
   let vocabResults = $state<VocabEntry[]>([]);
   let kanjiResults = $state<DictEntry[]>([]);
+
+  function groupVocabResults(results: VocabEntry[]): VocabReadingGroup[] {
+    const groups: VocabReadingGroup[] = [];
+    const byReading = new Map<string, VocabReadingGroup>();
+
+    for (const entry of results) {
+      let group = byReading.get(entry.r);
+      if (!group) {
+        group = { reading: entry.r, entries: [] };
+        byReading.set(entry.r, group);
+        groups.push(group);
+      }
+      group.entries.push(entry);
+    }
+
+    return groups;
+  }
 
   function parseTranslatePayload(data: unknown): string | null {
     if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
@@ -109,7 +129,7 @@
     }
 
     if (sections.vocab) {
-      vocabResults = foundVocab.slice(0, MAX_VOCAB_ITEMS);
+      vocabResults = foundVocab;
     }
     if (sections.kanji) {
       kanjiResults = foundKanji.slice(0, MAX_KANJI_ITEMS).map((k) => ({
@@ -163,11 +183,15 @@
       {:else}
         {#if sections.vocab && vocabResults.length > 0}
           <div class="mini-list">
-            {#each vocabResults as v}
-              <div class="mini-item">
-                <span class="mini-head">{v.word}</span>
-                <span class="mini-sub">{v.r}</span>
-                <div class="mini-mean">{v.m}</div>
+            {#each groupVocabResults(vocabResults) as group}
+              <div class="mini-group">
+                <div class="mini-head">{group.reading}</div>
+                {#each group.entries as v}
+                  <div class="mini-item">
+                    <div class="mini-sub">{v.word}</div>
+                    <div class="mini-mean">{v.m}</div>
+                  </div>
+                {/each}
               </div>
             {/each}
           </div>
@@ -258,23 +282,29 @@
     gap: 0.35rem;
   }
 
-  .mini-item {
+  .mini-group {
     border: 1px solid #e5e7eb;
     border-radius: 0.35rem;
     padding: 0.35rem 0.45rem;
     background: #ffffff;
   }
 
+  .mini-item {
+    border-top: 1px dashed #e5e7eb;
+    padding-top: 0.35rem;
+    margin-top: 0.35rem;
+  }
+
   .mini-head {
     font-size: 0.98rem;
     font-weight: 600;
     color: #f87171;
-    margin-right: 0.4rem;
+    margin-bottom: 0.2rem;
   }
 
   .mini-sub {
     font-size: 0.82rem;
-    color: #6b7280;
+    color: #374151;
   }
 
   .mini-mean {

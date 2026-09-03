@@ -24,9 +24,10 @@ billing.use(
 
 const TRANSFER_PREFIX = 'JISHO'
 
-function createSePayQrUrl(config: SePayConfig, transferContent: string, amountVnd?: number): string {
+function createSePayQrUrl(config: SePayConfig, amountVnd?: number): string {
   const url = new URL(config.qrCodeUrl)
-  url.searchParams.set('addInfo', transferContent)
+  url.searchParams.delete('showinfo')
+  url.searchParams.delete('holder')
   if (amountVnd != null) url.searchParams.set('amount', String(amountVnd))
   else url.searchParams.delete('amount')
   return url.toString()
@@ -57,7 +58,7 @@ billing.get('/wallet', async (c) => {
   return c.json({
     ...balance,
     transferContent,
-    topupQrCode: createSePayQrUrl(runtimeConfig.sepay, transferContent),
+    topupQrCode: createSePayQrUrl(runtimeConfig.sepay),
     entries,
     products: products.map((product) => ({ code: product.code, amountVnd: product.amountVnd })),
   })
@@ -82,7 +83,7 @@ billing.post('/checkout', async (c) => {
   const amountVnd = selected.amountVnd
   const runtimeConfig = await getRuntimeConfig(db)
   const transferContent = transferContentForUser(user.id)
-  const qrCode = createSePayQrUrl(runtimeConfig.sepay, transferContent, amountVnd)
+  const qrCode = createSePayQrUrl(runtimeConfig.sepay, amountVnd)
   return c.json({ amountVnd, transferContent, qrCode }, 201)
 })
 

@@ -35,6 +35,7 @@ let blacklist: string[] = [];
 let popupOpacity = 1;
 let searchButtonSize: SearchButtonSize = 'medium';
 let suppressSelectionPopupUntil = 0;
+let lastContextMenuImage: HTMLImageElement | null = null;
 
 function clampPopupOpacity(val: number): number {
   if (Number.isNaN(val)) return 1;
@@ -124,6 +125,74 @@ function getOcrWorker() {
     });
   }
   return ocrWorkerPromise;
+}
+
+async function runOcrFromBounds(rectBounds: DOMRect) {
+  if (rectBounds.width <= 0 || rectBounds.height <= 0) {
+    return;
+  }
+
+  try {
+    const response = await browser.runtime.sendMessage({
+      type: "CAPTURE_SCREENSHOT",
+      bounds: {
+        x: rectBounds.x,
+        y: rectBounds.y,
+        width: rectBounds.width,
+        height: rectBounds.height,
+        devicePixelRatio: window.devicePixelRatio
+      }
+    });
+
+    if (response && response.imageDataUrl) {
+      try {
+        setOcrLoading(true, 0);
+        const responseUrl = response.imageDataUrl as string;
+        const res = await fetch(responseUrl);
+        const blob = await res.blob();
+        const worker = await getOcrWorker();
+        const {
+          data: { text },
+        } = await worker.recognize(blob);
+        const onlyJapanese = text.replace(
+          /[^\u3040-\u30FF\u4E00-\u9FFF。、・！？ー ]/g,
+          ""
+        );
+        const normalizedJapanese = onlyJapanese.replace(/\s+/g, " ").trim();
+        if (normalizedJapanese.length > 0) {
+          showPopupNear(rectBounds, normalizedJapanese);
+        }
+      } catch (ocrError) {
+        console.error("Content: OCR failed:", ocrError);
+      } finally {
+        setOcrLoading(false);
+      }
+    } else if (response && response.error) {
+      console.error("Capture error from background:", response.error);
+      alert("Failed to capture: " + response.error);
+    }
+  } catch (error) {
+    console.error("Failed to capture screenshot:", error);
+    alert("Error capturing screenshot: " + error);
+  }
+}
+
+function getImageFromContextMenu(srcUrl?: string): HTMLImageElement | null {
+  if (
+    lastContextMenuImage &&
+    (!srcUrl || lastContextMenuImage.currentSrc === srcUrl || lastContextMenuImage.src === srcUrl) &&
+    document.contains(lastContextMenuImage)
+  ) {
+    return lastContextMenuImage;
+  }
+
+  if (!srcUrl) {
+    return null;
+  }
+
+  return Array.from(document.images).find((img) => {
+    return img.currentSrc === srcUrl || img.src === srcUrl;
+  }) ?? null;
 }
 
 export default defineContentScript({
@@ -240,9 +309,9 @@ export default defineContentScript({
       removeHoverPopup();
 
       if (popupMode === 'button') {
-        showButtonNear(rect, text);
+        showButtonNear(rect, text, range.cloneRange());
       } else {
-        showPopupNear(rect, text);
+        showPopupNear(rect, text, range.cloneRange());
       }
     });
     // document.addEventListener('keydown', (event) => {
@@ -283,6 +352,11 @@ export default defineContentScript({
     if (hoverMode) {
       setupHoverMode();
     }
+
+    document.addEventListener('contextmenu', (event) => {
+      const image = (event.target as Element | null)?.closest?.('img');
+      lastContextMenuImage = image instanceof HTMLImageElement ? image : null;
+    }, true);
   },
 });
 
@@ -443,7 +517,7 @@ function hasJapaneseChars(str: string): boolean {
   return kanjiRegex.test(str) || hiraganaRegex.test(str) || katakanaRegex.test(str);
 }
 
-function showButtonNear(rect: DOMRect, text: string) {
+function showButtonNear(rect: DOMRect, text: string, sourceRange: Range) {
   // Remove existing button and popup
   removeButton();
   removePopup();
@@ -518,7 +592,7 @@ function showButtonNear(rect: DOMRect, text: string) {
   button.onclick = (e) => {
     e.stopPropagation();
     removeButton();
-    showPopupNear(rect, text);
+    showPopupNear(rect, text, sourceRange);
   };
 
   buttonContainer.appendChild(button);
@@ -536,7 +610,7 @@ function showButtonNear(rect: DOMRect, text: string) {
   }, 0);
 }
 
-function showPopupNear(rect: DOMRect, text: string) {
+function showPopupNear(rect: DOMRect, text: string, sourceRange?: Range | null) {
   // Remove existing popup and button
   removePopup();
   removeButton();
@@ -605,6 +679,7 @@ function showPopupNear(rect: DOMRect, text: string) {
     target: popupContainer,
     props: {
       text,
+      sourceRange: sourceRange?.cloneRange() ?? null,
       position: {
         left,
         top,
@@ -631,7 +706,11 @@ function showPopupNear(rect: DOMRect, text: string) {
   const stopPropagation = (ev: Event) => {
     const target = ev.target as HTMLElement;
     // Don't stop propagation for buttons - they need to handle their own clicks
-    if (target.tagName === 'BUTTON' || target.closest('button')) {
+    if (
+      target.tagName === 'BUTTON' ||
+      target.closest('button') ||
+      target.closest('.source-match, .source-kanji-clickable, .popup-drag-handle')
+    ) {
       return;
     }
     ev.stopPropagation();
@@ -1099,6 +1178,17 @@ function cleanupHoverMode() {
 }
 
 window.addEventListener("message", (event) => {
+  if (event.data.type === "START_IMAGE_OCR") {
+    const image = getImageFromContextMenu(event.data.srcUrl);
+    if (!image) {
+      alert("Không tìm thấy ảnh để OCR.");
+      return;
+    }
+
+    const rectBounds = image.getBoundingClientRect();
+    void runOcrFromBounds(rectBounds);
+  }
+
   if (event.data.type === "START_SELECTION") {
     const overlay = document.createElement("div");
     overlay.style.position = "fixed";
@@ -1174,50 +1264,7 @@ window.addEventListener("message", (event) => {
       removeOverlay();
 
       // Capture the selected area
-      try {
-        const response = await browser.runtime.sendMessage({
-          type: "CAPTURE_SCREENSHOT",
-          bounds: {
-            x: rectBounds.x,
-            y: rectBounds.y,
-            width: rectBounds.width,
-            height: rectBounds.height,
-            devicePixelRatio: window.devicePixelRatio
-          }
-        });
-
-        if (response && response.imageDataUrl) {
-          // Run OCR on the captured image and log only Japanese characters
-          try {
-            setOcrLoading(true, 0);
-            const responseUrl = response.imageDataUrl as string;
-            const res = await fetch(responseUrl);
-            const blob = await res.blob();
-            const worker = await getOcrWorker();
-            const {
-              data: { text },
-            } = await worker.recognize(blob);
-            const onlyJapanese = text.replace(
-              /[^\u3040-\u30FF\u4E00-\u9FFF。、・！？ー ]/g,
-              ""
-            );
-            const normalizedJapanese = onlyJapanese.replace(/\s+/g, " ").trim();
-            if (normalizedJapanese.length > 0) {
-              showPopupNear(rectBounds, normalizedJapanese);
-            }
-          } catch (ocrError) {
-            console.error("Content: OCR failed:", ocrError);
-          } finally {
-            setOcrLoading(false);
-          }
-        } else if (response && response.error) {
-          console.error("Capture error from background:", response.error);
-          alert("Failed to capture: " + response.error);
-        }
-      } catch (error) {
-        console.error("Failed to capture screenshot:", error);
-        alert("Error capturing screenshot: " + error);
-      }
+      await runOcrFromBounds(rectBounds);
     };
 
   }
