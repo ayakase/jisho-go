@@ -321,6 +321,40 @@ body {
 	background: #ffffff;
 }
 
+@media (max-width: 760px) {
+	.app-shell {
+		display: block;
+	}
+
+	.app-sidebar {
+		position: static;
+		height: auto;
+		border-right: 0;
+		border-bottom: 1px solid #e5e7eb;
+		padding: 0.75rem;
+	}
+
+	.app-sidebar > a {
+		margin-bottom: 0.75rem;
+	}
+
+	.app-sidebar nav {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.35rem;
+	}
+
+	.app-sidebar .mt-6 {
+		margin-top: 0.75rem;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.app-main {
+		padding: 0.75rem;
+	}
+}
+
 .wallet-overview-grid {
 	display: grid;
 	grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
@@ -412,19 +446,6 @@ body {
 	border-radius: 0.5rem;
 	background: #ffffff;
 	object-fit: contain;
-}
-
-.wallet-payment-card {
-	border-top: 1px solid #e5e7eb;
-	padding-top: 0.85rem;
-}
-
-.wallet-step-label {
-	color: #9f1239;
-	font-size: 0.7rem;
-	font-weight: 700;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
 }
 
 .wallet-transfer-detail {

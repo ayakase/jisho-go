@@ -65,11 +65,6 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
                   </div>
                   <div id="wallet-products" class="wallet-product-grid mt-4"></div>
                   <p id="wallet-product-empty" class="hidden mt-3 text-sm text-base-content/60">Chưa có gói nạp.</p>
-                  <div id="wallet-payment" class="wallet-payment-card hidden mt-4">
-                    <span class="wallet-step-label">Đã tạo mã thanh toán</span>
-                    <p class="mt-1 text-lg font-bold">Nạp <strong id="wallet-payment-amount"></strong></p>
-                    <button id="wallet-payment-refresh" type="button" class="btn btn-primary btn-sm mt-3">Đã thanh toán · Kiểm tra số dư</button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -164,10 +159,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     const walletEntryTableWrapEl = document.getElementById('wallet-entry-table-wrap');
     const walletEntryTableBodyEl = document.getElementById('wallet-entry-table-body');
     const walletRefreshBtn = document.getElementById('wallet-refresh-btn');
-    const walletPaymentEl = document.getElementById('wallet-payment');
-    const walletPaymentAmountEl = document.getElementById('wallet-payment-amount');
     const walletPaymentLinkEl = document.getElementById('wallet-payment-link');
-    const walletPaymentRefreshBtn = document.getElementById('wallet-payment-refresh');
     const walletTopupQrEl = document.getElementById('wallet-topup-qr');
 
     const statsEl = document.getElementById('account-stats');
@@ -312,7 +304,6 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
           throw new Error(typeof data?.error === 'string' ? data.error : 'Không tạo được đơn thanh toán.');
         }
         walletPaymentLinkEl.href = data.qrCode;
-        if (walletPaymentAmountEl) walletPaymentAmountEl.textContent = formatVnd(data.amountVnd);
         if (typeof data?.qrCode === 'string' && data.qrCode) {
           walletTopupQrEl.src = data.qrCode;
         }
@@ -321,7 +312,6 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
           productButton.classList.toggle('wallet-product-selected', selected);
           productButton.setAttribute('aria-pressed', String(selected));
         });
-        walletPaymentEl.classList.remove('hidden');
       } catch (err) {
         showWalletError(err instanceof Error ? err.message : 'Không tạo được đơn thanh toán.');
       } finally {
@@ -532,7 +522,6 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
     });
 
       walletRefreshBtn?.addEventListener('click', loadWallet);
-    walletPaymentRefreshBtn?.addEventListener('click', loadWallet);
     historyPrevBtn?.addEventListener('click', () => loadHistory(historyPage - 1));
     historyNextBtn?.addEventListener('click', () => loadHistory(historyPage + 1));
     historyFiltersEl?.addEventListener('submit', (event) => { event.preventDefault(); loadHistory(1); });

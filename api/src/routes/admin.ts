@@ -10,7 +10,7 @@ import { Bindings } from '../types'
 import { getAuthenticatedUser } from '../utils/request-auth'
 import { and, asc, count, desc, eq, inArray, like, or, sql } from 'drizzle-orm'
 import { getDb } from '../db'
-import { adminAuditLogs, appConfig, openrouterRequests, paymentProducts, roles as rolesTable, sepayTransactions, userRoles, users, walletLedgerEntries } from '../db/schema'
+import { adminAuditLogs, appConfig, extensionSessions, openrouterRequests, paymentOrders, paymentProducts, roles as rolesTable, sepayTransactions, userRoles, userSessions, users, walletLedgerEntries } from '../db/schema'
 
 type AdminEnv = {
   Bindings: Bindings
@@ -22,7 +22,7 @@ const admin = new Hono<AdminEnv>()
 admin.use('*', cors({
   origin: (origin) => resolveCorsOrigin(origin),
   credentials: true,
-  allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Authorization', 'Content-Type'],
 }))
 
@@ -166,6 +166,70 @@ admin.get('/sepay-transactions', async (c) => {
   const limit = parseLimit(c.req.query('limit'))
   const rows = await db.select({ id: sepayTransactions.id, created_at: sepayTransactions.createdAt, reference_code: sepayTransactions.referenceCode, user_id: sepayTransactions.userId, amount_vnd: sepayTransactions.amountVnd, transfer_content: sepayTransactions.transferContent, wallet_ledger_entry_id: sepayTransactions.walletLedgerEntryId }).from(sepayTransactions).orderBy(desc(sepayTransactions.id)).limit(limit)
   return c.json({ items: rows })
+})
+
+admin.get('/payment-orders', async (c) => {
+  const db = getDb(c.env.DB!)
+  const limit = parseLimit(c.req.query('limit'))
+  const status = c.req.query('status')?.trim()
+  const rows = await db.select({
+    id: paymentOrders.id,
+    created_at: paymentOrders.createdAt,
+    updated_at: paymentOrders.updatedAt,
+    order_code: paymentOrders.orderCode,
+    user_id: paymentOrders.userId,
+    user_email: users.email,
+    product_code: paymentOrders.productCode,
+    amount_vnd: paymentOrders.amountVnd,
+    status: paymentOrders.status,
+    paid_at: paymentOrders.paidAt,
+  }).from(paymentOrders).innerJoin(users, eq(users.id, paymentOrders.userId))
+    .where(status ? eq(paymentOrders.status, status) : undefined)
+    .orderBy(desc(paymentOrders.id)).limit(limit)
+  return c.json({ items: rows })
+})
+
+admin.get('/wallet-ledger', async (c) => {
+  const db = getDb(c.env.DB!)
+  const limit = parseLimit(c.req.query('limit'))
+  const rows = await db.select({
+    id: walletLedgerEntries.id,
+    created_at: walletLedgerEntries.createdAt,
+    user_id: walletLedgerEntries.userId,
+    user_email: users.email,
+    entry_type: walletLedgerEntries.entryType,
+    amount_vnd: walletLedgerEntries.amountVnd,
+    balance_after_vnd: walletLedgerEntries.balanceAfterVnd,
+    payment_order_id: walletLedgerEntries.paymentOrderId,
+    openrouter_request_id: walletLedgerEntries.openrouterRequestId,
+    sepay_transaction_id: walletLedgerEntries.sepayTransactionId,
+    note: walletLedgerEntries.note,
+  }).from(walletLedgerEntries).innerJoin(users, eq(users.id, walletLedgerEntries.userId))
+    .orderBy(desc(walletLedgerEntries.id)).limit(limit)
+  return c.json({ items: rows })
+})
+
+admin.get('/sessions', async (c) => {
+  const db = getDb(c.env.DB!)
+  const limit = parseLimit(c.req.query('limit'))
+  const [web, extension] = await Promise.all([
+    db.select({ id: userSessions.sessionTokenHash, type: sql<string>`'web'`, user_id: userSessions.userId, user_email: users.email, created_at: userSessions.createdAt, expires_at: userSessions.expiresAt })
+      .from(userSessions).innerJoin(users, eq(users.id, userSessions.userId)).orderBy(desc(userSessions.createdAt)).limit(limit),
+    db.select({ id: extensionSessions.tokenHash, type: sql<string>`'extension'`, user_id: extensionSessions.userId, user_email: users.email, created_at: extensionSessions.createdAt, expires_at: extensionSessions.expiresAt, device_label: extensionSessions.deviceLabel })
+      .from(extensionSessions).innerJoin(users, eq(users.id, extensionSessions.userId)).orderBy(desc(extensionSessions.createdAt)).limit(limit),
+  ])
+  return c.json({ items: [...web, ...extension].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, limit) })
+})
+
+admin.delete('/sessions/:type/:id', async (c) => {
+  const type = c.req.param('type')
+  const id = c.req.param('id')
+  const db = getDb(c.env.DB!)
+  if (!id || !['web', 'extension'].includes(type)) return c.json({ error: 'Invalid session' }, 400)
+  if (type === 'web') await db.delete(userSessions).where(eq(userSessions.sessionTokenHash, id))
+  else await db.delete(extensionSessions).where(eq(extensionSessions.tokenHash, id))
+  await writeAdminAuditLog(c.env.DB!, c.get('adminUser').id, 'session.revoke', 'session', type, { type })
+  return c.json({ revoked: true })
 })
 
 admin.get('/config', async (c) => {

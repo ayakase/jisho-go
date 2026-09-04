@@ -740,7 +740,13 @@
   style={popupStyle}
   role="dialog"
   aria-label="Dictionary popup"
+  tabindex="-1"
   onclick={clearSourceSelection}
+  onkeydown={(event) => {
+    if (event.key === "Escape") {
+      clearSourceSelection();
+    }
+  }}
 >
   <div
     class="popup-drag-handle"
@@ -1219,8 +1225,7 @@
   .popup.dark-mode .translated-text,
   .popup.dark-mode .kanji-detail-summary,
   .popup.dark-mode .translated-text-loading,
-  .popup.dark-mode .example-reading,
-  .popup.dark-mode .radio-description {
+  .popup.dark-mode .example-reading {
     color: #9ca3af;
   }
 
