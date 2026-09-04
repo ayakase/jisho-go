@@ -1,5 +1,4 @@
 import type { DictEntry, VocabEntry } from "./dict-types";
-import { storage } from "#imports";
 
 type FindKanjiResponse =
   | { ok: true; entry: DictEntry | null }
@@ -40,9 +39,6 @@ export async function searchSelectionDicts(query: string): Promise<{
   const res = (await browser.runtime.sendMessage({
     type: "DICT_SEARCH_SELECTION",
     query,
-    includeLongerMatches:
-      (await storage.getItem<boolean>("local:includeLongerVocabMatches")) ??
-      false,
   })) as SearchSelectionResponse | undefined;
 
   if (!res) {

@@ -1,362 +1,180 @@
 ---
 import Layout from '../layouts/Layout.astro';
+
+const sections = [
+	{ id: 'start', label: 'Bắt đầu' },
+	{ id: 'selection', label: 'Bôi đen văn bản' },
+	{ id: 'hover', label: 'Tra bằng di chuột' },
+	{ id: 'ocr', label: 'OCR từ màn hình' },
+	{ id: 'ai', label: 'Giải thích bằng AI' },
+	{ id: 'account', label: 'Tài khoản và lịch sử' },
+	{ id: 'settings', label: 'Cài đặt chung' },
+	{ id: 'limits', label: 'Giới hạn hiện tại' },
+];
 ---
 
 <Layout>
-	<main class="landing-page min-h-screen bg-base-100 text-base-content">
-		<nav class="navbar sticky top-0 z-50 border-b border-base-300 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
-			<div class="navbar-start">
-				<a href="/" class="flex items-center gap-3 font-bold text-[#111827]">
-					<span class="grid size-9 place-items-center rounded-lg border-2 border-[#fecaca] bg-[#ffe4e6] text-[#9f1239]">字</span>
+	<div class="docs-page">
+		<header class="docs-header">
+			<div class="docs-header-inner">
+				<a href="/" class="docs-brand" aria-label="Jisho Go, trang tài liệu">
+					<span class="docs-brand-mark" aria-hidden="true">字</span>
 					<span>Jisho Go</span>
 				</a>
-			</div>
-			<div class="navbar-center hidden lg:flex">
-				<div class="join">
-					<a class="btn join-item btn-sm bg-white" href="#popup">Popup</a>
-					<a class="btn join-item btn-sm bg-white" href="#hover">Hover</a>
-					<a class="btn join-item btn-sm bg-white" href="#ai">AI</a>
-					<a class="btn join-item btn-sm bg-white" href="#settings">Tùy chỉnh</a>
+				<div class="docs-header-actions">
+					<a href="/account" class="docs-header-link">Tài khoản</a>
+					<a href="/register" class="docs-install-link">Cài extension</a>
 				</div>
 			</div>
-			<div class="navbar-end gap-2">
-				<a class="btn btn-ghost btn-sm" href="/login">Login</a>
-				<a class="btn btn-primary btn-sm" href="/register">Cài extension</a>
-			</div>
-		</nav>
+		</header>
 
-		<section class="hero landing-hero min-h-[calc(100vh-64px)] overflow-hidden border-b border-base-300">
-			<div class="hero-content grid w-full max-w-none gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[0.76fr_1.24fr] lg:px-8 xl:px-12">
-				<div class="max-w-2xl">
-					<div class="extension-pill mb-5 inline-flex rounded-full px-3 py-1.5 text-sm font-bold">Japanese reading extension</div>
-					<h1 class="text-5xl font-black leading-[1.02] text-[#111827] sm:text-6xl lg:text-7xl">
-						Đọc ở đâu, tra ngay ở đó.
-					</h1>
-					<p class="mt-6 max-w-xl text-lg leading-8 text-[#4b5563]">
-						Bôi đen câu, hover Kanji, dịch đoạn, hỏi AI về vocab và grammar mà không rời khỏi trang đang đọc.
+		<div class="docs-layout">
+			<aside class="docs-sidebar" aria-label="Mục lục tài liệu">
+				<p class="docs-sidebar-title">Mục lục</p>
+				<nav>
+					{sections.map((section, index) => (
+						<a href={`#${section.id}`} class:list={['docs-nav-link', { 'docs-nav-link-active': index === 0 }]}>
+							<span class="docs-nav-number">{String(index + 1).padStart(2, '0')}</span>
+							{section.label}
+						</a>
+					))}
+				</nav>
+			</aside>
+
+			<main class="docs-content">
+				<section id="start" class="docs-intro">
+					<p class="docs-kicker">Jisho Go</p>
+					<h1>Cách tra tiếng Nhật trên trang đang đọc</h1>
+					<p class="docs-lead">
+						Bôi đen chữ, di chuột lên Kanji, hoặc khoanh vùng chữ trong ảnh để mở popup tra cứu.
 					</p>
-					<div class="mt-8 flex flex-wrap gap-3">
-						<a class="btn btn-primary btn-lg" href="/register">Cài extension</a>
-						<a class="btn btn-outline btn-lg border-base-300 bg-white text-[#374151]" href="#popup">Xem flow</a>
-					</div>
-					<div class="mt-8 flex flex-wrap gap-2">
-						<kbd class="kbd kbd-sm">select</kbd>
-						<kbd class="kbd kbd-sm">hover</kbd>
-						<kbd class="kbd kbd-sm">AI</kbd>
-						<kbd class="kbd kbd-sm">save</kbd>
-					</div>
-				</div>
+				</section>
 
-				<div class="landing-stage">
-					<div class="hover-3d landing-hover-3d">
-						<div class="indicator w-full">
-							<span class="indicator-item badge badge-primary shadow-md">Live popup</span>
-							<div class="mockup-browser w-full border border-base-300 bg-white shadow-2xl">
-								<div class="mockup-browser-toolbar border-b border-base-300">
-									<div class="input border border-base-300 bg-base-200 text-sm text-[#6b7280]">mainichi.jp/nihongo/article</div>
-								</div>
-								<div class="landing-reader-grid bg-white">
-									<div class="min-h-[500px] p-5 sm:p-7">
-										<div class="mb-5 flex flex-wrap items-center gap-2">
-											<span class="badge border-[#fca5a5] bg-[#fee2e2] text-[#991b1b]">Selection</span>
-											<span class="badge border-base-300 bg-base-200">Kanji dict</span>
-											<span class="badge border-base-300 bg-base-200">Vocab</span>
-											<span class="badge border-base-300 bg-base-200">Translate</span>
-										</div>
-										<article class="space-y-5">
-											<p class="jp-text text-3xl font-black leading-relaxed text-[#111827] sm:text-4xl">
-												新しい言葉に出会うたび、読む力は少しずつ伸びていく。
-											</p>
-											<div class="space-y-3">
-												<div class="h-3 w-11/12 rounded-full bg-base-200"></div>
-												<div class="h-3 w-9/12 rounded-full bg-base-200"></div>
-												<div class="h-3 w-10/12 rounded-full bg-base-200"></div>
-											</div>
-											<p class="jp-text max-w-2xl text-2xl font-bold leading-relaxed text-[#374151]">
-												<span class="landing-mark">出会うたび</span>、知らない表現が自然に自分の言葉になる。
-											</p>
-										</article>
+				<section id="selection" class="docs-section">
+					<div class="docs-section-heading">
+						<span class="docs-section-index">01</span>
+						<div><h2>Bôi đen văn bản</h2></div>
+					</div>
+					<p>Dùng khi bạn muốn tra một từ, một cụm hoặc cả câu đang xuất hiện dưới dạng text trên trang web.</p>
+					<div class="docs-steps">
+						<div><b>1</b><span>Bôi đen đoạn tiếng Nhật bằng chuột.</span></div>
+						<div><b>2</b><span>Popup mở ngay, hoặc bấm nút nhỏ cạnh vùng chọn nếu đang dùng Button mode.</span></div>
+						<div><b>3</b><span>Chuyển giữa các tab <strong>Vocab</strong>, <strong>Kanji</strong> và <strong>Explain</strong>.</span></div>
+					</div>
+					<div class="docs-screenshot"><span>Ảnh chụp màn hình</span><small>Popup sau khi bôi đen một đoạn tiếng Nhật</small></div>
+					<div class="docs-grid docs-grid-3">
+						<article class="docs-card"><span class="docs-card-label">VOCAB</span><h3>Từ vựng</h3><p>Hiển thị từ khớp với đoạn chọn, cách đọc và nghĩa. Có thể bật tìm các từ dài hơn có chứa đoạn chọn.</p></article>
+						<article class="docs-card"><span class="docs-card-label">KANJI</span><h3>Kanji trong đoạn</h3><p>Liệt kê các Kanji xuất hiện, kèm âm On/Kun, cấp độ, số nét, chi tiết và ví dụ nếu dữ liệu có.</p></article>
+						<article class="docs-card"><span class="docs-card-label">TƯƠNG TÁC</span><h3>Bấm để lọc</h3><p>Bấm vào một từ hoặc Kanji trong popup để làm nổi bật vị trí tương ứng trong đoạn đã chọn.</p></article>
+					</div>
+					<div class="docs-setting-block">
+						<h3>Cài đặt tab Bôi đen</h3>
+						<div class="docs-setting-row"><strong>Bật chế độ bôi đen</strong><span>Cho phép extension mở popup khi bạn chọn văn bản. Tắt để không dùng cách tra này.</span></div>
+						<div class="docs-setting-row"><strong>Cách mở popup</strong><span><b>Tức thì</b> mở ngay sau khi chọn text. <b>Chế độ nút</b> hiện một nút cạnh vùng chọn, bấm nút đó để mở popup.</span></div>
+						<div class="docs-setting-row"><strong>Vị trí Popup</strong><span><b>Ngay tại văn bản</b> đặt popup cạnh vùng chọn. <b>Vị trí ghi nhớ</b> dùng vị trí popup bạn đã kéo trước đó. <b>Góc cố định</b> đặt popup ở một góc màn hình, với khoảng cách X/Y tự chọn.</span></div>
+						<div class="docs-setting-row"><strong>Độ mờ popup</strong><span>Điều chỉnh độ trong suốt của popup từ 10% đến 100%.</span></div>
+						<div class="docs-setting-row"><strong>Kích thước nút</strong><span>Chỉ dùng với Chế độ nút. Chọn nút <b>Nhỏ</b>, <b>Vừa</b> hoặc <b>Lớn</b>.</span></div>
+					</div>
+					<div class="docs-screenshot"><span>Ảnh chụp màn hình</span><small>Tab Bôi đen trong popup cài đặt</small></div>
+				</section>
 
-										<div class="landing-popup extension-card mt-8 rounded-xl p-4">
-											<div class="tabs tabs-box bg-base-200">
-												<span class="tab tab-active bg-[#fee2e2] text-[#991b1b]">Vocab</span>
-												<span class="tab">Kanji</span>
-												<span class="tab">Explain</span>
-											</div>
-											<div class="mt-4 grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
-												<div class="rounded-lg border border-base-300 bg-base-200 p-3">
-													<p class="jp-text text-4xl font-black text-primary">出会う</p>
-													<p class="mt-1 text-sm font-semibold text-[#6b7280]">であう</p>
-												</div>
-												<div class="space-y-3">
-													<div class="h-2 w-11/12 rounded-full bg-[#fee2e2]"></div>
-													<div class="h-2 w-8/12 rounded-full bg-base-300"></div>
-													<div class="flex flex-wrap gap-2">
-														<span class="badge badge-outline">JLPT</span>
-														<span class="badge badge-outline">romaji</span>
-														<span class="badge badge-primary">save</span>
-													</div>
-												</div>
-											</div>
-										</div>
-									</div>
+				<section id="hover" class="docs-section docs-section-tinted">
+					<div class="docs-section-heading">
+						<span class="docs-section-index">02</span>
+						<div><h2>Tra bằng di chuột</h2></div>
+					</div>
+					<p>Bật trong tab <strong>Di chuột</strong> của popup cài đặt. Có hai chế độ.</p>
+					<div class="docs-grid docs-grid-2">
+						<article class="docs-card docs-card-emphasis"><div class="docs-symbol" aria-hidden="true">漢</div><h3>Từng Kanji</h3><p>Di chuột lên một ký tự Kanji. Popup hiển thị cách đọc, chi tiết, On/Kun, cấp độ, số nét và các từ ví dụ.</p></article>
+						<article class="docs-card"><div class="docs-symbol docs-symbol-muted" aria-hidden="true">段</div><h3>Cả đoạn</h3><p>Di chuột vào đoạn văn để xem các phần đã bật: dịch nhanh, từ vựng tìm được và tối đa năm Kanji chính.</p></article>
+					</div>
+					<div class="docs-screenshot"><span>Ảnh chụp màn hình</span><small>Popup hiện cạnh Kanji hoặc đoạn văn khi di chuột</small></div>
+					<div class="docs-callout"><strong>Độ trễ popup</strong><span>Có thể đặt từ 0 đến 3000 ms. Giá trị thấp phản hồi nhanh hơn nhưng dễ hiện popup khi rê chuột ngang qua.</span></div>
+					<div class="docs-setting-block">
+						<h3>Cài đặt tab Di chuột</h3>
+						<div class="docs-setting-row"><strong>Bật chế độ di chuột</strong><span>Cho phép mở popup khi đưa chuột lên nội dung tiếng Nhật.</span></div>
+						<div class="docs-setting-row"><strong>Phạm vi tra cứu</strong><span><b>Từng Kanji</b> tra ký tự đang trỏ vào. <b>Cả đoạn</b> lấy đoạn văn chứa vị trí con trỏ.</span></div>
+						<div class="docs-setting-row"><strong>Độ trễ hiển thị popup</strong><span>Đặt thời gian chờ từ 0 đến 3000 ms trước khi popup hiện.</span></div>
+						<div class="docs-setting-row"><strong>Nội dung khi hover cả đoạn</strong><span>Chọn từng phần <b>Dịch nghĩa</b>, <b>Từ vựng</b> và <b>Kanji</b> muốn hiển thị trong popup.</span></div>
+					</div>
+					<div class="docs-screenshot"><span>Ảnh chụp màn hình</span><small>Tab Di chuột trong popup cài đặt</small></div>
+				</section>
 
-									<aside class="landing-side-panel border-t border-base-300 bg-base-200 p-4 lg:border-l lg:border-t-0">
-										<div class="mockup-phone scale-[0.82] origin-top">
-											<div class="mockup-phone-camera"></div>
-											<div class="mockup-phone-display bg-white p-4">
-												<div class="mb-3 flex items-center justify-between">
-													<span class="font-bold">Extension</span>
-													<input type="checkbox" class="toggle toggle-primary toggle-sm" checked />
-												</div>
-												<div class="space-y-3">
-													<div class="rounded-lg border border-base-300 bg-base-200 p-3">
-														<p class="text-xs font-bold text-[#6b7280]">Hover mode</p>
-														<p class="mt-1 font-bold">Từng Kanji / Cả đoạn</p>
-													</div>
-													<div class="rounded-lg border border-base-300 bg-white p-3">
-														<p class="text-xs font-bold text-[#6b7280]">Popup</p>
-														<input type="range" min="0" max="100" value="72" class="range range-primary range-xs mt-3" />
-													</div>
-													<div class="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-3 text-[#065f46]">
-														<p class="text-xs font-bold">AI explain</p>
-														<p class="text-2xl font-black">Ready</p>
-													</div>
-												</div>
-											</div>
-										</div>
-									</aside>
-								</div>
-							</div>
-						</div>
-						<div></div>
-						<div></div>
-						<div></div>
-						<div></div>
-						<div></div>
-						<div></div>
-						<div></div>
-						<div></div>
+				<section id="ocr" class="docs-section">
+					<div class="docs-section-heading">
+						<span class="docs-section-index">03</span>
+						<div><h2>OCR từ màn hình</h2></div>
 					</div>
-				</div>
-			</div>
-		</section>
+					<p>Dùng khi chữ Nhật nằm trong ảnh, video, canvas hoặc nơi không thể bôi đen trực tiếp.</p>
+					<div class="docs-steps">
+						<div><b>1</b><span>Nhấp chuột phải trên trang và chọn <strong>Khoanh vùng OCR</strong>.</span></div>
+						<div><b>2</b><span>Kéo một khung bao quanh phần chữ muốn nhận diện.</span></div>
+						<div><b>3</b><span>Chờ nhận diện hoàn tất. Text tiếng Nhật được đưa thẳng vào popup tra cứu.</span></div>
+					</div>
+					<div class="docs-screenshot"><span>Ảnh chụp màn hình</span><small>Menu chuột phải và vùng khoanh chữ cần nhận diện</small></div>
+					<div class="docs-inline-note"><strong>OCR ảnh riêng:</strong><span>Nhấp chuột phải trực tiếp lên một ảnh, sau đó chọn <strong>OCR ảnh này</strong>.</span></div>
+					<p class="docs-small-note">OCR chạy bằng Tesseract với dữ liệu tiếng Nhật được đóng gói trong extension. Kết quả phụ thuộc vào độ rõ, kích thước và hướng của chữ trong ảnh.</p>
+				</section>
 
-		<section id="popup" class="bg-white py-16 sm:py-20">
-			<div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
-				<div class="grid items-end gap-6 lg:grid-cols-[0.78fr_1.22fr]">
-					<div>
-						<div class="extension-pill mb-4 inline-flex rounded-full px-3 py-1 text-sm font-bold">Core flow</div>
-						<h2 class="max-w-2xl text-4xl font-black leading-tight text-[#111827] sm:text-5xl">
-							Popup là trung tâm, không phải dashboard.
-						</h2>
+				<section id="ai" class="docs-section docs-section-tinted">
+					<div class="docs-section-heading">
+						<span class="docs-section-index">04</span>
+						<div><h2>Giải thích bằng AI</h2></div>
 					</div>
-					<div class="stats stats-vertical border border-base-300 bg-base-100 shadow-sm sm:stats-horizontal">
-						<div class="stat">
-							<div class="stat-title">Trigger</div>
-							<div class="stat-value text-2xl">Select</div>
-						</div>
-						<div class="stat">
-							<div class="stat-title">Result</div>
-							<div class="stat-value text-2xl text-primary">Dict + AI</div>
-						</div>
-						<div class="stat">
-							<div class="stat-title">Memory</div>
-							<div class="stat-value text-2xl">Saved</div>
-						</div>
+					<p>Trong tab <strong>Explain</strong>, gửi đoạn text đã chọn để nhận một bản phân tích gồm cách đọc cả câu, nghĩa tiếng Việt, từ vựng, điểm ngữ pháp và ghi chú.</p>
+					<div class="docs-ai-output">
+						<div class="docs-ai-line"><span>01</span><strong>Câu đã chọn</strong><span>được gửi lên dịch vụ AI</span></div>
+						<div class="docs-ai-line"><span>02</span><strong>Từ vựng</strong><span>word, cách đọc, nghĩa</span></div>
+						<div class="docs-ai-line"><span>03</span><strong>Ngữ pháp</strong><span>mẫu câu, giải thích, ví dụ</span></div>
+						<div class="docs-ai-line"><span>04</span><strong>Lịch sử</strong><span>có thể đánh dấu để xem lại</span></div>
 					</div>
-				</div>
+					<div class="docs-screenshot"><span>Ảnh chụp màn hình</span><small>Tab Explain với kết quả phân tích câu</small></div>
+					<div class="docs-callout docs-callout-warning"><strong>Cần tài khoản và số dư ví AI</strong><span>Explain yêu cầu đăng nhập. Mỗi request được tính phí theo chi phí model và trừ vào ví; khi số dư thấp, request sẽ bị từ chối.</span></div>
+				</section>
 
-				<div class="carousel carousel-center mt-10 w-full gap-4 rounded-box">
-					<div class="carousel-item w-[86vw] max-w-md">
-						<div class="landing-feature-tile w-full">
-							<div class="text-5xl">選</div>
-							<h3>Bôi đen mở popup</h3>
-							<p>Tức thì hoặc qua nút nhỏ.</p>
-						</div>
+				<section id="account" class="docs-section">
+					<div class="docs-section-heading">
+						<span class="docs-section-index">05</span>
+						<div><h2>Tài khoản và lịch sử</h2></div>
 					</div>
-					<div class="carousel-item w-[86vw] max-w-md">
-						<div class="landing-feature-tile w-full">
-							<div class="text-5xl">漢</div>
-							<h3>Kanji + vocab local</h3>
-							<p>Tra nhanh, có đọc, nghĩa, ví dụ.</p>
-						</div>
+					<p>Đăng nhập từ tab <strong>Tài khoản</strong> trong extension hoặc trang tài khoản trên website.</p>
+					<div class="docs-grid docs-grid-2">
+						<article class="docs-card"><h3>Lịch sử Explain</h3><p>Xem lại các request AI đã thực hiện, tìm theo nội dung, lọc theo ngày hoặc chỉ xem mục đã đánh dấu.</p><ul class="docs-list"><li>Đánh dấu / bỏ đánh dấu một mục</li><li>Xóa mục khỏi lịch sử</li><li>Mở chi tiết lesson đã nhận</li></ul></article>
+						<article class="docs-card"><h3>Xuất dữ liệu</h3><p>Xuất lịch sử thành CSV và chọn các trường cần lấy, gồm câu gốc, hiragana, nghĩa, vocab, grammar và metadata request.</p></article>
 					</div>
-					<div class="carousel-item w-[86vw] max-w-md">
-						<div class="landing-feature-tile w-full">
-							<div class="text-5xl">文</div>
-							<h3>Hover cả đoạn</h3>
-							<p>Dịch, vocab, Kanji theo đoạn đang trỏ.</p>
-						</div>
-					</div>
-					<div class="carousel-item w-[86vw] max-w-md">
-						<div class="landing-feature-tile w-full">
-							<div class="text-5xl">AI</div>
-							<h3>Explain ngữ cảnh</h3>
-							<p>Tách câu, từ vựng, grammar, note.</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</section>
+					<div class="docs-inline-note"><strong>Ví AI:</strong><span>xem số dư, lịch sử giao dịch và tạo QR nạp tiền trong mục Ví AI của trang tài khoản.</span></div>
+				</section>
 
-		<section id="hover" class="landing-soft-band border-y border-base-300 py-16 sm:py-20">
-			<div class="grid w-full gap-10 px-4 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 xl:px-12">
-				<div class="mockup-browser border border-base-300 bg-white shadow-xl">
-					<div class="mockup-browser-toolbar border-b border-base-300">
-						<div class="input border border-base-300 bg-base-200 text-sm text-[#6b7280]">hover paragraph</div>
+				<section id="settings" class="docs-section docs-section-tinted">
+					<div class="docs-section-heading">
+						<span class="docs-section-index">06</span>
+						<div><h2>Cài đặt chung</h2></div>
 					</div>
-					<div class="p-5 sm:p-7">
-						<div class="diff aspect-[16/9] rounded-xl border border-base-300" tabindex="0">
-							<div class="diff-item-1" role="img">
-								<div class="grid h-full place-items-center bg-white p-6">
-									<p class="jp-text max-w-xl text-3xl font-black leading-relaxed text-[#111827]">
-										難しい文章でも、文脈をつかめば読みやすくなる。
-									</p>
-								</div>
-							</div>
-							<div class="diff-item-2" role="img">
-								<div class="grid h-full place-items-center bg-[#fff1f2] p-6">
-									<div class="max-w-md rounded-xl border border-[#fca5a5] bg-white p-4 shadow-lg">
-										<p class="text-xs font-black uppercase text-[#991b1b]">Hover popup</p>
-										<p class="mt-2 text-sm leading-6 text-[#374151]">Bản dịch nhanh + vocab rút gọn + Kanji chính.</p>
-										<div class="mt-3 flex flex-wrap gap-2">
-											<span class="badge badge-primary">文脈</span>
-											<span class="badge">つかむ</span>
-											<span class="badge">読みやすい</span>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class="diff-resizer"></div>
-						</div>
+					<p>Mở popup của extension và chọn tab <strong>Cài đặt chung</strong>.</p>
+					<div class="docs-setting-block">
+						<h3>Cài đặt chung</h3>
+						<div class="docs-setting-row"><strong>Hiển thị Romaji</strong><span>Hiện romaji bên cạnh kana trong cách đọc và phần phát âm.</span></div>
+						<div class="docs-setting-row"><strong>Danh sách đen trang web</strong><span>Nhập tên miền, ví dụ <code>example.com</code>, để tắt extension trên website đó. Có thể sửa hoặc xóa tên miền đã thêm.</span></div>
 					</div>
-				</div>
+					<div class="docs-screenshot"><span>Ảnh chụp màn hình</span><small>Popup cài đặt với ba tab Bôi đen, Di chuột và Cài đặt chung</small></div>
+				</section>
 
-				<div class="flex flex-col justify-center">
-					<div class="extension-pill mb-4 inline-flex w-fit rounded-full px-3 py-1 text-sm font-bold">Hover mode</div>
-					<h2 class="text-4xl font-black leading-tight text-[#111827]">Không cần chọn text cũng tra được.</h2>
-					<ul class="timeline timeline-vertical mt-8">
-						<li>
-							<div class="timeline-start text-sm font-bold text-[#6b7280]">01</div>
-							<div class="timeline-middle"><span class="status status-primary"></span></div>
-							<div class="timeline-end timeline-box border-base-300 bg-white">Từng Kanji</div>
-							<hr class="bg-base-300" />
-						</li>
-						<li>
-							<hr class="bg-base-300" />
-							<div class="timeline-start text-sm font-bold text-[#6b7280]">02</div>
-							<div class="timeline-middle"><span class="status status-primary"></span></div>
-							<div class="timeline-end timeline-box border-base-300 bg-white">Cả đoạn văn</div>
-							<hr class="bg-base-300" />
-						</li>
-						<li>
-							<hr class="bg-base-300" />
-							<div class="timeline-start text-sm font-bold text-[#6b7280]">03</div>
-							<div class="timeline-middle"><span class="status status-primary"></span></div>
-							<div class="timeline-end timeline-box border-base-300 bg-white">Delay tùy chỉnh</div>
-						</li>
+				<section id="limits" class="docs-section docs-section-last">
+					<div class="docs-section-heading">
+						<span class="docs-section-index">07</span>
+						<div><h2>Giới hạn hiện tại</h2></div>
+					</div>
+					<ul class="docs-limit-list">
+						<li><strong>Từ điển:</strong> tra Kanji và vocab dựa trên dữ liệu được đóng gói local trong extension. Không phải mọi từ hoặc mọi biến thể đều có kết quả.</li>
+						<li><strong>Dịch paragraph:</strong> dùng endpoint dịch bên ngoài, nên cần kết nối mạng và có thể lỗi hoặc trả kết quả không tự nhiên.</li>
+						<li><strong>AI Explain:</strong> cần đăng nhập, cần số dư ví và kết quả phụ thuộc model. Đây không phải trình kiểm tra ngữ pháp tuyệt đối.</li>
+						<li><strong>OCR:</strong> nhận diện chữ Nhật từ ảnh chụp vùng màn hình; chữ nhỏ, mờ, dọc hoặc bị nền che có thể cho kết quả sai.</li>
+						<li><strong>Tương thích trang:</strong> extension chạy trên các trang mà content script có thể được inject. Một số trang đặc biệt có thể chặn hoặc làm lệch popup.</li>
 					</ul>
-				</div>
-			</div>
-		</section>
+				</section>
 
-		<section id="ai" class="bg-white py-16 sm:py-20">
-			<div class="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
-				<div class="mb-10 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-					<div>
-						<div class="extension-pill mb-4 inline-flex rounded-full px-3 py-1 text-sm font-bold">AI Explain</div>
-						<h2 class="max-w-2xl text-4xl font-black leading-tight text-[#111827]">Một câu được bẻ ra thành thứ học được.</h2>
-					</div>
-					<div class="steps steps-horizontal overflow-x-auto">
-						<div class="step step-primary">Sentence</div>
-						<div class="step step-primary">Vocab</div>
-						<div class="step step-primary">Grammar</div>
-						<div class="step">Saved</div>
-					</div>
-				</div>
-
-				<div class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-					<div class="stack">
-						<div class="landing-ai-card border-[#fecaca] bg-[#fff1f2]">
-							<p class="jp-text text-3xl font-black">読みやすくなる</p>
-							<p class="mt-2 text-[#6b7280]">sentence meaning</p>
-						</div>
-						<div class="landing-ai-card bg-white">
-							<p class="font-black">Vocabularies</p>
-							<div class="mt-3 flex flex-wrap gap-2">
-								<span class="badge badge-primary">文脈</span>
-								<span class="badge">難しい</span>
-								<span class="badge">つかむ</span>
-							</div>
-						</div>
-						<div class="landing-ai-card bg-base-200">
-							<p class="font-black">Grammar</p>
-							<p class="mt-2 text-sm text-[#6b7280]">~ば / conditional pattern</p>
-						</div>
-					</div>
-
-					<div class="mockup-code border border-base-300 bg-[#111827] text-primary-content shadow-xl">
-						<pre data-prefix="$"><code>explain selected sentence</code></pre>
-						<pre data-prefix=">" class="text-success"><code>hiragana: よみやすくなる</code></pre>
-						<pre data-prefix=">" class="text-warning"><code>vocab: 3 items</code></pre>
-						<pre data-prefix=">" class="text-info"><code>grammar: conditional nuance</code></pre>
-						<pre data-prefix=">" class="text-primary"><code>saved to history</code></pre>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<section id="settings" class="landing-soft-band border-y border-base-300 py-16 sm:py-20">
-			<div class="grid w-full gap-10 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8 xl:px-12">
-				<div>
-					<div class="extension-pill mb-4 inline-flex rounded-full px-3 py-1 text-sm font-bold">Fine controls</div>
-					<h2 class="text-4xl font-black leading-tight text-[#111827]">Extension chỉnh được theo cách đọc của từng người.</h2>
-				</div>
-
-				<div class="grid gap-4 md:grid-cols-2">
-					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
-						<legend class="fieldset-legend text-base">Popup trigger</legend>
-						<div class="join w-full">
-							<button class="btn join-item btn-primary flex-1">Tức thì</button>
-							<button class="btn join-item flex-1 bg-white">Nút nhỏ</button>
-						</div>
-					</fieldset>
-					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
-						<legend class="fieldset-legend text-base">Popup position</legend>
-						<select class="select select-bordered w-full">
-							<option>Ngay cạnh vùng chọn</option>
-							<option>Nhớ vị trí kéo thả</option>
-							<option>Cố định ở góc</option>
-						</select>
-					</fieldset>
-					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
-						<legend class="fieldset-legend text-base">Độ mờ</legend>
-						<input type="range" min="0" max="100" value="82" class="range range-primary" />
-					</fieldset>
-					<fieldset class="fieldset rounded-xl border border-base-300 bg-white p-5 shadow-sm">
-						<legend class="fieldset-legend text-base">Paragraph hover</legend>
-						<div class="flex flex-wrap gap-3">
-							<label class="label cursor-pointer gap-2"><input type="checkbox" class="checkbox checkbox-primary checkbox-sm" checked />Dịch</label>
-							<label class="label cursor-pointer gap-2"><input type="checkbox" class="checkbox checkbox-primary checkbox-sm" checked />Vocab</label>
-							<label class="label cursor-pointer gap-2"><input type="checkbox" class="checkbox checkbox-primary checkbox-sm" />Kanji</label>
-						</div>
-					</fieldset>
-				</div>
-			</div>
-		</section>
-
-		<section class="bg-white px-4 py-14 sm:px-6 lg:px-8 xl:px-12">
-			<div class="flex flex-col items-start justify-between gap-5 rounded-xl border border-base-300 bg-base-200 p-5 sm:flex-row sm:items-center">
-				<div>
-					<p class="text-sm font-bold uppercase text-[#6b7280]">Account chỉ là sync</p>
-					<h2 class="mt-1 text-2xl font-black text-[#111827]">History, saved items, ví AI và export khi cần.</h2>
-				</div>
-				<div class="flex gap-2">
-					<a class="btn btn-outline bg-white" href="/account">Account</a>
-					<a class="btn btn-primary" href="/register">Cài extension</a>
-				</div>
-			</div>
-		</section>
-	</main>
+				<footer class="docs-footer"><span>Jisho Go documentation</span><a href="/account">Mở trang tài khoản</a></footer>
+			</main>
+		</div>
+	</div>
 </Layout>

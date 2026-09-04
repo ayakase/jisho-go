@@ -60,6 +60,8 @@ let ocrLoadingEl: HTMLDivElement | null = null;
 let ocrGlyphTimer: ReturnType<typeof setInterval> | null = null;
 let ocrDarkMode = false;
 let ocrLastProgress = 0;
+let ocrRequestId = 0;
+let selectionOverlay: HTMLDivElement | null = null;
 
 function applyOcrTheme() {
   if (!ocrLoadingEl) return;
@@ -177,6 +179,8 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
     return;
   }
 
+  const requestId = ++ocrRequestId;
+
   try {
     const response = await browser.runtime.sendMessage({
       type: "CAPTURE_SCREENSHOT",
@@ -204,13 +208,15 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
           ""
         );
         const normalizedJapanese = onlyJapanese.replace(/\s+/g, " ").trim();
-        if (normalizedJapanese.length > 0) {
+        if (normalizedJapanese.length > 0 && requestId === ocrRequestId) {
           showPopupNear(rectBounds, normalizedJapanese);
         }
       } catch (ocrError) {
         console.error("Content: OCR failed:", ocrError);
       } finally {
-        setOcrLoading(false);
+        if (requestId === ocrRequestId) {
+          setOcrLoading(false);
+        }
       }
     } else if (response && response.error) {
       console.error("Capture error from background:", response.error);
@@ -363,9 +369,23 @@ export default defineContentScript({
         showPopupNear(rect, text, range.cloneRange());
       }
     });
-    // document.addEventListener('keydown', (event) => {
-    //   console.log('keydown', event.key);
-    // });
+    // Escape closes every extension overlay currently shown on the page.
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+
+      const hasOpenUi =
+        popupContainer !== null ||
+        hoverPopupContainer !== null ||
+        buttonContainer !== null ||
+        selectionOverlay !== null ||
+        ocrLoadingEl !== null;
+
+      if (!hasOpenUi) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      closeAllPopups();
+    }, true);
 
     // Watch for hover mode changes
     storage.watch<boolean>('local:hoverMode', (newMode) => {
@@ -569,6 +589,31 @@ function removeButton() {
     buttonContainer.remove();
     buttonContainer = null;
   }
+}
+
+function removeSelectionOverlay() {
+  if (selectionOverlay) {
+    selectionOverlay.remove();
+    selectionOverlay = null;
+  }
+}
+
+function closeAllPopups() {
+  removePopup();
+  removeHoverPopup();
+  removeButton();
+  removeSelectionOverlay();
+  if (hoverTimeout !== null) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
+  }
+  if (hoverLeaveTimeout !== null) {
+    clearTimeout(hoverLeaveTimeout);
+    hoverLeaveTimeout = null;
+  }
+  lastHoveredText = null;
+  setOcrLoading(false);
+  ocrRequestId += 1;
 }
 
 // Check if string contains Japanese characters (kanji, hiragana, katakana)
@@ -1252,6 +1297,8 @@ window.addEventListener("message", (event) => {
 
   if (event.data.type === "START_SELECTION") {
     const overlay = document.createElement("div");
+    removeSelectionOverlay();
+    selectionOverlay = overlay;
     overlay.style.position = "fixed";
     overlay.style.top = "0";
     overlay.style.left = "0";
@@ -1265,17 +1312,12 @@ window.addEventListener("message", (event) => {
     let startX = 0, startY = 0, rect: HTMLDivElement | null = null;
     let isDrawing = false;
     const removeOverlay = () => {
-      if (document.body.contains(overlay)) {
-        document.body.removeChild(overlay);
-      }
-      document.removeEventListener("keydown", handleEscape);
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        removeOverlay();
+      if (selectionOverlay === overlay) {
+        removeSelectionOverlay();
+      } else {
+        overlay.remove();
       }
     };
-    document.addEventListener("keydown", handleEscape);
 
     overlay.onmousedown = (e) => {
       // Prevent creating multiple rectangles

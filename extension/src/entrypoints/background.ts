@@ -228,8 +228,6 @@ export default defineBackground(() => {
           const { skipped, kanjiResults, vocabResults } =
             await backgroundSearchSelection(
               (message as { query: string }).query,
-              (message as { includeLongerMatches?: boolean })
-                .includeLongerMatches ?? false,
             );
           sendResponse({
             ok: true as const,

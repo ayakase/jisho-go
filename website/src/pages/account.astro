@@ -108,7 +108,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
             <input id="history-query" type="search" class="input input-bordered min-w-0" placeholder="Tìm nội dung đã tra" />
             <input id="history-from" type="date" class="input input-bordered" aria-label="Từ ngày" />
             <input id="history-to" type="date" class="input input-bordered" aria-label="Đến ngày" />
-            <label class="label cursor-pointer justify-start gap-2 px-1 text-sm"><input id="history-favorite" type="checkbox" class="checkbox checkbox-sm" /> Đã lưu</label>
+            <label class="label cursor-pointer justify-start gap-2 px-1 text-sm"><input id="history-favorite" type="checkbox" class="checkbox checkbox-sm" /> Đã đánh dấu</label>
             <div class="flex gap-2">
               <button class="btn btn-primary btn-sm">Lọc</button>
               <button id="history-export" type="button" class="btn btn-outline btn-sm">CSV</button>
@@ -125,7 +125,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
                   <th>Nghĩa</th>
                   <th>Trọng tâm</th>
                   <th>Nguồn</th>
-                  <th>Lưu</th>
+                  <th>Đánh dấu</th>
                   <th>Bài học</th>
                 </tr>
               </thead>
@@ -488,7 +488,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
                   </div>
                 </td>
                 <td class="max-w-32 px-3 py-3 break-all">${sourceLink}</td>
-                <td class="whitespace-nowrap px-3 py-3"><div class="flex gap-1"><button type="button" data-favorite-id="${Number(item.id || 0)}" data-favorite="${favorite ? '1' : '0'}" class="btn btn-outline btn-xs ${favorite ? 'btn-error' : ''}">${favorite ? 'Đã lưu' : 'Lưu'}</button><button type="button" data-delete-id="${Number(item.id || 0)}" class="btn btn-outline btn-xs">Xoá</button></div></td>
+                <td class="whitespace-nowrap px-3 py-3"><div class="flex gap-1"><button type="button" data-favorite-id="${Number(item.id || 0)}" data-favorite="${favorite ? '1' : '0'}" class="btn btn-outline btn-xs ${favorite ? 'btn-error' : ''}">${favorite ? 'Đã đánh dấu' : 'Đánh dấu'}</button><button type="button" data-delete-id="${Number(item.id || 0)}" class="btn btn-outline btn-xs">Xoá</button></div></td>
                 <td class="whitespace-nowrap p-0">
                   <a class="btn btn-ghost btn-xs h-full w-full justify-start" href="${detailHref}">Mở bài học</a>
                 </td>
@@ -561,7 +561,7 @@ const checkoutUrl = `${apiBase}/billing/checkout`;
               <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="id" /> ID</label>
               <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="created_at" checked /> Thời gian</label>
               <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="source_url" checked /> URL nguồn</label>
-              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="favorite" /> Đã lưu</label>
+              <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="favorite" /> Đã đánh dấu</label>
               <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="success" /> Thành công</label>
               <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="csv-field" value="error_message" /> Lỗi</label>
             </div>

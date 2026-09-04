@@ -151,16 +151,24 @@
     const trimmedOffset = text.length - text.trimStart().length;
     let candidates = vocabResults
       .filter(
-        (entry) =>
-          entry.matchStart !== undefined &&
-          entry.matchLength !== undefined &&
-          entry.matchLength > 0,
+        (entry) => entry.word.length > 0,
       )
-      .map((entry) => ({
-        entry,
-        start: trimmedOffset + entry.matchStart!,
-        end: trimmedOffset + entry.matchStart! + entry.matchLength!,
-      }))
+      .map((entry) => {
+        const wordIndex = text.trim().indexOf(entry.word);
+        const readingIndex = entry.r ? text.trim().indexOf(entry.r) : -1;
+        const startIndex = entry.matchStart !== undefined
+          ? entry.matchStart
+          : [wordIndex, readingIndex].filter((index) => index >= 0).sort((a, b) => a - b)[0];
+        const length = entry.matchLength !== undefined && entry.matchLength > 0
+          ? entry.matchLength
+          : entry.word.length;
+
+        return {
+          entry,
+          start: trimmedOffset + (startIndex ?? -1),
+          end: trimmedOffset + (startIndex ?? -1) + length,
+        };
+      })
       .filter(
         (match) =>
           match.start >= 0 &&
@@ -792,11 +800,11 @@
                   tabindex="0"
                   aria-pressed={selectedSourceMatch?.start === segment.entry.matchStart && selectedSourceMatch?.length === segment.entry.matchLength}
                   onpointerdown={(event) => event.stopPropagation()}
-                  onpointerup={(event) => {
+                  onclick={(event) => {
                     event.stopPropagation();
+                    event.preventDefault();
                     handleSourceMatchClick(segment.entry!);
                   }}
-                  onclick={(event) => event.stopPropagation()}
                   onkeydown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
