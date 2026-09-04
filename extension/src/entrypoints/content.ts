@@ -13,6 +13,7 @@ type HoverParagraphSections = {
   vocab: boolean;
   kanji: boolean;
 };
+const MAX_SELECTION_TEXT_LENGTH = 300;
 
 const DEFAULT_HOVER_PARAGRAPH_SECTIONS: HoverParagraphSections = {
   translate: true,
@@ -384,6 +385,8 @@ export default defineContentScript({
       const rect = range.getBoundingClientRect();
       const sourceRange = range.cloneRange();
       const selectedText = text;
+      const lookupText = text.slice(0, MAX_SELECTION_TEXT_LENGTH);
+      const isTextTruncated = text.length > MAX_SELECTION_TEXT_LENGTH;
 
       // Clear any hover popup when showing selection popup
       removeHoverPopup();
@@ -401,9 +404,9 @@ export default defineContentScript({
         }
 
         if (popupMode === 'button') {
-          showButtonNear(rect, selectedText, sourceRange);
+          showButtonNear(rect, lookupText, sourceRange, isTextTruncated);
         } else {
-          showPopupNear(rect, selectedText, sourceRange);
+          showPopupNear(rect, lookupText, sourceRange, isTextTruncated);
         }
       }, selectionDelayMs);
     });
@@ -685,7 +688,12 @@ function hasJapaneseChars(str: string): boolean {
   return kanjiRegex.test(str) || hiraganaRegex.test(str) || katakanaRegex.test(str);
 }
 
-function showButtonNear(rect: DOMRect, text: string, sourceRange: Range) {
+function showButtonNear(
+  rect: DOMRect,
+  text: string,
+  sourceRange: Range,
+  isTextTruncated = false,
+) {
   // Remove existing button and popup
   removeButton();
   removePopup();
@@ -760,7 +768,7 @@ function showButtonNear(rect: DOMRect, text: string, sourceRange: Range) {
   button.onclick = (e) => {
     e.stopPropagation();
     removeButton();
-    showPopupNear(rect, text, sourceRange);
+    showPopupNear(rect, text, sourceRange, isTextTruncated);
   };
 
   buttonContainer.appendChild(button);
@@ -778,7 +786,12 @@ function showButtonNear(rect: DOMRect, text: string, sourceRange: Range) {
   }, 0);
 }
 
-function showPopupNear(rect: DOMRect, text: string, sourceRange?: Range | null) {
+function showPopupNear(
+  rect: DOMRect,
+  text: string,
+  sourceRange?: Range | null,
+  isTextTruncated = false,
+) {
   // Remove existing popup and button
   removePopup();
   removeButton();
@@ -847,6 +860,7 @@ function showPopupNear(rect: DOMRect, text: string, sourceRange?: Range | null) 
     target: popupContainer,
     props: {
       text,
+      isTextTruncated,
       sourceRange: sourceRange?.cloneRange() ?? null,
       position: {
         left,

@@ -52,7 +52,13 @@
     text,
     position,
     sourceRange,
-  }: { text: string; position: Position; sourceRange?: Range | null } = $props();
+    isTextTruncated = false,
+  }: {
+    text: string;
+    position: Position;
+    sourceRange?: Range | null;
+    isTextTruncated?: boolean;
+  } = $props();
   let kanjiResults: DictEntry[] = $state([]);
   let vocabResults: VocabEntry[] = $state([]);
   let error: string | null = $state(null);
@@ -818,6 +824,11 @@
     <div class="result">
       <div class="result-header">
         <div class="extracted-text-section">
+          {#if isTextTruncated}
+            <div class="text-truncated-warning">
+              Đoạn chọn quá dài, chỉ tra 300 ký tự đầu.
+            </div>
+          {/if}
           <div class="source-text">
             {#each getSourceSegments() as segment}
               {#if activeTab === "kanji"}
@@ -1302,6 +1313,12 @@
     border-bottom-color: #374151;
   }
 
+  .popup.dark-mode .text-truncated-warning {
+    border-color: #92400e;
+    background: #451a03;
+    color: #fde68a;
+  }
+
   .popup.dark-mode .translated-text,
   .popup.dark-mode .kanji-detail-summary,
   .popup.dark-mode .translated-text-loading,
@@ -1446,6 +1463,17 @@
     border-bottom: 1px solid #e5e7eb;
     line-height: 1.5;
     word-break: break-word;
+  }
+
+  .text-truncated-warning {
+    margin-bottom: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #fbbf24;
+    border-radius: 0.25rem;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 0.78rem;
+    line-height: 1.35;
   }
 
   .source-text {

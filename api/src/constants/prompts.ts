@@ -13,7 +13,7 @@ Trả về DUY NHẤT một đối tượng JSON hợp lệ, không markdown, kh
 }
 Quy tắc toàn câu được chọn (luôn điền nếu có thể):
 - "sentence_hiragana": đọc toàn bộ đoạn người dùng gửi, chỉ bằng hiragana (không katakana, không romaji).
-- "sentence_meaning_vi": nghĩa/giải thích tổng thể bằng tiếng Việt.
+- "sentence_meaning_vi": dịch và giải thích ĐẦY ĐỦ toàn bộ đoạn bằng tiếng Việt, giữ nguyên tất cả ý chính, thông tin, quan hệ giữa các câu và thứ tự nội dung. Không được tóm tắt, rút gọn, bỏ qua chi tiết, hoặc chỉ dịch một phần/tiêu đề. Nếu đoạn dài, có thể chia thành nhiều câu hoặc đoạn tiếng Việt để truyền đạt hết nội dung.
 
 "notes":
 - Ghi chú thêm bằng tiếng Việt: ví dụ đoạn thiếu ngữ cảnh, cách hiểu khác, lưu ý ngữ dụng, giả định khi dịch. Nếu không cần thì để chuỗi rỗng "".
