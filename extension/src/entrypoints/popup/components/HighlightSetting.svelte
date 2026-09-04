@@ -15,6 +15,8 @@
   let isPositionInitialized = $state<boolean>(false);
   let searchButtonSize = $state<SearchButtonSize>("medium");
   let isSearchButtonInitialized = $state<boolean>(false);
+  let selectionDelayMs = $state(300);
+  let isSelectionDelayInitialized = $state(false);
 
   let staticConfig = $state<{
     corner: string;
@@ -45,6 +47,11 @@
   function clampOpacity(val: number): number {
     if (Number.isNaN(val)) return OPACITY_MAX;
     return Math.max(OPACITY_MIN, Math.min(OPACITY_MAX, val));
+  }
+
+  function clampSelectionDelayMs(value: number): number {
+    if (!Number.isFinite(value)) return 300;
+    return Math.max(0, Math.min(3000, Math.round(value)));
   }
 
   function opacityToGradientPercent(opacity: number): number {
@@ -130,6 +137,32 @@
     }
   }
 
+  async function loadSelectionDelaySettings() {
+    try {
+      const stored = await storage.getItem<number>("local:selectionDelayMs");
+      if (typeof stored === "number" && Number.isFinite(stored)) {
+        selectionDelayMs = clampSelectionDelayMs(stored);
+      }
+      isSelectionDelayInitialized = true;
+    } catch (error) {
+      console.error("Failed to load selection delay:", error);
+      isSelectionDelayInitialized = true;
+    }
+  }
+
+  async function saveSelectionDelaySettings() {
+    try {
+      if (isSelectionDelayInitialized) {
+        await storage.setItem(
+          "local:selectionDelayMs",
+          clampSelectionDelayMs(selectionDelayMs),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to save selection delay:", error);
+    }
+  }
+
   async function savePositionMode() {
     try {
       if (isPositionInitialized) {
@@ -168,6 +201,7 @@
   loadPopupOpacity();
   loadPositionSettings();
   loadSearchButtonSettings();
+  loadSelectionDelaySettings();
 
   $effect(() => {
     savePopupMode();
@@ -193,6 +227,10 @@
 
   $effect(() => {
     saveSearchButtonSettings();
+  });
+
+  $effect(() => {
+    if (isSelectionDelayInitialized) saveSelectionDelaySettings();
   });
 
 </script>
@@ -247,6 +285,25 @@
               >
             </span>
           </label>
+        </div>
+        <div class="selection-delay-setting">
+          <label class="selection-delay-option" for="selection-delay-ms">
+            <span class="selection-delay-label">
+              <strong>Độ trễ bôi đen</strong>
+              <span class="selection-delay-description"
+                >Thời gian chờ trước khi hiện popup sau khi bôi đen</span
+              >
+            </span>
+          </label>
+          <input
+            id="selection-delay-ms"
+            type="number"
+            min="0"
+            max="3000"
+            step="50"
+            bind:value={selectionDelayMs}
+          />
+          <span class="selection-delay-unit">ms</span>
         </div>
       {/if}
     </div>
@@ -624,11 +681,76 @@
     color: #fecaca;
   }
 
+  .selection-delay-setting {
+    margin-top: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+  }
+
+  .selection-delay-option {
+    flex: 1;
+    cursor: default;
+  }
+
+  .selection-delay-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .selection-delay-label strong {
+    font-size: 0.9rem;
+    color: #111827;
+  }
+
+  .selection-delay-description {
+    font-size: 0.8rem;
+    color: #6b7280;
+    line-height: 1.3;
+  }
+
+  .selection-delay-setting input {
+    width: 88px;
+    padding: 0.35rem 0.45rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    outline: none;
+  }
+
+  .selection-delay-setting input:focus {
+    border-color: #f87171;
+  }
+
+  .selection-delay-unit {
+    min-width: 22px;
+    color: #6b7280;
+    font-size: 0.8rem;
+  }
+
   :global(main.dark-mode) .ui-select,
   :global(main.dark-mode) .ui-input {
     background: #111827;
     border-color: #4b5563;
     color: #f3f4f6;
+  }
+
+  :global(main.dark-mode) .selection-delay-setting {
+    border-color: #4b5563;
+    background: #1f2937;
+  }
+
+  :global(main.dark-mode) .selection-delay-label strong {
+    color: #f3f4f6;
+  }
+
+  :global(main.dark-mode) .selection-delay-description,
+  :global(main.dark-mode) .selection-delay-unit {
+    color: #9ca3af;
   }
 
   :global(main.dark-mode) .opacity-range {

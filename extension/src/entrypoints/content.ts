@@ -29,7 +29,9 @@ let hoverMode = false;
 let hoverGrabMode: HoverGrabMode = 'single-kanji';
 let hoverTimeout: number | null = null;
 let hoverDelayMs = 300;
+let selectionDelayMs = 300;
 let lastHoveredText: string | null = null;
+let selectionPopupTimeout: number | null = null;
 let hoverParagraphSections: HoverParagraphSections = { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
 let blacklist: string[] = [];
 let popupOpacity = 1;
@@ -254,6 +256,7 @@ export default defineContentScript({
     await loadHoverMode();
     await loadHoverGrabMode();
     await loadHoverDelayMs();
+    await loadSelectionDelayMs();
     await loadHoverParagraphSections();
     await loadBlacklist();
     await loadPopupOpacity();
@@ -315,7 +318,27 @@ export default defineContentScript({
     });
 
     // Show a small popup next to highlighted text on the page
+    document.addEventListener('mousedown', (event) => {
+      if (
+        (popupContainer && popupContainer.contains(event.target as Node)) ||
+        (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
+        (buttonContainer && buttonContainer.contains(event.target as Node))
+      ) {
+        return;
+      }
+
+      if (selectionPopupTimeout !== null) {
+        clearTimeout(selectionPopupTimeout);
+        selectionPopupTimeout = null;
+      }
+    }, true);
+
     document.addEventListener('mouseup', (event) => {
+      if (selectionPopupTimeout !== null) {
+        clearTimeout(selectionPopupTimeout);
+        selectionPopupTimeout = null;
+      }
+
       if (Date.now() < suppressSelectionPopupUntil) {
         return;
       }
@@ -359,15 +382,30 @@ export default defineContentScript({
 
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
+      const sourceRange = range.cloneRange();
+      const selectedText = text;
 
       // Clear any hover popup when showing selection popup
       removeHoverPopup();
 
-      if (popupMode === 'button') {
-        showButtonNear(rect, text, range.cloneRange());
-      } else {
-        showPopupNear(rect, text, range.cloneRange());
-      }
+      selectionPopupTimeout = window.setTimeout(() => {
+        selectionPopupTimeout = null;
+
+        const currentSelection = window.getSelection();
+        if (
+          !currentSelection ||
+          currentSelection.rangeCount === 0 ||
+          currentSelection.toString().trim() !== selectedText
+        ) {
+          return;
+        }
+
+        if (popupMode === 'button') {
+          showButtonNear(rect, selectedText, sourceRange);
+        } else {
+          showPopupNear(rect, selectedText, sourceRange);
+        }
+      }, selectionDelayMs);
     });
     // Escape closes every extension overlay currently shown on the page.
     document.addEventListener('keydown', (event) => {
@@ -410,6 +448,14 @@ export default defineContentScript({
         hoverDelayMs = Math.max(0, Math.round(newDelay));
       } else {
         hoverDelayMs = 300;
+      }
+    });
+
+    storage.watch<number>('local:selectionDelayMs', (newDelay) => {
+      if (typeof newDelay === 'number' && Number.isFinite(newDelay)) {
+        selectionDelayMs = Math.max(0, Math.min(3000, Math.round(newDelay)));
+      } else {
+        selectionDelayMs = 300;
       }
     });
 
@@ -478,6 +524,17 @@ async function loadHoverDelayMs() {
     }
   } catch (error) {
     console.error('Failed to load hover delay ms:', error);
+  }
+}
+
+async function loadSelectionDelayMs() {
+  try {
+    const stored = await storage.getItem<number>('local:selectionDelayMs');
+    if (typeof stored === 'number' && Number.isFinite(stored)) {
+      selectionDelayMs = Math.max(0, Math.min(3000, Math.round(stored)));
+    }
+  } catch (error) {
+    console.error('Failed to load selection delay ms:', error);
   }
 }
 
@@ -599,6 +656,10 @@ function removeSelectionOverlay() {
 }
 
 function closeAllPopups() {
+  if (selectionPopupTimeout !== null) {
+    clearTimeout(selectionPopupTimeout);
+    selectionPopupTimeout = null;
+  }
   removePopup();
   removeHoverPopup();
   removeButton();
@@ -705,7 +766,7 @@ function showButtonNear(rect: DOMRect, text: string, sourceRange: Range) {
   buttonContainer.appendChild(button);
   document.body.appendChild(buttonContainer);
 
-  // Remove button on click outside
+  // The trigger button is temporary and disappears when focus moves elsewhere.
   const handleClickOutside = (ev: MouseEvent) => {
     if (buttonContainer && !buttonContainer.contains(ev.target as Node)) {
       removeButton();
@@ -794,20 +855,6 @@ function showPopupNear(rect: DOMRect, text: string, sourceRange?: Range | null) 
     },
   });
 
-  // Simple close on click outside (but not if clicking on hover popup)
-  const handleClickOutside = (ev: MouseEvent) => {
-    if (
-      popupContainer &&
-      !popupContainer.contains(ev.target as Node) &&
-      !(hoverPopupContainer && hoverPopupContainer.contains(ev.target as Node))
-    ) {
-      // Prevent immediate reopen from the same click's mouseup event.
-      suppressSelectionPopupUntil = Date.now() + 250;
-      removePopup();
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-  };
-
   // Stop clicks inside popup from propagating, but allow button clicks
   // Use capture phase to catch events on child elements
   const stopPropagation = (ev: Event) => {
@@ -824,8 +871,6 @@ function showPopupNear(rect: DOMRect, text: string, sourceRange?: Range | null) 
   };
   popupContainer.addEventListener('mousedown', stopPropagation, true);
   popupContainer.addEventListener('mouseup', stopPropagation, true);
-
-  document.addEventListener('mousedown', handleClickOutside);
 }
 
 // Check if a character is a kanji

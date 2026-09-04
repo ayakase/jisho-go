@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { searchSelectionDicts } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { getStoredSession } from "../lib/auth";
@@ -76,6 +77,9 @@
     char: string;
   } | null>(null);
   let selectedKanjiWord = $state<string | null>(null);
+  let resultBodyElement = $state<HTMLDivElement | null>(null);
+  let expandedOnKanjiWord = $state<string | null>(null);
+  let expandedKunKanjiWord = $state<string | null>(null);
 
   type ExplainVocab = {
     word?: string;
@@ -253,7 +257,8 @@
   }
 
   function getDisplayedVocabResults(): VocabEntry[] {
-    if (!selectedSourceMatch) return vocabResults;
+    const sourceMatch = selectedSourceMatch;
+    if (!sourceMatch) return vocabResults;
     return vocabResults.filter(
       (entry) => {
         if (entry.matchStart === undefined || entry.matchLength === undefined) {
@@ -261,11 +266,11 @@
         }
 
         const selectedEnd =
-          selectedSourceMatch.start + selectedSourceMatch.length;
+          sourceMatch.start + sourceMatch.length;
         const entryEnd = entry.matchStart + entry.matchLength;
 
         return (
-          entry.matchStart >= selectedSourceMatch.start &&
+          entry.matchStart >= sourceMatch.start &&
           entryEnd <= selectedEnd
         );
       },
@@ -273,11 +278,7 @@
   }
 
   function getDisplayedKanjiResults(): DictEntry[] {
-    if (!selectedKanjiWord) return kanjiResults;
-
-    const selected = kanjiResults.filter((entry) => entry.w === selectedKanjiWord);
-    const rest = kanjiResults.filter((entry) => entry.w !== selectedKanjiWord);
-    return [...selected, ...rest];
+    return kanjiResults;
   }
 
   function isSourceMatchActive(entry: VocabEntry): boolean {
@@ -318,7 +319,41 @@
     handleKanjiSourceClick(entry.w, index);
   }
 
+  async function scrollToKanji(word: string) {
+    await tick();
+    requestAnimationFrame(() => {
+      const item = document
+        .querySelectorAll<HTMLElement>(
+          "#jisho-go-selection-popup [data-kanji-word]",
+        );
+      const selectedItem = [...item].find(
+        (element) => element.dataset.kanjiWord === word,
+      );
+      if (!selectedItem || !resultBodyElement) return;
+
+      const top =
+        selectedItem.getBoundingClientRect().top -
+        resultBodyElement.getBoundingClientRect().top +
+        resultBodyElement.scrollTop;
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)")
+        .matches
+        ? "auto"
+        : "smooth";
+
+      resultBodyElement.scrollTo({ top, behavior });
+    });
+  }
+
   function handleKanjiSourceClick(char: string, index: number) {
+    if (
+      activeKanjiSource?.index === index &&
+      activeKanjiSource.char === char &&
+      selectedKanjiWord === char
+    ) {
+      clearSourceSelection();
+      return;
+    }
+
     const entry = kanjiResults.find((kanji) => kanji.w === char);
     if (!entry) return;
 
@@ -327,6 +362,9 @@
     activeKanjiSource = { index, char };
     hoveredVocabEntry = null;
     selectedSourceMatch = null;
+    expandedOnKanjiWord = null;
+    expandedKunKanjiWord = null;
+    void scrollToKanji(entry.w);
   }
 
   function clearSourceSelection() {
@@ -335,6 +373,8 @@
     selectedSourceMatch = null;
     hoveredVocabEntry = null;
     expandedKanjiWord = null;
+    expandedOnKanjiWord = null;
+    expandedKunKanjiWord = null;
   }
 
   // Drag the whole popup (fixed-position panel).
@@ -518,6 +558,14 @@
     expandedKanjiWord = expandedKanjiWord === word ? null : word;
   }
 
+  function toggleOnExamples(word: string) {
+    expandedOnKanjiWord = expandedOnKanjiWord === word ? null : word;
+  }
+
+  function toggleKunExamples(word: string) {
+    expandedKunKanjiWord = expandedKunKanjiWord === word ? null : word;
+  }
+
   function getDetailSummary(detail: string | undefined): string {
     if (!detail) return "";
     const firstParagraph = detail.split("##")[0].trim();
@@ -618,6 +666,8 @@
     selectedKanjiWord = null;
     skipped = false;
     expandedKanjiWord = null;
+    expandedOnKanjiWord = null;
+    expandedKunKanjiWord = null;
 
     const trimmed = query.trim();
     if (!trimmed) {
@@ -741,7 +791,6 @@
   role="dialog"
   aria-label="Dictionary popup"
   tabindex="-1"
-  onclick={clearSourceSelection}
   onkeydown={(event) => {
     if (event.key === "Escape") {
       clearSourceSelection();
@@ -862,7 +911,7 @@
         </div>
       {/if}
 
-      <div class="result-body">
+      <div class="result-body" bind:this={resultBodyElement}>
         {#if activeTab === "vocab" && vocabResults.length > 0}
           <div class="vocab-section">
             <div class="vocab-list">
@@ -894,7 +943,7 @@
           <div class="kanji-section">
             {#each getDisplayedKanjiResults() as kanjiEntry}
               {@const isExpanded = expandedKanjiWord === kanjiEntry.w}
-              <div class="kanji-accordion-item">
+              <div class="kanji-accordion-item" data-kanji-word={kanjiEntry.w}>
                 <button
                   class:kanji-selected={selectedKanjiWord === kanjiEntry.w}
                   class="kanji-accordion-header"
@@ -956,47 +1005,9 @@
                     </div>
                   {/if}
 
-                  {#if kanjiEntry.example_kun}
-                    <div class="examples-section">
-                      <div class="section-title">Từ vựng (Kun)</div>
-                      <div class="examples-list">
-                        {#each Object.entries(kanjiEntry.example_kun) as [reading, examples]}
-                          {#each examples as example}
-                            <div class="example-item">
-                              <span class="example-word">{example.w}</span>
-                              <span class="example-reading"
-                                >({convertIfRomaji(example.p)})</span
-                              >
-                              <span class="example-mean">- {example.m}</span>
-                            </div>
-                          {/each}
-                        {/each}
-                      </div>
-                    </div>
-                  {/if}
-
-                  {#if kanjiEntry.example_on}
-                    <div class="examples-section">
-                      <div class="section-title">Từ vựng (On)</div>
-                      <div class="examples-list">
-                        {#each Object.entries(kanjiEntry.example_on) as [reading, examples]}
-                          {#each examples as example}
-                            <div class="example-item">
-                              <span class="example-word">{example.w}</span>
-                              <span class="example-reading"
-                                >({convertIfRomaji(example.p)})</span
-                              >
-                              <span class="example-mean">- {example.m}</span>
-                            </div>
-                          {/each}
-                        {/each}
-                      </div>
-                    </div>
-                  {/if}
-
                   {#if kanjiEntry.examples && kanjiEntry.examples.length > 0}
                     <div class="examples-section">
-                      <div class="section-title">Từ vựng</div>
+                      <div class="section-title">Từ vựng hay gặp</div>
                       <div class="examples-list">
                         {#each kanjiEntry.examples as example}
                           <div class="example-item">
@@ -1008,6 +1019,74 @@
                           </div>
                         {/each}
                       </div>
+                    </div>
+                  {/if}
+
+                  {#if kanjiEntry.example_on}
+                    <div class="examples-section examples-collapse">
+                      <button
+                        type="button"
+                        class="examples-collapse-header"
+                        aria-expanded={expandedOnKanjiWord === kanjiEntry.w}
+                        onclick={(event) => {
+                          event.stopPropagation();
+                          toggleOnExamples(kanjiEntry.w);
+                        }}
+                      >
+                        <span class="section-title">Từ vựng On</span>
+                        <span class="examples-collapse-icon" aria-hidden="true">
+                          {expandedOnKanjiWord === kanjiEntry.w ? "⌃" : "⌄"}
+                        </span>
+                      </button>
+                      {#if expandedOnKanjiWord === kanjiEntry.w}
+                        <div class="examples-list">
+                          {#each Object.entries(kanjiEntry.example_on) as [reading, examples]}
+                            {#each examples as example}
+                              <div class="example-item">
+                                <span class="example-word">{example.w}</span>
+                                <span class="example-reading"
+                                  >({convertIfRomaji(example.p)})</span
+                                >
+                                <span class="example-mean">- {example.m}</span>
+                              </div>
+                            {/each}
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+
+                  {#if kanjiEntry.example_kun}
+                    <div class="examples-section examples-collapse">
+                      <button
+                        type="button"
+                        class="examples-collapse-header"
+                        aria-expanded={expandedKunKanjiWord === kanjiEntry.w}
+                        onclick={(event) => {
+                          event.stopPropagation();
+                          toggleKunExamples(kanjiEntry.w);
+                        }}
+                      >
+                        <span class="section-title">Từ vựng Kun</span>
+                        <span class="examples-collapse-icon" aria-hidden="true">
+                          {expandedKunKanjiWord === kanjiEntry.w ? "⌃" : "⌄"}
+                        </span>
+                      </button>
+                      {#if expandedKunKanjiWord === kanjiEntry.w}
+                        <div class="examples-list">
+                          {#each Object.entries(kanjiEntry.example_kun) as [reading, examples]}
+                            {#each examples as example}
+                              <div class="example-item">
+                                <span class="example-word">{example.w}</span>
+                                <span class="example-reading"
+                                  >({convertIfRomaji(example.p)})</span
+                                >
+                                <span class="example-mean">- {example.m}</span>
+                              </div>
+                            {/each}
+                          {/each}
+                        </div>
+                      {/if}
                     </div>
                   {/if}
                   </div>
@@ -1137,6 +1216,7 @@
     position: fixed;
     width: 700px;
     max-width: 90vw;
+    min-height: min(320px, 60vh);
     max-height: min(600px, 80vh);
     overflow: hidden;
     overflow-x: hidden;
@@ -1295,6 +1375,14 @@
     border-top-color: #374151;
   }
 
+  .popup.dark-mode .examples-collapse {
+    border-top-color: #374151;
+  }
+
+  .popup.dark-mode .examples-collapse-header {
+    color: #f3f4f6;
+  }
+
   .popup.dark-mode .example-item {
     background: #1f2937;
     border-color: #374151;
@@ -1328,17 +1416,23 @@
     flex-direction: column;
     gap: 0;
     min-height: 0;
-    height: 100%;
+    flex: 1 1 auto;
+    overflow: hidden;
   }
 
   .result-header {
     flex: 0 0 auto;
+    min-height: 0;
+    max-height: min(260px, 36vh);
+    overflow-y: auto;
+    overflow-x: hidden;
     background: #ffffff;
     position: relative;
     z-index: 1;
   }
 
   .result-body {
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
@@ -1651,6 +1745,45 @@
   .examples-section {
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
+  }
+
+  .examples-collapse {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 0.45rem;
+  }
+
+  .examples-collapse-header {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    gap: 0.35rem;
+    padding: 0.25rem 0;
+    border: 0;
+    background: transparent;
+    color: #111827;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .examples-collapse-header:hover {
+    color: #991b1b;
+  }
+
+  .examples-collapse-header:focus-visible {
+    outline: 2px solid #f87171;
+    outline-offset: 2px;
+  }
+
+  .examples-collapse-header .section-title {
+    margin-bottom: 0;
+  }
+
+  .examples-collapse-icon {
+    color: #6b7280;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
   }
 
   .examples-list {
