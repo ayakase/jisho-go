@@ -4,9 +4,9 @@ import {
 } from "./dict-search";
 import type { DictEntry, VocabMeta } from "./dict-types";
 
-const KANJI_DICT_URL = browser.runtime.getURL("/assets/kanji-dict.min.json.gz");
+const KANJI_DICT_URL = browser.runtime.getURL("/dict/kanji-dict.min.json.gz");
 const VOCAB_DICT_URL = browser.runtime.getURL(
-  "/assets/vocabulary-dict.min.json.gz",
+  "/dict/vocabulary-dict.min.json.gz",
 );
 
 let kanjiDictPromise: Promise<DictEntry[]> | null = null;
