@@ -206,13 +206,12 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
         const {
           data: { text },
         } = await worker.recognize(blob);
-        const onlyJapanese = text.replace(
-          /[^\u3040-\u30FF\u4E00-\u9FFF。、・！？ー ]/g,
-          ""
+        const normalizedText = text.replace(/\s+/g, " ").trim();
+        const hasJapanese = /[\u3040-\u30FF\u4E00-\u9FFF]/.test(
+          normalizedText
         );
-        const normalizedJapanese = onlyJapanese.replace(/\s+/g, " ").trim();
-        if (normalizedJapanese.length > 0 && requestId === ocrRequestId) {
-          showPopupNear(rectBounds, normalizedJapanese);
+        if (hasJapanese && requestId === ocrRequestId) {
+          showPopupNear(rectBounds, normalizedText);
         }
       } catch (ocrError) {
         console.error("Content: OCR failed:", ocrError);

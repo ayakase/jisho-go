@@ -4,8 +4,10 @@ import {
 } from "./dict-search";
 import type { DictEntry, VocabMeta } from "./dict-types";
 
-const KANJI_DICT_URL = browser.runtime.getURL("/assets/kanji-dict.min.json");
-const VOCAB_DICT_URL = browser.runtime.getURL("/assets/vocabulary-dict.min.json");
+const KANJI_DICT_URL = browser.runtime.getURL("/assets/kanji-dict.min.json.gz");
+const VOCAB_DICT_URL = browser.runtime.getURL(
+  "/assets/vocabulary-dict.min.json.gz",
+);
 
 let kanjiDictPromise: Promise<DictEntry[]> | null = null;
 let vocabDictPromise: Promise<Record<string, VocabMeta>> | null = null;
@@ -42,7 +44,12 @@ async function fetchJson<T>(url: string): Promise<T> {
   if (!res.ok) {
     throw new Error(`Failed to load dictionary (${res.status}): ${url}`);
   }
-  return res.json() as Promise<T>;
+  if (!res.body) {
+    throw new Error(`Failed to read dictionary stream: ${url}`);
+  }
+  const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
+  const text = await new Response(stream).text();
+  return JSON.parse(text) as T;
 }
 
 function ensureKanjiDict(): Promise<DictEntry[]> {
