@@ -3,7 +3,7 @@
   import HighlightSetting from "./components/HighlightSetting.svelte";
   import HoverSetting from "./components/HoverSetting.svelte";
   import CommonSetting from "./components/CommonSetting.svelte";
-  import Account from "./components/Account.svelte";
+  // import Account from "./components/Account.svelte";
 
   type Tab = "highlight" | "hover" | "common" | "account";
   let activeTab = $state<Tab>("highlight");
@@ -99,6 +99,7 @@
     >
       Cài đặt chung
     </button>
+    <!--
     <button
       type="button"
       class="tab-button {activeTab === 'account' ? 'active' : ''}"
@@ -106,6 +107,7 @@
     >
       Tài khoản
     </button>
+    -->
   </div>
 
   {#if activeTab === "highlight"}
@@ -115,6 +117,6 @@
   {:else if activeTab === "common"}
     <CommonSetting />
   {:else}
-    <Account />
+    <!-- <Account /> -->
   {/if}
 </main>

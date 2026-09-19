@@ -18,16 +18,24 @@ export default defineConfig({
   manifest: {
     name: 'Kanji Go - Tra Kanji siêu tốc',
     description: 'Kanji Go - Tra Kanji siêu tốc',
-    permissions: ["activeTab", "tabs", "scripting", "storage", "contextMenus", "identity"],
+    permissions: [
+      "activeTab",
+      "tabs",
+      "scripting",
+      "storage",
+      "contextMenus",
+      // "identity", // LLM/AI: đăng nhập Google cho ví AI (đã ẩn trên UI)
+    ],
     host_permissions: [
       "<all_urls>",
-      "http://localhost/*",
-      "http://127.0.0.1/*",
-      "https://*.workers.dev/*",
-      "https://accounts.google.com/*",
-      "https://oauth2.googleapis.com/*",
-      "https://openidconnect.googleapis.com/*",
-      "https://vietqr.app/*",
+      // Các host dưới đây chỉ phục vụ module LLM/AI (auth, ví, explain) - đã ẩn trên UI
+      // "http://localhost/*",
+      // "http://127.0.0.1/*",
+      // "https://*.workers.dev/*",
+      // "https://accounts.google.com/*",
+      // "https://oauth2.googleapis.com/*",
+      // "https://openidconnect.googleapis.com/*",
+      // "https://vietqr.app/*",
     ],
     web_accessible_resources: [
       {

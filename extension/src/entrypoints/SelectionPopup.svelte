@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   import { searchSelectionDicts } from "../lib/dict-loaders";
   import { storage } from "#imports";
-  import { getStoredSession } from "../lib/auth";
+  // import { getStoredSession } from "../lib/auth";
   import { kanaToRomajiConvert } from "../lib/romaji";
   interface Position {
     left: number;
@@ -87,6 +87,7 @@
   let expandedOnKanjiWord = $state<string | null>(null);
   let expandedKunKanjiWord = $state<string | null>(null);
 
+  /*
   type ExplainVocab = {
     word?: string;
     hiragana?: string;
@@ -113,6 +114,7 @@
     grammar: ExplainGrammar[];
   } | null>(null);
   let explainFetchedText = $state<string | null>(null);
+  */
 
   function groupVocabResults(results: VocabEntry[]): VocabReadingGroup[] {
     const groups: VocabReadingGroup[] = [];
@@ -502,12 +504,14 @@
     (e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId);
   }
 
+  /*
   $effect(() => {
     void text;
     explainPayload = null;
     explainError = null;
     explainFetchedText = null;
   });
+  */
 
   async function translateSelectedText(query: string) {
     const trimmed = query.trim();
@@ -709,12 +713,13 @@
     // Choose default tab based on available results (kanji first)
     if (kanjiResults.length > 0) activeTab = "kanji";
     else if (vocabResults.length > 0) activeTab = "vocab";
-    else activeTab = "explain";
+    // else activeTab = "explain";
 
     loading = false;
     isSearching = false;
   }
 
+  /*
   $effect(() => {
     if (activeTab !== "explain" || skipped || !text?.trim()) return;
     if (explainFetchedText === text) return;
@@ -787,6 +792,7 @@
       cancelled = true;
     };
   });
+  */
 </script>
 
 <div
@@ -912,6 +918,7 @@
           >
             Từ vựng ({vocabResults.length})
           </button>
+          <!--
           <button
             type="button"
             class="tab {activeTab === 'explain' ? 'active' : ''}"
@@ -919,6 +926,7 @@
           >
             Giải thích AI
           </button>
+          -->
         </div>
       {/if}
 
@@ -1107,6 +1115,7 @@
           </div>
         {/if}
 
+        <!--
         {#if activeTab === "explain"}
           <div class="explain-section">
           {#if explainLoading}
@@ -1213,6 +1222,7 @@
           {/if}
           </div>
         {/if}
+        -->
 
         {#if kanjiResults.length === 0 && vocabResults.length === 0 && activeTab !== "explain"}
           <div class="no-results">Không tìm thấy Kanji hoặc Từ vựng</div>
@@ -1294,8 +1304,8 @@
   .popup.dark-mode .extracted-text-section,
   .popup.dark-mode .vocab-section,
   .popup.dark-mode .kanji-accordion-header,
-  .popup.dark-mode .kanji-accordion-content,
-  .popup.dark-mode .explain-section {
+  .popup.dark-mode .kanji-accordion-content
+  /* .popup.dark-mode .explain-section */ {
     background: #111827;
     color: #e5e7eb;
   }
@@ -1374,12 +1384,14 @@
   .popup.dark-mode .example-mean,
   .popup.dark-mode .detail-text,
   .popup.dark-mode .detail-text p,
-  .popup.dark-mode .kanji-meta-summary,
+  .popup.dark-mode .kanji-meta-summary
+  /*
   .popup.dark-mode .explain-section,
   .popup.dark-mode .ev-mean,
   .popup.dark-mode .ev-jp,
   .popup.dark-mode .ev-hiragana,
-  .popup.dark-mode .grammar-example-label {
+  .popup.dark-mode .grammar-example-label
+  */ {
     color: #f3f4f6 !important;
   }
 
@@ -1860,6 +1872,7 @@
     font-style: italic;
   }
 
+  /*
   .explain-section {
     padding: 1rem;
     background: #ffffff;
@@ -2017,6 +2030,7 @@
     color: #111827;
     margin-bottom: 0.2rem;
   }
+  */
 
   @media (max-width: 520px) {
     .examples-list {
