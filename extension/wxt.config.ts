@@ -44,6 +44,7 @@ export default defineConfig({
           "tesseract/tesseract-core.wasm",
           "tesseract/tesseract-core.wasm.js",
           "tesseract/lang/jpn.traineddata.gz",
+          "tesseract/lang/jpn_vert.traineddata.gz",
           "dict/kanji-dict.min.json.gz",
           "dict/vocabulary-dict.min.json.gz",
         ],

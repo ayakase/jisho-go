@@ -49,16 +49,51 @@
     entries: VocabEntry[];
   };
   let {
-    text,
+    text: initialText,
     position,
     sourceRange,
     isTextTruncated = false,
+    hasVertical = false,
   }: {
     text: string;
     position: Position;
     sourceRange?: Range | null;
     isTextTruncated?: boolean;
+    hasVertical?: boolean;
   } = $props();
+
+  // `text` là đoạn đang được tra: mặc định là bản ngang, đổi sang bản dọc được
+  // khi lượt OCR chữ dọc chạy nền xong.
+  let verticalText = $state<string | null>(null);
+  let activeSource = $state<"horizontal" | "vertical">("horizontal");
+  let text = $derived(
+    activeSource === "vertical" && verticalText ? verticalText : initialText
+  );
+
+  export function setVerticalText(value: string) {
+    verticalText = value;
+  }
+
+  function selectSource(source: "horizontal" | "vertical") {
+    if (source === activeSource) return;
+    if (source === "vertical" && !verticalText) return;
+
+    const next = source === "vertical" ? verticalText! : initialText;
+    activeSource = source;
+
+    // Kết quả cũ không còn ứng với đoạn đang tra nữa.
+    selectedSourceMatch = null;
+    activeKanjiSource = null;
+    selectedKanjiWord = null;
+    hoveredVocabEntry = null;
+    expandedKanjiWord = null;
+    expandedOnKanjiWord = null;
+    expandedKunKanjiWord = null;
+
+    void translateSelectedText(next);
+    void search(next);
+  }
+
   let kanjiResults: DictEntry[] = $state([]);
   let vocabResults: VocabEntry[] = $state([]);
   let error: string | null = $state(null);
@@ -900,6 +935,29 @@
           </div>
         </div>
       </div>
+      {#if hasVertical}
+        <div class="source-switch">
+          <span class="source-switch-label">Bản đọc</span>
+          <button
+            type="button"
+            class="tab {activeSource === 'horizontal' ? 'active' : ''}"
+            onclick={() => selectSource("horizontal")}
+          >
+            Ngang
+          </button>
+          <button
+            type="button"
+            class="tab {activeSource === 'vertical' ? 'active' : ''}"
+            disabled={!verticalText}
+            title={verticalText
+              ? "Xem bản đọc chữ dọc"
+              : "Đang đọc lại theo chiều dọc…"}
+            onclick={() => selectSource("vertical")}
+          >
+            {verticalText ? "Dọc" : "Dọc…"}
+          </button>
+        </div>
+      {/if}
       {#if vocabResults.length > 0 || kanjiResults.length > 0 || !skipped}
         <div class="tabs">
           <button
@@ -1341,6 +1399,15 @@
     border-bottom-color: #374151;
   }
 
+  .popup.dark-mode .source-switch {
+    background: #111827;
+    border-bottom-color: #374151;
+  }
+
+  .popup.dark-mode .source-switch-label {
+    color: #9ca3af;
+  }
+
   .popup.dark-mode .tab {
     background: #1f2937;
     border-color: #4b5563;
@@ -1536,6 +1603,22 @@
     padding: 1rem;
     background: #ffffff;
     margin-bottom: 0.5rem;
+  }
+
+  .source-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+  }
+
+  .source-switch-label {
+    margin-right: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
   }
 
   .tabs {

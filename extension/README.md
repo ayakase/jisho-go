@@ -28,6 +28,8 @@ This is a **browser extension** built with **WXT** (MV3) + **Svelte** + **tesser
 
 - **OCR settings**: `src/entrypoints/popup/components/OcrSetting.svelte` stores the shortcut in `local:ocrShortcut` (shape + helpers live in `src/lib/ocr-shortcut.ts`). The stored value is `null` when no shortcut is assigned — that is what "OCR off" means, there is no separate enabled flag. The content script watches that key and listens for the matching `keydown` to toggle the overlay.
 
+- **Vertical Japanese text**: `jpn_vert` is bundled and the worker loads `jpn+jpn_vert`, because Tesseract's `jpn` config declares `tessedit_load_sublangs jpn_vert` but does not pull it in on its own. The first pass always uses `PSM_SINGLE_BLOCK` and the popup shows that horizontal read right away; when the selection is taller than it is wide, `runVerticalPass()` re-reads the same crop in the background with `PSM_SINGLE_BLOCK_VERT_TEXT` and hands the text to the open popup, which then enables its `Ngang` / `Dọc` switch. Every read goes through `queueOcr()` — one shared worker means an unsynchronised PSM change would leak into the next read.
+
 - **OCR message flow**
   - Context menu click → background triggers overlay
   - Overlay rectangle → content script sends `CAPTURE_SCREENSHOT`
@@ -41,6 +43,7 @@ This is a **browser extension** built with **WXT** (MV3) + **Svelte** + **tesser
     - `public/tesseract/tesseract-core.wasm.js`
     - `public/tesseract/tesseract-core.wasm`
     - `public/tesseract/lang/jpn.traineddata.gz`
+    - `public/tesseract/lang/jpn_vert.traineddata.gz`
   - Exposed through `web_accessible_resources` in `wxt.config.ts`.
 
 - **Dev/build**

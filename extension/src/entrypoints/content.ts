@@ -3,7 +3,7 @@ import { storage } from '#imports';
 import SelectionPopup from './SelectionPopup.svelte';
 import HoverPopup from './HoverPopup.svelte';
 import HoverParagraphPopup from './HoverParagraphPopup.svelte';
-import { createWorker } from 'tesseract.js';
+import { createWorker, PSM } from 'tesseract.js';
 import {
   matchesOcrShortcut,
   normalizeOcrShortcut,
@@ -76,6 +76,9 @@ let ocrScanInitSeen = false;
 let ocrDarkMode = false;
 let ocrRequestId = 0;
 let selectionOverlay: HTMLDivElement | null = null;
+
+type SelectionPopupHandle = { setVerticalText: (text: string) => void };
+let selectionPopupInstance: SelectionPopupHandle | null = null;
 
 const OCR_SCAN_FADE_MS = 220;
 const OCR_SCAN_LINE_H = 5;
@@ -259,9 +262,13 @@ function handleTesseractLog(m: any) {
   setOcrScanPct(start + (end - start) * phase);
 }
 
+type OcrWorker = Awaited<ReturnType<typeof createWorker>>;
+
 function getOcrWorker() {
   if (!ocrWorkerPromise) {
-    ocrWorkerPromise = createWorker('jpn', 1, {
+    // Nạp kèm jpn_vert vì nó không tự được kéo vào qua `tessedit_load_sublangs`
+    // trong config của jpn — phải liệt kê thẳng ra thì PSM 5 mới dùng được.
+    ocrWorkerPromise = createWorker('jpn+jpn_vert', 1, {
       logger: handleTesseractLog,
       workerPath: browser.runtime.getURL('/tesseract/worker.min.js'),
       corePath: browser.runtime.getURL('/tesseract/tesseract-core.wasm.js'),
@@ -269,6 +276,50 @@ function getOcrWorker() {
     });
   }
   return ocrWorkerPromise;
+}
+
+// Chỉ có một worker dùng chung, mà đọc chữ dọc thì phải đổi PSM rồi đổi lại, nên
+// mọi lượt đọc phải xếp hàng — nếu không lượt đọc ngang kế tiếp sẽ chạy nhầm PSM.
+let ocrQueue: Promise<unknown> = Promise.resolve();
+
+function queueOcr<T>(task: (worker: OcrWorker) => Promise<T>): Promise<T> {
+  const run = ocrQueue.then(async () => task(await getOcrWorker()));
+  ocrQueue = run.catch(() => undefined);
+  return run;
+}
+
+// Tesseract chèn dấu cách giữa từng ký tự khi đọc tiếng Nhật ("日 本 語"), mà
+// searchSelection() tra từ bằng includes()/indexOf() nên chỉ cần một dấu cách là
+// không khớp được nữa. Bỏ hết khoảng trắng luôn.
+function normalizeOcrText(text: string): string {
+  return text.replace(/\s+/g, '');
+}
+
+function hasJapaneseText(text: string): boolean {
+  return /[\u3040-\u30FF\u4E00-\u9FFF]/.test(text);
+}
+
+// Đọc lại vùng chọn bằng model chữ dọc (PSM 5) ở nền; xong thì đưa kết quả cho
+// popup đang mở để nó bật nút chuyển sang bản dọc. Chạy nền nên không làm chậm
+// bản ngang đang hiển thị.
+function runVerticalPass(blob: Blob, requestId: number) {
+  void queueOcr(async (worker) => {
+    // Đã có lượt OCR mới trong lúc chờ tới lượt -> bỏ, đừng tốn thời gian.
+    if (requestId !== ocrRequestId) return;
+
+    await worker.setParameters({
+      tessedit_pageseg_mode: PSM.SINGLE_BLOCK_VERT_TEXT,
+    });
+    const { data } = await worker.recognize(blob);
+    if (requestId !== ocrRequestId) return;
+
+    const text = normalizeOcrText(data.text ?? '');
+    if (hasJapaneseText(text)) {
+      selectionPopupInstance?.setVerticalText(text);
+    }
+  }).catch((error) => {
+    console.error('Content: OCR chữ dọc lỗi:', error);
+  });
 }
 
 async function runOcrFromBounds(rectBounds: DOMRect) {
@@ -298,16 +349,21 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
       const responseUrl = response.imageDataUrl as string;
       const res = await fetch(responseUrl);
       const blob = await res.blob();
-      const worker = await getOcrWorker();
-      const {
-        data: { text },
-      } = await worker.recognize(blob);
-      const normalizedText = text.replace(/\s+/g, " ").trim();
-      const hasJapanese = /[\u3040-\u30FF\u4E00-\u9FFF]/.test(
-        normalizedText
-      );
+      const rawText = await queueOcr(async (worker) => {
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
+        const { data } = await worker.recognize(blob);
+        return data.text ?? '';
+      });
+      const normalizedText = normalizeOcrText(rawText);
+      const hasJapanese = hasJapaneseText(normalizedText);
+      // Vùng chọn cao hơn rộng mới có khả năng là chữ viết dọc.
+      const wantsVertical = rectBounds.height > rectBounds.width;
+
       if (hasJapanese && requestId === ocrRequestId) {
-        showPopupNear(rectBounds, normalizedText);
+        showPopupNear(rectBounds, normalizedText, null, false, wantsVertical);
+        if (wantsVertical) {
+          runVerticalPass(blob, requestId);
+        }
       }
     } else if (response && response.error) {
       console.error("Capture error from background:", response.error);
@@ -744,6 +800,7 @@ function removePopup() {
     popupContainer = null;
     popupText = null;
   }
+  selectionPopupInstance = null;
 }
 
 function removeHoverPopup() {
@@ -901,6 +958,7 @@ function showPopupNear(
   text: string,
   sourceRange?: Range | null,
   isTextTruncated = false,
+  withVertical = false,
 ) {
   // Remove existing popup and button
   removePopup();
@@ -965,19 +1023,21 @@ function showPopupNear(
   // Final safety check
   top = Math.max(PADDING, top);
 
-  // Mount the Svelte component
-  mount(SelectionPopup, {
+  // Mount the Svelte component. `setVerticalText` là export của component nên
+  // mount() trả về nó, nhưng kiểu suy ra của mount() không mang theo export.
+  selectionPopupInstance = mount(SelectionPopup, {
     target: popupContainer,
     props: {
       text,
       isTextTruncated,
+      hasVertical: withVertical,
       sourceRange: sourceRange?.cloneRange() ?? null,
       position: {
         left,
         top,
       },
     },
-  });
+  }) as SelectionPopupHandle;
 
   // Stop clicks inside popup from propagating, but allow button clicks
   // Use capture phase to catch events on child elements
