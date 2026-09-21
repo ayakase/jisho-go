@@ -788,3 +788,87 @@
     border-color: #fca5a5;
     color: #991b1b;
   }
+
+  .shortcut-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    border: 2px dashed #e5e7eb;
+    border-radius: 6px;
+    background-color: #f9fafb;
+    color: #111827;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+  }
+
+  .shortcut-display:hover:enabled {
+    border-color: #d1d5db;
+    background-color: #ffffff;
+  }
+
+  .shortcut-display.recording {
+    border-style: solid;
+    border-color: #f87171;
+    background-color: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .shortcut-display.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .shortcut-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+    line-height: 1.35;
+  }
+
+  .shortcut-warning {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid #fecdd3;
+    border-radius: 6px;
+    background-color: #fff1f2;
+    color: #be123c;
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .shortcut-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  main.dark-mode .shortcut-display {
+    border-color: #4b5563;
+    background-color: #1f2937;
+    color: #f3f4f6;
+  }
+
+  main.dark-mode .shortcut-display:hover:enabled {
+    border-color: #6b7280;
+    background-color: #374151;
+  }
+
+  main.dark-mode .shortcut-display.recording {
+    border-color: #f87171;
+    background-color: #4c1d1d;
+    color: #fecaca;
+  }
+
+  main.dark-mode .shortcut-hint {
+    color: #9ca3af;
+  }
+
+  main.dark-mode .shortcut-warning {
+    border-color: #7f1d1d;
+    background-color: #450a0a;
+    color: #fecaca;
+  }

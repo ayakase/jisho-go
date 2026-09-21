@@ -4,6 +4,12 @@ import SelectionPopup from './SelectionPopup.svelte';
 import HoverPopup from './HoverPopup.svelte';
 import HoverParagraphPopup from './HoverParagraphPopup.svelte';
 import { createWorker } from 'tesseract.js';
+import {
+  DEFAULT_OCR_SHORTCUT,
+  matchesOcrShortcut,
+  normalizeOcrShortcut,
+  type OcrShortcut,
+} from '../lib/ocr-shortcut';
 
 type PopupMode = 'off' | 'immediate' | 'button';
 type HoverGrabMode = 'single-kanji' | 'paragraph';
@@ -39,6 +45,7 @@ let popupOpacity = 1;
 let searchButtonSize: SearchButtonSize = 'medium';
 let suppressSelectionPopupUntil = 0;
 let lastContextMenuImage: HTMLImageElement | null = null;
+let ocrShortcut: OcrShortcut = { ...DEFAULT_OCR_SHORTCUT };
 
 function clampPopupOpacity(val: number): number {
   if (Number.isNaN(val)) return 1;
@@ -60,109 +67,194 @@ function normalizeHoverParagraphSections(value: unknown): HoverParagraphSections
 let ocrWorkerPromise: ReturnType<typeof createWorker> | null = null;
 
 let ocrLoadingEl: HTMLDivElement | null = null;
-let ocrGlyphTimer: ReturnType<typeof setInterval> | null = null;
+let ocrScanFillEl: HTMLDivElement | null = null;
+let ocrScanLineEl: HTMLDivElement | null = null;
+let ocrScanBounds: DOMRect | null = null;
+let ocrScanCreepTimer: ReturnType<typeof setInterval> | null = null;
+let ocrScanCreepStart = 0;
+let ocrScanDisplayPct = 0;
+let ocrScanInitSeen = false;
 let ocrDarkMode = false;
-let ocrLastProgress = 0;
 let ocrRequestId = 0;
 let selectionOverlay: HTMLDivElement | null = null;
+
+const OCR_SCAN_FADE_MS = 220;
+const OCR_SCAN_LINE_H = 5;
+
+function ocrScanColors(isDark: boolean) {
+  return isDark
+    ? {
+        fill: 'rgba(158, 195, 232, 0.16)',
+        line: '#9ec3e8',
+        glow: 'rgba(158, 195, 232, 0.65)',
+        ring: 'rgba(158, 195, 232, 0.55)',
+      }
+    : {
+        fill: 'rgba(91, 143, 197, 0.18)',
+        line: '#5b8fc5',
+        glow: 'rgba(91, 143, 197, 0.7)',
+        ring: 'rgba(91, 143, 197, 0.5)',
+      };
+}
 
 function applyOcrTheme() {
   if (!ocrLoadingEl) return;
 
-  const isDark = ocrDarkMode;
-  ocrLoadingEl.style.setProperty('--ocr-bg', isDark ? 'rgba(20, 23, 28, 0.94)' : 'rgba(255, 255, 255, 0.96)');
-  ocrLoadingEl.style.setProperty('--ocr-border', isDark ? '#3a424f' : '#d9dee7');
-  ocrLoadingEl.style.setProperty('--ocr-shadow', isDark
-    ? '0 10px 26px rgba(0, 0, 0, 0.35)'
-    : '0 10px 26px rgba(31, 41, 55, 0.16)');
-  ocrLoadingEl.style.setProperty('--ocr-ring-bg', isDark ? '#3a424f' : '#dfe5ec');
-  ocrLoadingEl.style.setProperty('--ocr-ring-fg', isDark ? '#9ec3e8' : '#5b8fc5');
-  ocrLoadingEl.style.setProperty('--ocr-pct', isDark ? '#f4f6f8' : '#1f2937');
-  ocrLoadingEl.style.setProperty('--ocr-glyph', isDark ? '#cbd5e1' : '#465466');
+  const { fill, line, glow, ring } = ocrScanColors(ocrDarkMode);
+  ocrLoadingEl.style.boxShadow = `0 0 0 1px ${ring}`;
+  if (ocrScanFillEl) ocrScanFillEl.style.background = fill;
+  if (ocrScanLineEl) {
+    ocrScanLineEl.style.background = line;
+    ocrScanLineEl.style.boxShadow = `0 0 12px 2px ${glow}`;
+  }
 }
 
-function setOcrLoading(visible: boolean, progress?: number) {
-  if (!visible) {
-    if (ocrLoadingEl) {
-      ocrLoadingEl.remove();
-      ocrLoadingEl = null;
-    }
-    if (ocrGlyphTimer) {
-      clearInterval(ocrGlyphTimer);
-      ocrGlyphTimer = null;
-    }
-    ocrLastProgress = 0;
-    return;
+// Khi tesseract chưa báo gì (chụp màn hình, boot worker...) thì để vệt quét tự
+// bò tới ~30% rồi đứng, KHÔNG chạy vòng lặp để khỏi quay ngược về 0.
+const OCR_SCAN_CREEP_CAP = 30;
+const OCR_SCAN_CREEP_TAU = 1200;
+const OCR_SCAN_CREEP_TICK = 100;
+
+// Tesseract báo progress theo từng phase, mỗi phase 0 → 1. Trải đều ra timeline
+// để vệt quét chạy liền mạch từ lúc bắt đầu tới lúc xong.
+const OCR_SCAN_PHASES: Record<string, [number, number]> = {
+  'initializing tesseract': [0, 5],
+  'loading language traineddata': [5, 25],
+  'initializing api': [25, 30],
+  'recognizing text': [30, 100],
+};
+
+function stopOcrScanCreep() {
+  if (ocrScanCreepTimer !== null) {
+    clearInterval(ocrScanCreepTimer);
+    ocrScanCreepTimer = null;
   }
+}
+
+// Vệt quét chỉ tiến, không bao giờ lùi → không còn cảnh chạy hết rồi về 0.
+function setOcrScanPct(pct: number) {
+  const next = Math.max(ocrScanDisplayPct, Math.max(0, Math.min(100, pct)));
+  if (next === ocrScanDisplayPct) return;
+
+  ocrScanDisplayPct = next;
+  positionOcrScanProgress(ocrScanDisplayPct);
+}
+
+function startOcrScanCreep() {
+  stopOcrScanCreep();
+
+  ocrScanCreepStart = performance.now();
+  ocrScanCreepTimer = setInterval(() => {
+    const elapsed = performance.now() - ocrScanCreepStart;
+    setOcrScanPct(OCR_SCAN_CREEP_CAP * (1 - Math.exp(-elapsed / OCR_SCAN_CREEP_TAU)));
+  }, OCR_SCAN_CREEP_TICK);
+}
+
+function positionOcrScanProgress(pct: number) {
+  if (!ocrScanFillEl || !ocrScanLineEl || !ocrScanBounds) return;
+
+  const clamped = Math.max(0, Math.min(100, pct));
+  const filled = (ocrScanBounds.height * clamped) / 100;
+  ocrScanFillEl.style.height = `${filled}px`;
+  ocrScanLineEl.style.top = `${filled - OCR_SCAN_LINE_H / 2}px`;
+}
+
+// Hiện vệt quét OCR ngay trên khung vừa khoanh (thay cho loader ở góc).
+function startOcrScan(bounds: DOMRect) {
+  ocrScanBounds = bounds;
+  ocrScanDisplayPct = 0;
+  ocrScanInitSeen = false;
 
   if (!ocrLoadingEl) {
     ocrLoadingEl = document.createElement('div');
-    ocrLoadingEl.id = 'jisho-go-ocr-loading';
     ocrLoadingEl.style.cssText = `
       position: fixed;
       z-index: 2147483647;
-      right: 16px;
-      bottom: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      background: var(--ocr-bg);
-      border: 1px solid var(--ocr-border);
-      backdrop-filter: blur(6px);
-      padding: 12px;
-      border-radius: 10px;
-      box-shadow: var(--ocr-shadow);
-      font-family: "SF Mono", "Menlo", "Consolas", monospace;
+      overflow: hidden;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity ${OCR_SCAN_FADE_MS}ms ease;
     `;
-    ocrLoadingEl.innerHTML = `
-      <div style="position:relative;width:46px;height:46px">
-        <svg width="46" height="46" style="transform:rotate(-90deg)" aria-hidden="true">
-          <circle cx="23" cy="23" r="19" fill="none" stroke="var(--ocr-ring-bg)" stroke-width="3"></circle>
-          <circle id="jisho-go-ocr-ring-fg" cx="23" cy="23" r="19" fill="none"
-            stroke="var(--ocr-ring-fg)" stroke-width="3" stroke-linecap="round"
-            stroke-dasharray="119.4" stroke-dashoffset="119.4"
-            style="transition:stroke-dashoffset .05s linear"></circle>
-        </svg>
-        <div id="jisho-go-ocr-ring-pct"
-          style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;color:var(--ocr-pct)">
-          0%
-        </div>
-      </div>
-      <div id="jisho-go-ocr-glyph"
-        style="font-family:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif;font-size:15px;font-weight:600;line-height:1;color:var(--ocr-glyph);letter-spacing:.03em">
-        認
-      </div>
+
+    // Lớp phủ mờ dần phần đã "quét" qua
+    ocrScanFillEl = document.createElement('div');
+    ocrScanFillEl.style.cssText = `
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      height: 0;
+      transition: height .25s linear;
     `;
+
+    // Vạch sáng chạy đúng vị trí progress
+    ocrScanLineEl = document.createElement('div');
+    ocrScanLineEl.style.cssText = `
+      position: absolute;
+      left: 2px; right: 2px;
+      height: ${OCR_SCAN_LINE_H}px;
+      top: ${-OCR_SCAN_LINE_H / 2}px;
+      border-radius: 3px;
+      transition: top .25s linear;
+    `;
+
+    ocrLoadingEl.append(ocrScanFillEl, ocrScanLineEl);
     document.body.appendChild(ocrLoadingEl);
-    applyOcrTheme();
-
-    const glyphEl = ocrLoadingEl.querySelector<HTMLElement>('#jisho-go-ocr-glyph');
-    const glyphs = '日語文認識走査解析頁像形態抽出符号照合精度基準確定終了完成整合読了処理演算構文';
-    ocrGlyphTimer = setInterval(() => {
-      if (glyphEl) {
-        glyphEl.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
-      }
-    }, 260);
   }
 
-  const pct = Math.max(0, Math.min(100, Math.round((progress ?? ocrLastProgress) * 100)));
-  const ring = ocrLoadingEl.querySelector<HTMLElement>('#jisho-go-ocr-ring-fg');
-  const pctEl = ocrLoadingEl.querySelector<HTMLElement>('#jisho-go-ocr-ring-pct');
-  if (ring) {
-    ring.style.strokeDashoffset = String(119.4 * (1 - pct / 100));
+  ocrLoadingEl.style.left = `${bounds.left}px`;
+  ocrLoadingEl.style.top = `${bounds.top}px`;
+  ocrLoadingEl.style.width = `${bounds.width}px`;
+  ocrLoadingEl.style.height = `${bounds.height}px`;
+  ocrLoadingEl.style.opacity = '1';
+
+  applyOcrTheme();
+  positionOcrScanProgress(0);
+  startOcrScanCreep();
+}
+
+function setOcrLoading(visible: boolean) {
+  if (visible) return;
+
+  ocrScanInitSeen = false;
+
+  if (!ocrLoadingEl) {
+    ocrScanBounds = null;
+    return;
   }
-  if (pctEl) {
-    pctEl.textContent = `${pct}%`;
-  }
+
+  const el = ocrLoadingEl;
+  stopOcrScanCreep();
+  positionOcrScanProgress(100);
+
+  ocrLoadingEl = null;
+  ocrScanFillEl = null;
+  ocrScanLineEl = null;
+  ocrScanBounds = null;
+
+  el.style.opacity = '0';
+  window.setTimeout(() => el.remove(), OCR_SCAN_FADE_MS + 40);
 }
 
 function handleTesseractLog(m: any) {
   // Keep console logs off; use UI instead.
-  if (m && typeof m === 'object' && m.status === 'recognizing text' && typeof m.progress === 'number') {
-    ocrLastProgress = m.progress;
-    setOcrLoading(true, m.progress);
+  if (!m || typeof m !== 'object') return;
+
+  const status = typeof m.status === 'string' ? m.status : null;
+  const progress = typeof m.progress === 'number' ? m.progress : null;
+  if (!status || progress === null) return;
+
+  if (status !== 'recognizing text') {
+    ocrScanInitSeen = true;
   }
+
+  const range = OCR_SCAN_PHASES[status];
+  if (!range) return;
+
+  // Worker đã warm (core + api init sẵn) thì chỉ còn phase recognizing, cho nó
+  // chạy full 0 → 100 thay vì nhảy thẳng lên 30%.
+  const [start, end] = status === 'recognizing text' && !ocrScanInitSeen ? [0, 100] : range;
+  const phase = Math.max(0, Math.min(1, progress));
+  setOcrScanPct(start + (end - start) * phase);
 }
 
 function getOcrWorker() {
@@ -184,6 +276,9 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
 
   const requestId = ++ocrRequestId;
 
+  // Hiện vệt quét ngay trên khung vừa khoanh, trước cả khi chụp màn hình.
+  startOcrScan(rectBounds);
+
   try {
     const response = await browser.runtime.sendMessage({
       type: "CAPTURE_SCREENSHOT",
@@ -197,36 +292,31 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
     });
 
     if (response && response.imageDataUrl) {
-      try {
-        setOcrLoading(true, 0);
-        const responseUrl = response.imageDataUrl as string;
-        const res = await fetch(responseUrl);
-        const blob = await res.blob();
-        const worker = await getOcrWorker();
-        const {
-          data: { text },
-        } = await worker.recognize(blob);
-        const normalizedText = text.replace(/\s+/g, " ").trim();
-        const hasJapanese = /[\u3040-\u30FF\u4E00-\u9FFF]/.test(
-          normalizedText
-        );
-        if (hasJapanese && requestId === ocrRequestId) {
-          showPopupNear(rectBounds, normalizedText);
-        }
-      } catch (ocrError) {
-        console.error("Content: OCR failed:", ocrError);
-      } finally {
-        if (requestId === ocrRequestId) {
-          setOcrLoading(false);
-        }
+      const responseUrl = response.imageDataUrl as string;
+      const res = await fetch(responseUrl);
+      const blob = await res.blob();
+      const worker = await getOcrWorker();
+      const {
+        data: { text },
+      } = await worker.recognize(blob);
+      const normalizedText = text.replace(/\s+/g, " ").trim();
+      const hasJapanese = /[\u3040-\u30FF\u4E00-\u9FFF]/.test(
+        normalizedText
+      );
+      if (hasJapanese && requestId === ocrRequestId) {
+        showPopupNear(rectBounds, normalizedText);
       }
     } else if (response && response.error) {
       console.error("Capture error from background:", response.error);
       alert("Failed to capture: " + response.error);
     }
   } catch (error) {
-    console.error("Failed to capture screenshot:", error);
+    console.error("Content: OCR failed:", error);
     alert("Error capturing screenshot: " + error);
+  } finally {
+    if (requestId === ocrRequestId) {
+      setOcrLoading(false);
+    }
   }
 }
 
@@ -262,6 +352,14 @@ export default defineContentScript({
     await loadPopupOpacity();
     await loadSearchButtonSettings();
     await loadOcrTheme();
+    await loadOcrShortcut();
+
+    storage.watch<unknown>('local:ocrShortcut', (value) => {
+      ocrShortcut = normalizeOcrShortcut(value);
+    });
+
+    // Keyboard shortcut for the region-select OCR overlay
+    document.addEventListener('keydown', handleOcrShortcutKeydown, true);
 
     // Watch blacklist changes so updates from the popup apply without reload
     storage.watch<unknown>('local:blacklist', (value) => {
@@ -342,18 +440,18 @@ export default defineContentScript({
       if (Date.now() < suppressSelectionPopupUntil) {
         return;
       }
-      // Do nothing on blacklisted sites
-      if (isBlacklistedLocation()) {
-        removePopup();
-        removeButton();
-        return;
-      }
       // Don't process if clicking inside the popup, hover popup, or button
       if (
         (popupContainer && popupContainer.contains(event.target as Node)) ||
         (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
         (buttonContainer && buttonContainer.contains(event.target as Node))
       ) {
+        return;
+      }
+      // Do nothing on blacklisted sites
+      if (isBlacklistedLocation()) {
+        removePopup();
+        removeButton();
         return;
       }
 
@@ -493,6 +591,16 @@ async function loadOcrTheme() {
     ocrDarkMode = (await storage.getItem<boolean>('local:darkMode')) === true;
   } catch (error) {
     console.error('Failed to load OCR theme:', error);
+  }
+}
+
+async function loadOcrShortcut() {
+  try {
+    const stored = await storage.getItem<unknown>('local:ocrShortcut');
+    ocrShortcut = normalizeOcrShortcut(stored);
+  } catch (error) {
+    console.error('Failed to load OCR shortcut:', error);
+    ocrShortcut = { ...DEFAULT_OCR_SHORTCUT };
   }
 }
 
@@ -1341,6 +1449,100 @@ function cleanupHoverMode() {
   removeHoverPopup();
 }
 
+function startSelectionOcr() {
+  const overlay = document.createElement("div");
+  removeSelectionOverlay();
+  selectionOverlay = overlay;
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100vw";
+  overlay.style.height = "100vh";
+  overlay.style.background = "rgba(0,0,0,0.2)";
+  overlay.style.cursor = "crosshair";
+  overlay.style.zIndex = "999999";
+  document.body.appendChild(overlay);
+
+  let startX = 0, startY = 0, rect: HTMLDivElement | null = null;
+  let isDrawing = false;
+  const removeOverlay = () => {
+    if (selectionOverlay === overlay) {
+      removeSelectionOverlay();
+    } else {
+      overlay.remove();
+    }
+  };
+
+  overlay.onmousedown = (e) => {
+    // Prevent creating multiple rectangles
+    if (isDrawing) return;
+
+    isDrawing = true;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    // Remove any existing rect
+    if (rect && overlay.contains(rect)) {
+      overlay.removeChild(rect);
+    }
+
+    rect = document.createElement("div");
+    rect.style.position = "absolute";
+    rect.style.border = "2px dashed red";
+    rect.style.left = `${startX}px`;
+    rect.style.top = `${startY}px`;
+    rect.style.pointerEvents = "none"; // Important: let events pass through
+    overlay.appendChild(rect);
+  };
+
+  overlay.onmousemove = (e) => {
+    if (!rect) return;
+    const width = e.clientX - startX;
+    const height = e.clientY - startY;
+    rect.style.width = `${Math.abs(width)}px`;
+    rect.style.height = `${Math.abs(height)}px`;
+    rect.style.left = `${width < 0 ? e.clientX : startX}px`;
+    rect.style.top = `${height < 0 ? e.clientY : startY}px`;
+  };
+
+  overlay.onmouseup = async () => {
+    if (!isDrawing) {
+      return;
+    }
+
+    isDrawing = false;
+
+    if (!rect) {
+      removeOverlay();
+      return;
+    }
+    const rectBounds = rect.getBoundingClientRect();
+    // Remove overlay immediately to prevent blocking
+    removeOverlay();
+
+    // Capture the selected area
+    await runOcrFromBounds(rectBounds);
+  };
+}
+
+function toggleSelectionOcr() {
+  if (selectionOverlay) {
+    removeSelectionOverlay();
+    return;
+  }
+
+  startSelectionOcr();
+}
+
+function handleOcrShortcutKeydown(event: KeyboardEvent) {
+  if (event.repeat) return;
+  if (!matchesOcrShortcut(ocrShortcut, event)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  toggleSelectionOcr();
+}
+
 window.addEventListener("message", (event) => {
   if (event.data.type === "START_IMAGE_OCR") {
     const image = getImageFromContextMenu(event.data.srcUrl);
@@ -1354,79 +1556,6 @@ window.addEventListener("message", (event) => {
   }
 
   if (event.data.type === "START_SELECTION") {
-    const overlay = document.createElement("div");
-    removeSelectionOverlay();
-    selectionOverlay = overlay;
-    overlay.style.position = "fixed";
-    overlay.style.top = "0";
-    overlay.style.left = "0";
-    overlay.style.width = "100vw";
-    overlay.style.height = "100vh";
-    overlay.style.background = "rgba(0,0,0,0.2)";
-    overlay.style.cursor = "crosshair";
-    overlay.style.zIndex = "999999";
-    document.body.appendChild(overlay);
-
-    let startX = 0, startY = 0, rect: HTMLDivElement | null = null;
-    let isDrawing = false;
-    const removeOverlay = () => {
-      if (selectionOverlay === overlay) {
-        removeSelectionOverlay();
-      } else {
-        overlay.remove();
-      }
-    };
-
-    overlay.onmousedown = (e) => {
-      // Prevent creating multiple rectangles
-      if (isDrawing) return;
-
-      isDrawing = true;
-      startX = e.clientX;
-      startY = e.clientY;
-
-      // Remove any existing rect
-      if (rect && overlay.contains(rect)) {
-        overlay.removeChild(rect);
-      }
-
-      rect = document.createElement("div");
-      rect.style.position = "absolute";
-      rect.style.border = "2px dashed red";
-      rect.style.left = `${startX}px`;
-      rect.style.top = `${startY}px`;
-      rect.style.pointerEvents = "none"; // Important: let events pass through
-      overlay.appendChild(rect);
-    };
-
-    overlay.onmousemove = (e) => {
-      if (!rect) return;
-      const width = e.clientX - startX;
-      const height = e.clientY - startY;
-      rect.style.width = `${Math.abs(width)}px`;
-      rect.style.height = `${Math.abs(height)}px`;
-      rect.style.left = `${width < 0 ? e.clientX : startX}px`;
-      rect.style.top = `${height < 0 ? e.clientY : startY}px`;
-    };
-
-    overlay.onmouseup = async (e) => {
-      if (!isDrawing) {
-        return;
-      }
-
-      isDrawing = false;
-
-      if (!rect) {
-        removeOverlay();
-        return;
-      }
-      const rectBounds = rect.getBoundingClientRect();
-      // Remove overlay immediately to prevent blocking
-      removeOverlay();
-
-      // Capture the selected area
-      await runOcrFromBounds(rectBounds);
-    };
-
+    startSelectionOcr();
   }
 });

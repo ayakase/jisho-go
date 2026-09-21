@@ -10,6 +10,7 @@
   - Drag a rectangle on the page
   - Wait for OCR to finish (a small “OCR running…” toast appears)
   - The recognized Japanese text is used to open the popup
+- **OCR keyboard shortcut**: open the popup → **OCR** tab to enable/change the shortcut (default `Ctrl + Alt + O`). Pressing it starts the region-select overlay on the current tab; press it again to cancel. Image OCR stays on the right-click menu (**OCR this image**). The shortcut also works on blacklisted sites, since pressing it is explicit intent.
 
 ### Tech
 
@@ -24,6 +25,8 @@ This is a **browser extension** built with **WXT** (MV3) + **Svelte** + **tesser
   - Adds the context menu entry (**Capture Selection**).
   - On click, injects a tab script that triggers the overlay via `window.postMessage({ type: "START_SELECTION" })`.
   - Receives `CAPTURE_SCREENSHOT` from the content script, captures the visible tab, crops it with `OffscreenCanvas`, and replies with a cropped `data:` URL.
+
+- **OCR settings**: `src/entrypoints/popup/components/OcrSetting.svelte` stores the shortcut in `local:ocrShortcut` (shape + helpers live in `src/lib/ocr-shortcut.ts`). The content script watches that key and listens for the matching `keydown` to toggle the overlay.
 
 - **OCR message flow**
   - Context menu click → background triggers overlay

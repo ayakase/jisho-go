@@ -2,10 +2,11 @@
   import { storage } from "#imports";
   import HighlightSetting from "./components/HighlightSetting.svelte";
   import HoverSetting from "./components/HoverSetting.svelte";
+  import OcrSetting from "./components/OcrSetting.svelte";
   import CommonSetting from "./components/CommonSetting.svelte";
   // import Account from "./components/Account.svelte";
 
-  type Tab = "highlight" | "hover" | "common" | "account";
+  type Tab = "highlight" | "hover" | "ocr" | "common" | "account";
   let activeTab = $state<Tab>("highlight");
   let darkMode = $state(false);
 
@@ -94,6 +95,13 @@
     </button>
     <button
       type="button"
+      class="tab-button {activeTab === 'ocr' ? 'active' : ''}"
+      onclick={() => (activeTab = "ocr")}
+    >
+      OCR
+    </button>
+    <button
+      type="button"
       class="tab-button {activeTab === 'common' ? 'active' : ''}"
       onclick={() => (activeTab = "common")}
     >
@@ -114,6 +122,8 @@
     <HighlightSetting />
   {:else if activeTab === "hover"}
     <HoverSetting />
+  {:else if activeTab === "ocr"}
+    <OcrSetting />
   {:else if activeTab === "common"}
     <CommonSetting />
   {:else}

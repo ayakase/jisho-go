@@ -134,7 +134,7 @@
   </div>
 
   <div class="setting-item">
-    <h3>Danh sách đen trang web</h3>
+    <h3>Không hiển thị trên các trang web:</h3>
     <div class="setting-controls">
       <div class="blacklist-add">
         <input
