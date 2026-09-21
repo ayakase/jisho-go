@@ -1,5 +1,4 @@
 export type OcrShortcut = {
-  enabled: boolean;
   code: string;
   ctrl: boolean;
   alt: boolean;
@@ -9,8 +8,8 @@ export type OcrShortcut = {
 
 export const OCR_SHORTCUT_STORAGE_KEY = "local:ocrShortcut";
 
-export const DEFAULT_OCR_SHORTCUT: OcrShortcut = {
-  enabled: true,
+// Không có cờ bật/tắt: chưa gán tổ hợp (null) = tắt, có tổ hợp = bật.
+export const SUGGESTED_OCR_SHORTCUT: OcrShortcut = {
   code: "KeyO",
   ctrl: true,
   alt: true,
@@ -115,7 +114,6 @@ function combo(
   modifiers: Partial<Pick<OcrShortcut, "ctrl" | "alt" | "shift" | "meta">> = {},
 ): OcrShortcut {
   return {
-    enabled: true,
     code,
     ctrl: modifiers.ctrl === true,
     alt: modifiers.alt === true,
@@ -169,7 +167,6 @@ export function isReservedShortcut(shortcut: OcrShortcut): boolean {
 
 export function shortcutFromEvent(event: KeyboardEvent): OcrShortcut {
   return {
-    enabled: true,
     code: event.code,
     ctrl: event.ctrlKey,
     alt: event.altKey,
@@ -179,10 +176,10 @@ export function shortcutFromEvent(event: KeyboardEvent): OcrShortcut {
 }
 
 export function matchesOcrShortcut(
-  shortcut: OcrShortcut,
+  shortcut: OcrShortcut | null,
   event: KeyboardEvent,
 ): boolean {
-  if (!shortcut.enabled || !shortcut.code) return false;
+  if (!shortcut || !shortcut.code) return false;
   if (event.code !== shortcut.code) return false;
   if (event.ctrlKey !== shortcut.ctrl) return false;
   if (event.altKey !== shortcut.alt) return false;
@@ -191,27 +188,21 @@ export function matchesOcrShortcut(
   return true;
 }
 
-export function normalizeOcrShortcut(value: unknown): OcrShortcut {
-  if (!value || typeof value !== "object") {
-    return { ...DEFAULT_OCR_SHORTCUT };
-  }
+// Trả về null nghĩa là chưa gán phím tắt (OCR tắt).
+export function normalizeOcrShortcut(value: unknown): OcrShortcut | null {
+  if (!value || typeof value !== "object") return null;
 
-  const raw = value as Partial<OcrShortcut>;
+  const raw = value as Partial<OcrShortcut> & { enabled?: unknown };
+  // Dữ liệu cũ có cờ enabled: false → coi như chưa gán.
+  if (raw.enabled === false) return null;
+
   const next: OcrShortcut = {
-    enabled:
-      typeof raw.enabled === "boolean"
-        ? raw.enabled
-        : DEFAULT_OCR_SHORTCUT.enabled,
-    code: typeof raw.code === "string" ? raw.code : DEFAULT_OCR_SHORTCUT.code,
+    code: typeof raw.code === "string" ? raw.code : "",
     ctrl: raw.ctrl === true,
     alt: raw.alt === true,
     shift: raw.shift === true,
     meta: raw.meta === true,
   };
 
-  if (!isValidShortcut(next)) {
-    return { ...DEFAULT_OCR_SHORTCUT };
-  }
-
-  return next;
+  return isValidShortcut(next) ? next : null;
 }

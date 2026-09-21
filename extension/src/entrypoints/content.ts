@@ -5,7 +5,6 @@ import HoverPopup from './HoverPopup.svelte';
 import HoverParagraphPopup from './HoverParagraphPopup.svelte';
 import { createWorker } from 'tesseract.js';
 import {
-  DEFAULT_OCR_SHORTCUT,
   matchesOcrShortcut,
   normalizeOcrShortcut,
   type OcrShortcut,
@@ -45,7 +44,7 @@ let popupOpacity = 1;
 let searchButtonSize: SearchButtonSize = 'medium';
 let suppressSelectionPopupUntil = 0;
 let lastContextMenuImage: HTMLImageElement | null = null;
-let ocrShortcut: OcrShortcut = { ...DEFAULT_OCR_SHORTCUT };
+let ocrShortcut: OcrShortcut | null = null;
 
 function clampPopupOpacity(val: number): number {
   if (Number.isNaN(val)) return 1;
@@ -80,6 +79,9 @@ let selectionOverlay: HTMLDivElement | null = null;
 
 const OCR_SCAN_FADE_MS = 220;
 const OCR_SCAN_LINE_H = 5;
+
+// Kéo ít hơn ngần này coi như click (để click vào ảnh = OCR ảnh đó).
+const OCR_CLICK_SLOP_PX = 4;
 
 function ocrScanColors(isDark: boolean) {
   return isDark
@@ -276,9 +278,6 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
 
   const requestId = ++ocrRequestId;
 
-  // Hiện vệt quét ngay trên khung vừa khoanh, trước cả khi chụp màn hình.
-  startOcrScan(rectBounds);
-
   try {
     const response = await browser.runtime.sendMessage({
       type: "CAPTURE_SCREENSHOT",
@@ -292,6 +291,10 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
     });
 
     if (response && response.imageDataUrl) {
+      // Hiện vệt quét SAU khi chụp xong, nếu không nó bị chụp luôn vào ảnh đem
+      // đi OCR (viền khung + vạch quét nằm ngay trong vùng đang chụp).
+      startOcrScan(rectBounds);
+
       const responseUrl = response.imageDataUrl as string;
       const res = await fetch(responseUrl);
       const blob = await res.blob();
@@ -600,7 +603,7 @@ async function loadOcrShortcut() {
     ocrShortcut = normalizeOcrShortcut(stored);
   } catch (error) {
     console.error('Failed to load OCR shortcut:', error);
-    ocrShortcut = { ...DEFAULT_OCR_SHORTCUT };
+    ocrShortcut = null;
   }
 }
 
@@ -1449,6 +1452,14 @@ function cleanupHoverMode() {
   removeHoverPopup();
 }
 
+// Ảnh nằm dưới overlay nên phải soi cả stack phía dưới, không dùng elementFromPoint.
+function findImageAtPoint(x: number, y: number): HTMLImageElement | null {
+  for (const el of document.elementsFromPoint(x, y)) {
+    if (el instanceof HTMLImageElement) return el;
+  }
+  return null;
+}
+
 function startSelectionOcr() {
   const overlay = document.createElement("div");
   removeSelectionOverlay();
@@ -1458,19 +1469,54 @@ function startSelectionOcr() {
   overlay.style.left = "0";
   overlay.style.width = "100vw";
   overlay.style.height = "100vh";
-  overlay.style.background = "rgba(0,0,0,0.2)";
   overlay.style.cursor = "crosshair";
   overlay.style.zIndex = "999999";
   document.body.appendChild(overlay);
 
-  let startX = 0, startY = 0, rect: HTMLDivElement | null = null;
+  // Nền mờ tách riêng để lúc hover trúng ảnh có thể tắt đi, nhường chỗ cho
+  // spotlight bên dưới (ảnh sáng nguyên, phần còn lại vẫn tối như cũ).
+  const dim = document.createElement("div");
+  dim.style.position = "absolute";
+  dim.style.inset = "0";
+  dim.style.background = "rgba(0,0,0,0.2)";
+  dim.style.pointerEvents = "none";
+  overlay.appendChild(dim);
+
+  const highlight = document.createElement("div");
+  highlight.style.position = "absolute";
+  highlight.style.border = "2px solid #4ea1ff";
+  highlight.style.borderRadius = "4px";
+  highlight.style.boxShadow = "0 0 0 9999px rgba(0,0,0,0.2)";
+  highlight.style.pointerEvents = "none";
+  highlight.style.display = "none";
+  overlay.appendChild(highlight);
+
+  let startX = 0, startY = 0, downX = 0, downY = 0;
+  let rect: HTMLDivElement | null = null;
   let isDrawing = false;
+  let hoveredImage: HTMLImageElement | null = null;
+
   const removeOverlay = () => {
     if (selectionOverlay === overlay) {
       removeSelectionOverlay();
     } else {
       overlay.remove();
     }
+  };
+
+  const showHighlight = (img: HTMLImageElement) => {
+    const bounds = img.getBoundingClientRect();
+    highlight.style.left = `${bounds.left}px`;
+    highlight.style.top = `${bounds.top}px`;
+    highlight.style.width = `${bounds.width}px`;
+    highlight.style.height = `${bounds.height}px`;
+    highlight.style.display = "block";
+    dim.style.display = "none";
+  };
+
+  const hideHighlight = () => {
+    highlight.style.display = "none";
+    dim.style.display = "block";
   };
 
   overlay.onmousedown = (e) => {
@@ -1480,6 +1526,14 @@ function startSelectionOcr() {
     isDrawing = true;
     startX = e.clientX;
     startY = e.clientY;
+    downX = e.clientX;
+    downY = e.clientY;
+
+    // Chốt ảnh ngay tại điểm bấm (không phụ thuộc lần mousemove trước đó) để
+    // biết đây là click vào ảnh hay kéo khoanh vùng.
+    hoveredImage = findImageAtPoint(e.clientX, e.clientY);
+
+    hideHighlight();
 
     // Remove any existing rect
     if (rect && overlay.contains(rect)) {
@@ -1496,21 +1550,48 @@ function startSelectionOcr() {
   };
 
   overlay.onmousemove = (e) => {
-    if (!rect) return;
-    const width = e.clientX - startX;
-    const height = e.clientY - startY;
-    rect.style.width = `${Math.abs(width)}px`;
-    rect.style.height = `${Math.abs(height)}px`;
-    rect.style.left = `${width < 0 ? e.clientX : startX}px`;
-    rect.style.top = `${height < 0 ? e.clientY : startY}px`;
+    if (isDrawing) {
+      if (!rect) return;
+      const width = e.clientX - startX;
+      const height = e.clientY - startY;
+      rect.style.width = `${Math.abs(width)}px`;
+      rect.style.height = `${Math.abs(height)}px`;
+      rect.style.left = `${width < 0 ? e.clientX : startX}px`;
+      rect.style.top = `${height < 0 ? e.clientY : startY}px`;
+      return;
+    }
+
+    const img = findImageAtPoint(e.clientX, e.clientY);
+    if (img === hoveredImage) return;
+
+    hoveredImage = img;
+    if (img) {
+      showHighlight(img);
+    } else {
+      hideHighlight();
+    }
   };
 
-  overlay.onmouseup = async () => {
+  overlay.onmouseup = async (e) => {
     if (!isDrawing) {
       return;
     }
 
     isDrawing = false;
+
+    const moved =
+      Math.abs(e.clientX - downX) > OCR_CLICK_SLOP_PX ||
+      Math.abs(e.clientY - downY) > OCR_CLICK_SLOP_PX;
+    const clickedImage = moved ? null : hoveredImage;
+    hoveredImage = null;
+
+    // Click (không kéo) trúng ảnh → OCR luôn cả ảnh đó.
+    if (clickedImage) {
+      const imageBounds = clickedImage.getBoundingClientRect();
+      removeOverlay();
+      await runOcrFromBounds(imageBounds);
+      return;
+    }
 
     if (!rect) {
       removeOverlay();

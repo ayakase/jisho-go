@@ -8,9 +8,9 @@
 - **OCR selection (screen region)**:
   - Right-click a page → **Capture Selection**
   - Drag a rectangle on the page
-  - Wait for OCR to finish (a small “OCR running…” toast appears)
+  - Wait for OCR to finish (a scan animation runs over the region you selected)
   - The recognized Japanese text is used to open the popup
-- **OCR keyboard shortcut**: open the popup → **OCR** tab to enable/change the shortcut (default `Ctrl + Alt + O`). Pressing it starts the region-select overlay on the current tab; press it again to cancel. Image OCR stays on the right-click menu (**OCR this image**). The shortcut also works on blacklisted sites, since pressing it is explicit intent.
+- **OCR keyboard shortcut**: open the popup → **OCR** tab to assign a shortcut. There is no on/off switch — the shortcut is unset by default and OCR stays off until you assign a combo; clearing the combo turns it off again. Pressing it starts the region-select overlay on the current tab; press it again to cancel. Inside the overlay, dragging draws a region, while hovering an `<img>` spotlights that image and a plain click OCRs the whole image. Image OCR is also on the right-click menu (**OCR this image**). The shortcut also works on blacklisted sites, since pressing it is explicit intent.
 
 ### Tech
 
@@ -19,14 +19,14 @@ This is a **browser extension** built with **WXT** (MV3) + **Svelte** + **tesser
 - **Content script**: `src/entrypoints/content.ts`
   - Runs on `"<all_urls>"`.
   - Handles selection + hover UX, mounts Svelte components into the page, and positions them relative to DOMRects.
-  - Implements the OCR overlay (rectangle drawing), calls OCR, and shows the OCR loading toast.
+  - Implements the OCR overlay (rectangle drawing + image hover spotlight), calls OCR, and renders the in-region scan animation while Tesseract runs.
 
 - **Background service worker (MV3)**: `src/entrypoints/background.ts`
   - Adds the context menu entry (**Capture Selection**).
   - On click, injects a tab script that triggers the overlay via `window.postMessage({ type: "START_SELECTION" })`.
   - Receives `CAPTURE_SCREENSHOT` from the content script, captures the visible tab, crops it with `OffscreenCanvas`, and replies with a cropped `data:` URL.
 
-- **OCR settings**: `src/entrypoints/popup/components/OcrSetting.svelte` stores the shortcut in `local:ocrShortcut` (shape + helpers live in `src/lib/ocr-shortcut.ts`). The content script watches that key and listens for the matching `keydown` to toggle the overlay.
+- **OCR settings**: `src/entrypoints/popup/components/OcrSetting.svelte` stores the shortcut in `local:ocrShortcut` (shape + helpers live in `src/lib/ocr-shortcut.ts`). The stored value is `null` when no shortcut is assigned — that is what "OCR off" means, there is no separate enabled flag. The content script watches that key and listens for the matching `keydown` to toggle the overlay.
 
 - **OCR message flow**
   - Context menu click → background triggers overlay

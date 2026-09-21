@@ -1,8 +1,8 @@
 <script lang="ts">
   import { storage } from "#imports";
   import {
-    DEFAULT_OCR_SHORTCUT,
     OCR_SHORTCUT_STORAGE_KEY,
+    SUGGESTED_OCR_SHORTCUT,
     formatShortcut,
     isModifierCode,
     isReservedShortcut,
@@ -12,7 +12,8 @@
     type OcrShortcut,
   } from "../../../lib/ocr-shortcut";
 
-  let shortcut = $state<OcrShortcut>({ ...DEFAULT_OCR_SHORTCUT });
+  // null = chưa gán phím tắt, tức là OCR bằng phím tắt đang tắt.
+  let shortcut = $state<OcrShortcut | null>(null);
   let isInitialized = $state(false);
   let isRecording = $state(false);
   let draft = $state<OcrShortcut | null>(null);
@@ -22,9 +23,9 @@
     try {
       const stored = await storage.getItem<unknown>(OCR_SHORTCUT_STORAGE_KEY);
       shortcut = normalizeOcrShortcut(stored);
-      isInitialized = true;
     } catch (error) {
       console.error("Failed to load OCR shortcut:", error);
+    } finally {
       isInitialized = true;
     }
   }
@@ -33,16 +34,11 @@
     try {
       await storage.setItem(
         OCR_SHORTCUT_STORAGE_KEY,
-        normalizeOcrShortcut(shortcut),
+        shortcut ? normalizeOcrShortcut(shortcut) : null,
       );
     } catch (error) {
       console.error("Failed to save OCR shortcut:", error);
     }
-  }
-
-  function toggleEnabled() {
-    shortcut = { ...shortcut, enabled: !shortcut.enabled };
-    cancelRecording();
   }
 
   function startRecording() {
@@ -72,10 +68,7 @@
       return;
     }
 
-    const next: OcrShortcut = {
-      ...shortcutFromEvent(event),
-      enabled: shortcut.enabled,
-    };
+    const next = shortcutFromEvent(event);
 
     if (!isValidShortcut(next)) {
       draft = null;
@@ -95,8 +88,8 @@
     cancelRecording();
   }
 
-  function resetShortcut() {
-    shortcut = { ...DEFAULT_OCR_SHORTCUT };
+  function clearShortcut() {
+    shortcut = null;
     cancelRecording();
   }
 
@@ -116,39 +109,19 @@
 
 <div class="settings-container">
   <div class="setting-item">
-    <h3>OCR khoanh vùng</h3>
-    <div class="setting-controls">
-      <label class="toggle-option">
-        <input
-          type="checkbox"
-          checked={shortcut.enabled}
-          onchange={toggleEnabled}
-        />
-        <span class="toggle-label">
-          <strong>Bật phím tắt OCR khoanh vùng</strong>
-          <span class="toggle-description"
-            >Bấm phím tắt để mở vùng chọn OCR trên trang đang xem, không cần
-            chuột phải. Bấm phím tắt lần nữa để hủy.</span
-          >
-        </span>
-      </label>
-    </div>
-  </div>
-
-  <div class="setting-item">
-    <h3>Phím tắt</h3>
+    <h3>OCR bằng phím tắt</h3>
     <div class="setting-controls">
       <button
         type="button"
         class="shortcut-display {isRecording ? 'recording' : ''}"
-        class:disabled={!shortcut.enabled}
-        disabled={!shortcut.enabled}
         onclick={isRecording ? cancelRecording : startRecording}
       >
         {#if isRecording}
           {draft ? formatShortcut(draft) : "Nhấn tổ hợp phím…"}
-        {:else}
+        {:else if shortcut}
           {formatShortcut(shortcut)}
+        {:else}
+          Chưa đặt phím tắt
         {/if}
       </button>
 
@@ -162,10 +135,16 @@
           >
           <button class="cancel-button" onclick={cancelRecording}>Hủy</button>
         </div>
+      {:else if shortcut}
+        <div class="shortcut-hint">
+          Bấm phím tắt để mở vùng chọn OCR trên trang đang xem. Kéo chuột để
+          khoanh vùng, hoặc di chuột lên ảnh rồi click để OCR ảnh đó. Bấm phím
+          tắt lần nữa để hủy.
+        </div>
       {:else}
         <div class="shortcut-hint">
-          Bấm vào ô trên để đổi phím tắt. Tổ hợp cần có ít nhất Ctrl, Alt hoặc
-          Cmd (hoặc một phím F1–F12).
+          Chưa gán phím tắt thì OCR bằng phím tắt đang tắt. Bấm vào ô trên để
+          gán, ví dụ {formatShortcut(SUGGESTED_OCR_SHORTCUT)}.
         </div>
       {/if}
 
@@ -178,11 +157,13 @@
         <div class="shortcut-warning">{message}</div>
       {/if}
 
-      <div class="shortcut-actions">
-        <button class="edit-button" onclick={resetShortcut}
-          >Đặt lại mặc định</button
-        >
-      </div>
+      {#if shortcut}
+        <div class="shortcut-actions">
+          <button class="edit-button" onclick={clearShortcut}
+            >Xóa phím tắt</button
+          >
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -190,8 +171,9 @@
     <h3>OCR ảnh</h3>
     <div class="setting-controls">
       <div class="shortcut-hint">
-        Chuột phải vào ảnh rồi chọn “OCR ảnh này”. Phím tắt chỉ dùng cho vùng
-        khoanh, không áp dụng cho ảnh.
+        Chuột phải vào ảnh rồi chọn “OCR ảnh này”, hoặc bấm phím tắt OCR rồi di
+        chuột lên ảnh — ảnh sẽ được highlight — và click để chạy OCR trên đúng
+        ảnh đó.
       </div>
     </div>
   </div>

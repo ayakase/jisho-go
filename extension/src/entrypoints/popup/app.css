@@ -820,11 +820,6 @@
     color: #b91c1c;
   }
 
-  .shortcut-display.disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
   .shortcut-hint {
     font-size: 0.8rem;
     color: #6b7280;
