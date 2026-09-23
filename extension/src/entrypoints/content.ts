@@ -1231,6 +1231,30 @@ function isKanji(char: string): boolean {
   return kanjiRegex.test(char);
 }
 
+function isPointInRect(x: number, y: number, rect: DOMRect, tolerance = 2): boolean {
+  return (
+    x >= rect.left - tolerance &&
+    x <= rect.right + tolerance &&
+    y >= rect.top - tolerance &&
+    y <= rect.bottom + tolerance
+  );
+}
+
+function getCharRect(container: Node, index: number): DOMRect | null {
+  try {
+    const range = document.createRange();
+    range.setStart(container, index);
+    range.setEnd(container, index + 1);
+    const rect = range.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return rect;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 // Get character at cursor position
 function getCharAtPosition(x: number, y: number): { char: string; rect: DOMRect | null } {
   // Try caretRangeFromPoint first (Chrome, Firefox)
@@ -1252,39 +1276,27 @@ function getCharAtPosition(x: number, y: number): { char: string; rect: DOMRect 
   }
 
   const container = range.startContainer;
-  let char = '';
-  let rect: DOMRect | null = null;
+  if (container.nodeType !== Node.TEXT_NODE) {
+    return { char: '', rect: null };
+  }
 
-  if (container.nodeType === Node.TEXT_NODE) {
-    const text = container.textContent || '';
-    const offset = range.startOffset;
+  const text = container.textContent || '';
+  const offset = range.startOffset;
 
-    // Try to get character at or before the offset
-    char = text.charAt(offset) || text.charAt(Math.max(0, offset - 1)) || '';
+  // Check character at offset first, then offset - 1
+  const candidates = [offset, offset - 1].filter((idx) => idx >= 0 && idx < text.length);
 
-    // Only proceed if it's a kanji
+  for (const idx of candidates) {
+    const char = text.charAt(idx);
     if (char && isKanji(char)) {
-      // Create a range for the character to get its position
-      const charRange = document.createRange();
-      const charOffset = text.charAt(offset) === char ? offset : Math.max(0, offset - 1);
-
-      if (charOffset >= 0 && charOffset < text.length) {
-        try {
-          charRange.setStart(container, charOffset);
-          charRange.setEnd(container, charOffset + 1);
-          rect = charRange.getBoundingClientRect();
-        } catch (e) {
-          // Fallback to using the container's position
-          const parentRect = (container.parentElement as HTMLElement)?.getBoundingClientRect();
-          if (parentRect) {
-            rect = new DOMRect(parentRect.left, parentRect.top, 0, parentRect.height);
-          }
-        }
+      const rect = getCharRect(container, idx);
+      if (rect && isPointInRect(x, y, rect, 2)) {
+        return { char, rect };
       }
     }
   }
 
-  return { char, rect };
+  return { char: '', rect: null };
 }
 
 let hoverMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
