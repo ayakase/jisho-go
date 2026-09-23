@@ -1062,7 +1062,7 @@
       </div>
       {#if vertical}
         <div class="source-switch">
-          <span class="source-switch-label">Bản đọc</span>
+          <span class="source-switch-label">Hướng của chữ</span>
           <button
             type="button"
             class="tab {activeSource === 'horizontal' ? 'active' : ''}"

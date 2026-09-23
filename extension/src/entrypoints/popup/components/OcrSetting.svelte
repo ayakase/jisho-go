@@ -109,9 +109,14 @@
 
 <div class="settings-container">
   <div class="setting-item">
-    <!-- <h3>Có 2 cách để đọc những vùng mà bạn không thể bôi đen hoặc di chuột</h3> -->
     <h3>Phím tắt</h3>
     <div class="setting-controls">
+      <div class="shortcut-hint">
+        Có 2 cách để khoanh vùng scan:
+        <div>• <b>Cách 1:</b> Chuột phải vào trang web rồi chọn <b>“Khoanh vùng scan ảnh”</b>.</div>
+        <div>• <b>Cách 2:</b> Cài đặt và bấm <b>phím tắt</b> bên dưới.</div>
+      </div>
+
       <button
         type="button"
         class="shortcut-display {isRecording ? 'recording' : ''}"
