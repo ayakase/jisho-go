@@ -6,9 +6,44 @@
   import CommonSetting from "./components/CommonSetting.svelte";
   // import Account from "./components/Account.svelte";
 
-  type Tab = "highlight" | "hover" | "ocr" | "common" | "account";
-  let activeTab = $state<Tab>("highlight");
+  const VALID_TABS = ["highlight", "hover", "ocr", "common"] as const;
+  type Tab = (typeof VALID_TABS)[number];
+  const DEFAULT_TAB: Tab = "highlight";
+
+  let activeTab = $state<Tab>(DEFAULT_TAB);
   let darkMode = $state(false);
+
+  function isValidTab(val: unknown): val is Tab {
+    return typeof val === "string" && (VALID_TABS as readonly string[]).includes(val);
+  }
+
+  // Load active tab from storage with fallback
+  (async () => {
+    try {
+      const storedTab = await storage.getItem<string>("local:activeSettingTab");
+      if (isValidTab(storedTab)) {
+        activeTab = storedTab;
+      } else {
+        activeTab = DEFAULT_TAB;
+      }
+    } catch (error) {
+      console.error("Failed to load active setting tab:", error);
+      activeTab = DEFAULT_TAB;
+    }
+  })();
+
+  async function selectTab(tab: Tab) {
+    if (!isValidTab(tab)) {
+      activeTab = DEFAULT_TAB;
+      return;
+    }
+    activeTab = tab;
+    try {
+      await storage.setItem("local:activeSettingTab", tab);
+    } catch (error) {
+      console.error("Failed to save active setting tab:", error);
+    }
+  }
 
   (async () => {
     darkMode = (await storage.getItem<boolean>("local:darkMode")) ?? false;
@@ -78,40 +113,108 @@
     </button>
   </div>
 
-  <div class="tab-row">
+  <div class="tab-row" role="tablist">
     <button
       type="button"
+      role="tab"
+      aria-selected={activeTab === "highlight"}
       class="tab-button {activeTab === 'highlight' ? 'active' : ''}"
-      onclick={() => (activeTab = "highlight")}
+      onclick={() => selectTab("highlight")}
     >
-      Bôi đen
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="tab-icon"
+        aria-hidden="true"
+      >
+        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        <path d="M10 12h4" />
+        <path d="M9 4a3 3 0 0 1 3 3v10a3 3 0 0 1 -3 3" />
+        <path d="M15 4a3 3 0 0 0 -3 3v10a3 3 0 0 0 3 3" />
+      </svg>
+      <span>Bôi đen</span>
     </button>
     <button
       type="button"
+      role="tab"
+      aria-selected={activeTab === "hover"}
       class="tab-button {activeTab === 'hover' ? 'active' : ''}"
-      onclick={() => (activeTab = "hover")}
+      onclick={() => selectTab("hover")}
     >
-      Di chuột
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="tab-icon"
+        aria-hidden="true"
+      >
+        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        <path d="M7.904 17.563a1.2 1.2 0 0 0 2.228 .308l2.09 -3.093l4.907 4.907a1.067 1.067 0 0 0 1.509 0l1.047 -1.047a1.067 1.067 0 0 0 0 -1.509l-4.907 -4.907l3.113 -2.09a1.2 1.2 0 0 0 -.309 -2.228l-13.582 -3.904l3.904 13.563" />
+      </svg>
+      <span>Di chuột</span>
     </button>
     <button
       type="button"
+      role="tab"
+      aria-selected={activeTab === "ocr"}
       class="tab-button {activeTab === 'ocr' ? 'active' : ''}"
-      onclick={() => (activeTab = "ocr")}
+      onclick={() => selectTab("ocr")}
     >
-      Scan ảnh
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="tab-icon"
+        aria-hidden="true"
+      >
+        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        <path d="M5 7h1a2 2 0 0 0 2 -2a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2" />
+        <path d="M9 13a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+      </svg>
+      <span>Scan ảnh</span>
     </button>
     <button
       type="button"
+      role="tab"
+      aria-selected={activeTab === "common"}
       class="tab-button {activeTab === 'common' ? 'active' : ''}"
-      onclick={() => (activeTab = "common")}
+      onclick={() => selectTab("common")}
     >
-      Cài đặt chung
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="tab-icon"
+        aria-hidden="true"
+      >
+        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065" />
+        <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+      </svg>
+      <span>Cài đặt chung</span>
     </button>
     <!--
     <button
       type="button"
       class="tab-button {activeTab === 'account' ? 'active' : ''}"
-      onclick={() => (activeTab = "account")}
+      onclick={() => selectTab("account")}
     >
       Tài khoản
     </button>

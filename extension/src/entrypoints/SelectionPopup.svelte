@@ -487,6 +487,17 @@
     return error instanceof Error && error.message.includes("Extension context invalidated");
   }
 
+  async function toggleDarkMode() {
+    darkMode = !darkMode;
+    try {
+      await storage.setItem("local:darkMode", darkMode);
+    } catch (e) {
+      if (!isExtensionContextInvalidated(e)) {
+        console.error("Failed to save darkMode:", e);
+      }
+    }
+  }
+
   (async () => {
     try {
       darkMode = (await storage.getItem<boolean>("local:darkMode")) ?? false;
@@ -912,12 +923,38 @@
     <div class="popup-controls" role="toolbar" aria-label="Điều khiển popup">
       <button
         type="button"
+        class="popup-control-btn popup-btn-theme"
+        aria-label={darkMode ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+        title={darkMode ? "Giao diện sáng" : "Giao diện tối"}
+        onclick={(e) => {
+          e.stopPropagation();
+          toggleDarkMode();
+        }}
+        onpointerdown={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        {#if darkMode}
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+            <path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+            <path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7" />
+          </svg>
+        {:else}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+          </svg>
+        {/if}
+      </button>
+      <button
+        type="button"
         class="popup-control-btn popup-btn-drag"
         aria-label="Kéo để di chuyển"
         title={positionMode === "static" ? undefined : "Kéo để di chuyển popup"}
         onpointerdown={startDragPopup}
       >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M8 1L11 4H9V7H12V5L15 8L12 11V9H9V12H11L8 15L5 12H7V9H4V11L1 8L4 5V7H7V4H5L8 1Z" />
         </svg>
       </button>
@@ -934,7 +971,7 @@
           e.stopPropagation();
         }}
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+        <svg width="11" height="11" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
           <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" />
           <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" />
         </svg>
@@ -1450,7 +1487,7 @@
     display: flex;
     justify-content: flex-end;
     align-items: flex-end;
-    height: 24px;
+    height: 28px;
     width: 100%;
     background: transparent;
     pointer-events: none;
@@ -1460,11 +1497,11 @@
   .popup-controls {
     display: inline-flex;
     align-items: stretch;
-    height: 24px;
+    height: 28px;
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-bottom: none;
-    border-top-left-radius: 4px;
+    border-top-left-radius: 6px;
     border-top-right-radius: 6px;
     overflow: hidden;
     pointer-events: auto;
@@ -1474,8 +1511,8 @@
   }
 
   .popup-control-btn {
-    width: 36px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1489,20 +1526,34 @@
     outline: none;
   }
 
+  .popup-btn-theme {
+    cursor: pointer;
+    border-right: 1px solid #e5e7eb;
+  }
+
+  .popup-btn-theme:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .popup-btn-theme:active {
+    background: #e5e7eb;
+  }
+
   .popup-btn-drag {
     cursor: grab;
     border-right: 1px solid #e5e7eb;
   }
 
   .popup-btn-drag:hover {
-    background: #e5e7eb;
+    background: #f3f4f6;
     color: #111827;
     cursor: grab;
   }
 
   .popup-btn-drag:active {
     cursor: grabbing;
-    background: #d1d5db;
+    background: #e5e7eb;
   }
 
   .popup-btn-close {
@@ -1562,6 +1613,19 @@
 
   .popup.dark-mode .popup-control-btn {
     color: #9ca3af;
+  }
+
+  .popup.dark-mode .popup-btn-theme {
+    border-right-color: #374151;
+  }
+
+  .popup.dark-mode .popup-btn-theme:hover {
+    background: #374151;
+    color: #f3f4f6;
+  }
+
+  .popup.dark-mode .popup-btn-theme:active {
+    background: #4b5563;
   }
 
   .popup.dark-mode .popup-btn-drag {

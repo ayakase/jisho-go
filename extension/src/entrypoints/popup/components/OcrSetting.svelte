@@ -109,6 +109,7 @@
 
 <div class="settings-container">
   <div class="setting-item">
+    <!-- <h3>Có 2 cách để đọc những vùng mà bạn không thể bôi đen hoặc di chuột</h3> -->
     <h3>Phím tắt</h3>
     <div class="setting-controls">
       <button

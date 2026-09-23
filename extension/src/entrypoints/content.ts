@@ -535,8 +535,15 @@ export default defineContentScript({
       applyOcrTheme();
     });
 
+    let mouseDownX = 0;
+    let mouseDownY = 0;
+    let hadHighlightPopupOnMouseDown = false;
+
     // Show a small popup next to highlighted text on the page
     document.addEventListener('mousedown', (event) => {
+      mouseDownX = event.clientX;
+      mouseDownY = event.clientY;
+
       // Bấm ra ngoài hover popup -> tắt ngay lập tức
       if (hoverPopupContainer && !hoverPopupContainer.contains(event.target as Node)) {
         removeHoverPopup();
@@ -549,6 +556,22 @@ export default defineContentScript({
           clearTimeout(hoverLeaveTimeout);
           hoverLeaveTimeout = null;
         }
+      }
+
+      // Bấm ra ngoài highlight popup hoặc search button -> tắt ngay lập tức chỉ với 1 click
+      const clickedOutsidePopup =
+        popupContainer !== null && !popupContainer.contains(event.target as Node);
+      const clickedOutsideButton =
+        buttonContainer !== null && !buttonContainer.contains(event.target as Node);
+
+      hadHighlightPopupOnMouseDown = clickedOutsidePopup || clickedOutsideButton;
+
+      if (clickedOutsidePopup) {
+        removePopup();
+        window.getSelection()?.removeAllRanges();
+      }
+      if (clickedOutsideButton) {
+        removeButton();
       }
 
       if (
@@ -570,6 +593,18 @@ export default defineContentScript({
         clearTimeout(selectionPopupTimeout);
         selectionPopupTimeout = null;
       }
+
+      const dx = (event.clientX ?? 0) - mouseDownX;
+      const dy = (event.clientY ?? 0) - mouseDownY;
+      const isSimpleClick = Math.sqrt(dx * dx + dy * dy) < 5;
+
+      // Nếu lần click này là bấm ra ngoài để đóng popup (không phải thao tác kéo chuột bôi đen từ mới)
+      // thì dừng lại ngay, không cho mouseup kích hoạt mở lại popup.
+      if (hadHighlightPopupOnMouseDown && isSimpleClick) {
+        hadHighlightPopupOnMouseDown = false;
+        return;
+      }
+      hadHighlightPopupOnMouseDown = false;
 
       if (Date.now() < suppressSelectionPopupUntil) {
         return;
@@ -1104,7 +1139,7 @@ function showPopupNear(
 
   // Popup dimensions (from CSS)
   const POPUP_MAX_WIDTH = 700;
-  const POPUP_DOCK_HEIGHT = 24;
+  const POPUP_DOCK_HEIGHT = 28;
   const POPUP_MAX_HEIGHT = Math.min(600, window.innerHeight * 0.8) + POPUP_DOCK_HEIGHT;
   const GAP = 8; // Gap between selection and popup
   const PADDING = 12; // Padding from viewport edges
@@ -1178,7 +1213,7 @@ function showPopupNear(
     if (
       target.tagName === 'BUTTON' ||
       target.closest('button') ||
-      target.closest('.source-match, .source-kanji-clickable, .popup-btn-drag, .popup-btn-close')
+      target.closest('.source-match, .source-kanji-clickable, .popup-btn-drag, .popup-btn-close, .popup-btn-theme')
     ) {
       return;
     }

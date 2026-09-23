@@ -100,7 +100,6 @@ main.dark-mode .blacklist-website {
   color: #f3f4f6;
 }
 
-main.dark-mode .tab-button,
 main.dark-mode .radio-option,
 main.dark-mode .toggle-option,
 main.dark-mode .blacklist-item,
@@ -114,12 +113,6 @@ main.dark-mode .auth-button-secondary {
   background: #1f2937;
   border-color: #4b5563;
   color: #e5e7eb;
-}
-
-main.dark-mode .tab-button.active {
-  background: #4c1d1d;
-  border-color: #f87171;
-  color: #fecaca;
 }
 
 main.dark-mode .radio-option:hover,
@@ -765,28 +758,71 @@ h1 {
 
 .tab-row {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1.25rem;
+  padding: 0;
 }
 
 .tab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   appearance: none;
-  border: 1px solid #e5e7eb;
-  background-color: #f9fafb;
-  color: #374151;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #6b7280;
   font-size: 0.9rem;
   font-weight: 600;
-  padding: 0.4rem 0.65rem;
-  border-radius: 999px;
+  padding: 0.45rem 0.2rem 0.55rem 0.2rem;
+  margin-bottom: -1px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
   user-select: none;
+  white-space: nowrap;
+}
+
+.tab-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  stroke: currentColor;
+  transition: stroke 0.15s ease;
+}
+
+.tab-button:hover {
+  color: #111827;
+  border-bottom-color: #d1d5db;
 }
 
 .tab-button.active {
-  background-color: #fee2e2;
-  border-color: #fca5a5;
-  color: #991b1b;
+  color: #ef4444;
+  border-bottom-color: #ef4444;
+  background: transparent;
+}
+
+main.dark-mode .tab-row {
+  border-bottom-color: #374151;
+}
+
+main.dark-mode .tab-button {
+  color: #9ca3af;
+  background: transparent;
+  border-color: transparent;
+}
+
+main.dark-mode .tab-button:hover {
+  color: #f3f4f6;
+  border-bottom-color: #6b7280;
+}
+
+main.dark-mode .tab-button.active {
+  color: #f87171;
+  border-bottom-color: #f87171;
+  background: transparent;
 }
 
 .shortcut-display {
