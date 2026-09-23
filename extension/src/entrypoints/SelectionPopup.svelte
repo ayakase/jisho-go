@@ -1518,8 +1518,13 @@
     border-color: #374151;
   }
 
+  .popup.dark-mode .source-kanji-clickable {
+    color: #f87171;
+  }
+
   .popup.dark-mode .source-kanji-clickable:hover {
     background: #450a0a;
+    color: #fca5a5;
   }
 
   .loading {
@@ -1607,10 +1612,13 @@
   .source-kanji-clickable {
     cursor: pointer;
     border-radius: 0.2rem;
+    color: #ef4444;
+    transition: background-color 0.12s, color 0.12s;
   }
 
   .source-kanji-clickable:hover {
     background: #fee2e2;
+    color: #b91c1c;
   }
 
   .translated-text-section {

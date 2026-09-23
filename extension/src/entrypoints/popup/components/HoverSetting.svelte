@@ -3,13 +3,13 @@
 
   type HoverGrabMode = "single-kanji" | "paragraph";
   type HoverParagraphSections = {
-    kanji: boolean;
     translate: boolean;
+    kanji: boolean;
     vocab: boolean;
   };
   const DEFAULT_HOVER_PARAGRAPH_SECTIONS: HoverParagraphSections = {
-    kanji: true,
     translate: true,
+    kanji: true,
     vocab: true,
   };
 
@@ -212,21 +212,6 @@
             <label class="toggle-option">
               <input
                 type="checkbox"
-                checked={hoverParagraphSections.kanji}
-                onchange={(e) =>
-                  (hoverParagraphSections = {
-                    ...hoverParagraphSections,
-                    kanji: (e.target as HTMLInputElement).checked,
-                  })}
-              />
-              <span class="toggle-label">
-                <strong>Kanji</strong>
-                <span class="toggle-description">Hiển thị các kanji trong đoạn (bấm để xem chi tiết)</span>
-              </span>
-            </label>
-            <label class="toggle-option">
-              <input
-                type="checkbox"
                 checked={hoverParagraphSections.translate}
                 onchange={(e) =>
                   (hoverParagraphSections = {
@@ -237,6 +222,21 @@
               <span class="toggle-label">
                 <strong>Dịch nghĩa</strong>
                 <span class="toggle-description">Hiển thị bản dịch nhanh của đoạn</span>
+              </span>
+            </label>
+            <label class="toggle-option">
+              <input
+                type="checkbox"
+                checked={hoverParagraphSections.kanji}
+                onchange={(e) =>
+                  (hoverParagraphSections = {
+                    ...hoverParagraphSections,
+                    kanji: (e.target as HTMLInputElement).checked,
+                  })}
+              />
+              <span class="toggle-label">
+                <strong>Kanji</strong>
+                <span class="toggle-description">Hiển thị các kanji trong đoạn (bấm để xem chi tiết)</span>
               </span>
             </label>
             <label class="toggle-option">
@@ -341,5 +341,38 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
     margin-bottom: 0.1rem;
+  }
+
+  :global(main.dark-mode) .hover-delay-setting {
+    border-color: #4b5563;
+    background: #1f2937;
+  }
+
+  :global(main.dark-mode) .hover-delay-setting:hover {
+    border-color: #6b7280;
+    background-color: #374151;
+  }
+
+  :global(main.dark-mode) .hover-delay-label strong {
+    color: #f3f4f6;
+  }
+
+  :global(main.dark-mode) .hover-delay-description,
+  :global(main.dark-mode) .hover-delay-unit {
+    color: #9ca3af;
+  }
+
+  :global(main.dark-mode) .hover-delay-setting input {
+    background: #111827;
+    border-color: #4b5563;
+    color: #f3f4f6;
+  }
+
+  :global(main.dark-mode) .hover-delay-setting input:focus {
+    border-color: #f87171;
+  }
+
+  :global(main.dark-mode) .hover-paragraph-sections-title {
+    color: #9ca3af;
   }
 </style>

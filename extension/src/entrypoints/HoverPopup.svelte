@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy, untrack } from "svelte";
   import { findKanjiDictEntry } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
@@ -35,27 +36,48 @@
       h: string;
     }>;
   };
-  let { text, position }: { text: string; position: Position } = $props();
+  let {
+    text,
+    position,
+    darkMode: initialDarkMode = false,
+  }: {
+    text: string;
+    position: Position;
+    darkMode?: boolean;
+  } = $props();
   let kanjiResult: DictEntry | null = $state(null);
   let error: string | null = $state(null);
   let loading = $state(true);
   let showRomaji = $state<boolean>(false);
+  let darkMode = $state<boolean>(untrack(() => initialDarkMode));
+  let unwatchDarkMode: (() => void) | null = null;
+  let unwatchRomaji: (() => void) | null = null;
 
-  // Load romaji setting
+  // Load settings
   (async () => {
     try {
       const stored = await storage.getItem<boolean>("local:showRomaji");
       if (stored !== null && stored !== undefined) {
         showRomaji = stored;
       }
+      const storedDark = await storage.getItem<boolean>("local:darkMode");
+      if (storedDark !== null && storedDark !== undefined) {
+        darkMode = storedDark;
+      }
+      unwatchRomaji = storage.watch<boolean>("local:showRomaji", (newMode) => {
+        showRomaji = newMode ?? false;
+      });
+      unwatchDarkMode = storage.watch<boolean>("local:darkMode", (newMode) => {
+        darkMode = newMode ?? false;
+      });
     } catch (error) {
-      console.error("Failed to load romaji setting:", error);
+      console.error("Failed to load settings:", error);
     }
   })();
 
-  // Watch for romaji setting changes
-  storage.watch<boolean>("local:showRomaji", (newMode) => {
-    showRomaji = newMode ?? false;
+  onDestroy(() => {
+    unwatchRomaji?.();
+    unwatchDarkMode?.();
   });
 
   function convertIfRomaji(text: string | undefined): string {
@@ -115,6 +137,7 @@
 <div
   id="jisho-go-hover-popup"
   class="hover-popup"
+  class:dark-mode={darkMode}
   style="left: {position.left}px; top: {position.top}px;"
   role="tooltip"
   aria-label="Kanji hover popup"
@@ -348,5 +371,64 @@
 
   .example-mean {
     color: #374151;
+  }
+
+  /* Dark mode */
+  .hover-popup.dark-mode {
+    color-scheme: dark;
+    background: #111827;
+    color: #e5e7eb;
+    border-color: #374151;
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.5),
+      0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  }
+
+  .hover-popup.dark-mode .kanji-header {
+    border-bottom-color: #374151;
+  }
+
+  .hover-popup.dark-mode .kanji-char {
+    color: #f87171;
+  }
+
+  .hover-popup.dark-mode .kanji-reading {
+    color: #9ca3af;
+  }
+
+  .hover-popup.dark-mode .meta-row,
+  .hover-popup.dark-mode .meta-item {
+    color: #9ca3af;
+  }
+
+  .hover-popup.dark-mode .section-title {
+    color: #f3f4f6;
+  }
+
+  .hover-popup.dark-mode .detail-text,
+  .hover-popup.dark-mode .detail-text p {
+    color: #d1d5db;
+  }
+
+  .hover-popup.dark-mode .example-item {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .hover-popup.dark-mode .example-word {
+    color: #f3f4f6;
+  }
+
+  .hover-popup.dark-mode .example-reading {
+    color: #9ca3af;
+  }
+
+  .hover-popup.dark-mode .example-mean {
+    color: #d1d5db;
+  }
+
+  .hover-popup.dark-mode .loading,
+  .hover-popup.dark-mode .error {
+    color: #9ca3af;
   }
 </style>

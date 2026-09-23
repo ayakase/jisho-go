@@ -98,7 +98,7 @@
       class="tab-button {activeTab === 'ocr' ? 'active' : ''}"
       onclick={() => (activeTab = "ocr")}
     >
-      OCR
+      Scan ảnh
     </button>
     <button
       type="button"

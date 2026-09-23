@@ -109,7 +109,7 @@
 
 <div class="settings-container">
   <div class="setting-item">
-    <h3>OCR bằng phím tắt</h3>
+    <h3>Scan bằng phím tắt</h3>
     <div class="setting-controls">
       <button
         type="button"
@@ -137,20 +137,19 @@
         </div>
       {:else if shortcut}
         <div class="shortcut-hint">
-          Bấm phím tắt để mở vùng chọn OCR trên trang đang xem. Kéo chuột để
-          khoanh vùng, hoặc di chuột lên ảnh rồi click để OCR ảnh đó. Bấm phím
-          tắt lần nữa để hủy.
+          Bấm phím tắt để mở vùng chọn scan ảnh trên trang đang xem. Kéo chuột để
+          khoanh vùng, hoặc di chuột lên ảnh rồi click để scan ảnh đó. Bấm phím
+          tắt lần nữa hoặc ESC để hủy.
         </div>
       {:else}
         <div class="shortcut-hint">
-          Chưa gán phím tắt thì OCR bằng phím tắt đang tắt. Bấm vào ô trên để
+          Chưa gán phím tắt. Bấm vào ô trên để
           gán, ví dụ {formatShortcut(SUGGESTED_OCR_SHORTCUT)}.
         </div>
       {/if}
 
       <div class="shortcut-hint">
-        Phím tắt vẫn hoạt động trên cả những trang nằm trong danh sách đen —
-        bấm phím tắt được coi là chủ ý, khác với bôi đen hay di chuột.
+        Phím tắt vẫn hoạt động trên cả những trang nằm trong danh sách đen
       </div>
 
       {#if message}
@@ -168,11 +167,11 @@
   </div>
 
   <div class="setting-item">
-    <h3>OCR ảnh</h3>
+    <h3>Scan ảnh (Thử nghiệm, có thể lỗi)</h3>
     <div class="setting-controls">
       <div class="shortcut-hint">
-        Chuột phải vào ảnh rồi chọn “OCR ảnh này”, hoặc bấm phím tắt OCR rồi di
-        chuột lên ảnh — ảnh sẽ được highlight — và click để chạy OCR trên đúng
+        Chuột phải vào ảnh rồi chọn “Scan ảnh này”, hoặc bấm phím tắt scan ảnh {formatShortcut(SUGGESTED_OCR_SHORTCUT)} rồi di
+        chuột lên ảnh, và click để scan.
         ảnh đó.
       </div>
     </div>

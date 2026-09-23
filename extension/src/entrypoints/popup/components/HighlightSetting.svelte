@@ -744,6 +744,11 @@
     background: #1f2937;
   }
 
+  :global(main.dark-mode) .selection-delay-setting:hover {
+    border-color: #6b7280;
+    background-color: #374151;
+  }
+
   :global(main.dark-mode) .selection-delay-label strong {
     color: #f3f4f6;
   }
@@ -751,6 +756,16 @@
   :global(main.dark-mode) .selection-delay-description,
   :global(main.dark-mode) .selection-delay-unit {
     color: #9ca3af;
+  }
+
+  :global(main.dark-mode) .selection-delay-setting input {
+    background: #111827;
+    border-color: #4b5563;
+    color: #f3f4f6;
+  }
+
+  :global(main.dark-mode) .selection-delay-setting input:focus {
+    border-color: #f87171;
   }
 
   :global(main.dark-mode) .opacity-range {

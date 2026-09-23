@@ -14,15 +14,15 @@ type PopupMode = 'off' | 'immediate' | 'button';
 type HoverGrabMode = 'single-kanji' | 'paragraph';
 type SearchButtonSize = 'small' | 'medium' | 'big';
 type HoverParagraphSections = {
-  kanji: boolean;
   translate: boolean;
+  kanji: boolean;
   vocab: boolean;
 };
 const MAX_SELECTION_TEXT_LENGTH = 300;
 
 const DEFAULT_HOVER_PARAGRAPH_SECTIONS: HoverParagraphSections = {
-  kanji: true,
   translate: true,
+  kanji: true,
   vocab: true,
 };
 
@@ -522,8 +522,9 @@ export default defineContentScript({
       if (Date.now() < suppressSelectionPopupUntil) {
         return;
       }
-      // Don't process if clicking inside the popup, hover popup, or button
+      // Don't process if selection overlay is active, or clicking inside popups/button
       if (
+        selectionOverlay !== null ||
         (popupContainer && popupContainer.contains(event.target as Node)) ||
         (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
         (buttonContainer && buttonContainer.contains(event.target as Node))
@@ -567,8 +568,16 @@ export default defineContentScript({
       const lookupText = text.slice(0, MAX_SELECTION_TEXT_LENGTH);
       const isTextTruncated = text.length > MAX_SELECTION_TEXT_LENGTH;
 
-      // Clear any hover popup when showing selection popup
+      // Clear any hover popup and pending hover timers when showing selection popup
       removeHoverPopup();
+      if (hoverTimeout !== null) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
+      if (hoverLeaveTimeout !== null) {
+        clearTimeout(hoverLeaveTimeout);
+        hoverLeaveTimeout = null;
+      }
 
       selectionPopupTimeout = window.setTimeout(() => {
         selectionPopupTimeout = null;
@@ -848,6 +857,16 @@ function removeSelectionOverlay() {
   }
 }
 
+function isHighlightPopupActive(): boolean {
+  return (
+    popupContainer !== null ||
+    buttonContainer !== null ||
+    selectionPopupTimeout !== null ||
+    document.getElementById('jisho-go-selection-popup-container') !== null ||
+    document.getElementById('jisho-go-search-button') !== null
+  );
+}
+
 function closeAllPopups() {
   if (selectionPopupTimeout !== null) {
     clearTimeout(selectionPopupTimeout);
@@ -887,6 +906,15 @@ function showButtonNear(
   // Remove existing button and popup
   removeButton();
   removePopup();
+  removeHoverPopup();
+  if (hoverTimeout !== null) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
+  }
+  if (hoverLeaveTimeout !== null) {
+    clearTimeout(hoverLeaveTimeout);
+    hoverLeaveTimeout = null;
+  }
 
   // Create button container
   buttonContainer = document.createElement('div');
@@ -986,6 +1014,15 @@ function showPopupNear(
   // Remove existing popup and button
   removePopup();
   removeButton();
+  removeHoverPopup();
+  if (hoverTimeout !== null) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
+  }
+  if (hoverLeaveTimeout !== null) {
+    clearTimeout(hoverLeaveTimeout);
+    hoverLeaveTimeout = null;
+  }
 
   // Create container for the Svelte component
   popupContainer = document.createElement('div');
@@ -1282,14 +1319,24 @@ function setupHoverMode() {
       hoverLeaveTimeout = null;
     }
 
+    // Do nothing if selection overlay is active
+    if (selectionOverlay !== null) {
+      removeHoverPopup();
+      return;
+    }
+
     // Do nothing on blacklisted sites
     if (isBlacklistedLocation()) {
       removeHoverPopup();
       return;
     }
-    // Priority: Selection mode popup/button takes precedence - skip hover if they exist
-    // This ensures click/selection mode always has priority over hover mode
-    if (popupContainer || buttonContainer) {
+    // Priority: If selection/highlight popup or button is active or pending, DO NOT show hover popup!
+    if (isHighlightPopupActive()) {
+      removeHoverPopup();
+      if (hoverTimeout !== null) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
       return;
     }
 
@@ -1319,6 +1366,14 @@ function setupHoverMode() {
 
     // Add small delay to avoid flickering
     hoverTimeout = window.setTimeout(() => {
+      hoverTimeout = null;
+
+      // Double-check: if selection/highlight popup is active, abort immediately
+      if (isHighlightPopupActive()) {
+        removeHoverPopup();
+        return;
+      }
+
       if (hoverGrabMode === 'paragraph') {
         const textChunk = getTextChunkFromTarget(e.target);
         
@@ -1384,8 +1439,8 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   // Remove existing hover popup
   removeHoverPopup();
 
-  // Don't show hover popup if click popup is active
-  if (popupContainer || buttonContainer) {
+  // Don't show hover popup if selection/highlight popup is active
+  if (isHighlightPopupActive()) {
     return;
   }
 
@@ -1430,6 +1485,7 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
         left,
         top,
       },
+      darkMode: ocrDarkMode,
     },
   });
 
@@ -1466,8 +1522,8 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
   // Remove existing hover popup
   removeHoverPopup();
 
-  // Don't show hover popup if click popup is active
-  if (popupContainer || buttonContainer) {
+  // Don't show hover popup if selection/highlight popup is active
+  if (isHighlightPopupActive()) {
     return;
   }
 
@@ -1513,6 +1569,7 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
         left,
         top,
       },
+      darkMode: ocrDarkMode,
     },
   });
 
@@ -1570,8 +1627,18 @@ function findImageAtPoint(x: number, y: number): HTMLImageElement | null {
 }
 
 function startSelectionOcr() {
+  // Tắt ngay lập tức mọi popup tra từ, hover popup, nút bấm và huỷ timers
+  closeAllPopups();
+
+  // Huỷ bôi đen chữ trên trang để kéo khoanh vùng scan không bị vướng
+  try {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      sel.removeAllRanges();
+    }
+  } catch {}
+
   const overlay = document.createElement("div");
-  removeSelectionOverlay();
   selectionOverlay = overlay;
   overlay.style.position = "fixed";
   overlay.style.top = "0";
@@ -1579,7 +1646,7 @@ function startSelectionOcr() {
   overlay.style.width = "100vw";
   overlay.style.height = "100vh";
   overlay.style.cursor = "crosshair";
-  overlay.style.zIndex = "999999";
+  overlay.style.zIndex = "2147483647";
   document.body.appendChild(overlay);
 
   // Nền mờ tách riêng để lúc hover trúng ảnh có thể tắt đi, nhường chỗ cho
@@ -1735,9 +1802,10 @@ function handleOcrShortcutKeydown(event: KeyboardEvent) {
 
 window.addEventListener("message", (event) => {
   if (event.data.type === "START_IMAGE_OCR") {
+    closeAllPopups();
     const image = getImageFromContextMenu(event.data.srcUrl);
     if (!image) {
-      alert("Không tìm thấy ảnh để OCR.");
+      alert("Không tìm thấy ảnh để scan.");
       return;
     }
 

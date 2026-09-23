@@ -34,7 +34,7 @@ export default defineBackground(() => {
       void browser.runtime.lastError;
       browser.contextMenus.create({
         id: "capture-selection",
-        title: "Khoanh vùng OCR",
+        title: "Khoanh vùng scan ảnh",
         contexts: ["all"],
       });
     });
@@ -43,7 +43,7 @@ export default defineBackground(() => {
       void browser.runtime.lastError;
       browser.contextMenus.create({
         id: "ocr-image",
-        title: "OCR ảnh này",
+        title: "Scan ảnh này",
         contexts: ["image"],
       });
     });

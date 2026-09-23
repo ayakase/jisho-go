@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy, untrack } from "svelte";
   import { searchSelectionDicts } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
@@ -58,8 +59,14 @@
   let {
     text,
     position,
-    sections = { kanji: true, translate: true, vocab: true },
-  }: { text: string; position: Position; sections?: HoverParagraphSections } = $props();
+    sections = { translate: true, kanji: true, vocab: true },
+    darkMode: initialDarkMode = false,
+  }: {
+    text: string;
+    position: Position;
+    sections?: HoverParagraphSections;
+    darkMode?: boolean;
+  } = $props();
 
   let translatedText = $state<string | null>(null);
   let translateLoading = $state(false);
@@ -77,17 +84,36 @@
   let expandedOn = $state(false);
   let expandedKun = $state(false);
   let showRomaji = $state<boolean>(false);
+  let darkMode = $state<boolean>(untrack(() => initialDarkMode));
+  let unwatchDarkMode: (() => void) | null = null;
+  let unwatchRomaji: (() => void) | null = null;
 
   (async () => {
     try {
-      const stored = await storage.getItem<boolean>("local:showRomaji");
-      if (stored !== null && stored !== undefined) {
-        showRomaji = stored;
+      const storedRomaji = await storage.getItem<boolean>("local:showRomaji");
+      if (storedRomaji !== null && storedRomaji !== undefined) {
+        showRomaji = storedRomaji;
       }
+      const storedDark = await storage.getItem<boolean>("local:darkMode");
+      if (storedDark !== null && storedDark !== undefined) {
+        darkMode = storedDark;
+      }
+
+      unwatchRomaji = storage.watch<boolean>("local:showRomaji", (newMode) => {
+        showRomaji = newMode ?? false;
+      });
+      unwatchDarkMode = storage.watch<boolean>("local:darkMode", (newMode) => {
+        darkMode = newMode ?? false;
+      });
     } catch (e) {
-      console.error("Failed to load showRomaji:", e);
+      console.error("Failed to load settings:", e);
     }
   })();
+
+  onDestroy(() => {
+    unwatchRomaji?.();
+    unwatchDarkMode?.();
+  });
 
   function convertIfRomaji(textVal: string | undefined): string {
     if (!textVal) return "";
@@ -229,6 +255,7 @@
 <div
   id="jisho-go-hover-paragraph-popup"
   class="hover-paragraph-popup"
+  class:dark-mode={darkMode}
   style="left: {position.left}px; top: {position.top}px;"
   role="tooltip"
   aria-label="Paragraph hover popup"
@@ -262,6 +289,19 @@
       {text}
     {/if}
   </div>
+
+  {#if sections.translate}
+    <div class="section">
+      <div class="section-title">Dịch nhanh</div>
+      {#if translateLoading}
+        <div class="muted">Đang dịch...</div>
+      {:else if translatedText}
+        <div class="translated-text">{translatedText}</div>
+      {:else if translateError}
+        <div class="error-text">{translateError}</div>
+      {/if}
+    </div>
+  {/if}
 
   {#if sections.kanji}
     <div class="section kanji-section">
@@ -503,12 +543,13 @@
   .source-kanji-clickable {
     cursor: pointer;
     border-radius: 0.2rem;
+    color: #ef4444;
     transition: background-color 0.12s, color 0.12s;
   }
 
   .source-kanji-clickable:hover {
     background: #fee2e2;
-    color: #ef4444;
+    color: #b91c1c;
   }
 
   .source-highlight {
@@ -810,5 +851,180 @@
   .error-text {
     color: #b91c1c;
     font-size: 0.82rem;
+  }
+
+  /* Dark mode */
+  .hover-paragraph-popup.dark-mode {
+    color-scheme: dark;
+    background: #111827;
+    color: #e5e7eb;
+    border-color: #374151;
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.5),
+      0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  }
+
+  .hover-paragraph-popup.dark-mode .source-text {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f3f4f6;
+  }
+
+  .hover-paragraph-popup.dark-mode .source-kanji-clickable {
+    color: #f87171;
+  }
+
+  .hover-paragraph-popup.dark-mode .source-kanji-clickable:hover {
+    background: #450a0a;
+    color: #fca5a5;
+  }
+
+  .hover-paragraph-popup.dark-mode .source-highlight {
+    background: #7f1d1d;
+    color: #fecaca;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
+  }
+
+  .hover-paragraph-popup.dark-mode .section {
+    border-top-color: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .section-title {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-chip {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-chip:hover {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-chip.active {
+    background: #450a0a;
+    border-color: #f87171;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35);
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-chip-char {
+    color: #f87171;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-chip-read {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-chip.active .kanji-chip-read {
+    color: #fecaca;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-detail-card {
+    background: #1f2937;
+    border-color: #374151;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-detail-header {
+    border-bottom-color: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-detail-char {
+    color: #f87171;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-detail-reading {
+    color: #f3f4f6;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-meta-row,
+  .hover-paragraph-popup.dark-mode .meta-item {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-detail-close {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .kanji-detail-close:hover {
+    color: #f3f4f6;
+    background: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .detail-subheading {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .detail-text,
+  .hover-paragraph-popup.dark-mode .detail-text p {
+    color: #d1d5db;
+  }
+
+  .hover-paragraph-popup.dark-mode .examples-collapse {
+    border-top-color: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .examples-collapse-header {
+    color: #f3f4f6;
+  }
+
+  .hover-paragraph-popup.dark-mode .examples-collapse-header:hover {
+    color: #fca5a5;
+  }
+
+  .hover-paragraph-popup.dark-mode .examples-collapse-icon {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .example-item {
+    background: #111827;
+    border-color: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .example-word {
+    color: #f3f4f6;
+  }
+
+  .hover-paragraph-popup.dark-mode .example-reading {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .example-mean {
+    color: #d1d5db;
+  }
+
+  .hover-paragraph-popup.dark-mode .translated-text {
+    color: #e5e7eb;
+  }
+
+  .hover-paragraph-popup.dark-mode .mini-group {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .mini-item {
+    border-top-color: #374151;
+  }
+
+  .hover-paragraph-popup.dark-mode .mini-head {
+    color: #f87171;
+  }
+
+  .hover-paragraph-popup.dark-mode .mini-sub {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .mini-mean {
+    color: #d1d5db;
+  }
+
+  .hover-paragraph-popup.dark-mode .muted {
+    color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .error-text {
+    color: #f87171;
   }
 </style>
