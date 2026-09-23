@@ -190,9 +190,9 @@
         <div class="hover-delay-setting">
           <label class="hover-delay-option" for="hover-delay-ms">
             <span class="hover-delay-label">
-              <strong>Độ trễ hiển thị popup</strong>
+              <strong>Độ trễ hiển thị</strong>
               <span class="hover-delay-description"
-                >Thời gian chờ trước khi popup hiện khi di chuột</span
+                >Thời gian chờ trước khi hiện và sau khi di chuột</span
               >
             </span>
           </label>
@@ -208,7 +208,7 @@
         </div>
         {#if hoverGrabMode === "paragraph"}
           <div class="hover-paragraph-sections">
-            <div class="hover-paragraph-sections-title">Nội dung hiển thị khi hover đoạn</div>
+            <div class="hover-paragraph-sections-title">Nội dung hiển thị</div>
             <label class="toggle-option">
               <input
                 type="checkbox"

@@ -46,6 +46,15 @@ let suppressSelectionPopupUntil = 0;
 let suppressHoverPopupUntil = 0;
 let lastContextMenuImage: HTMLImageElement | null = null;
 let ocrShortcut: OcrShortcut | null = null;
+let isOcrScanning = false;
+
+function isOcrActive(): boolean {
+  return (
+    isOcrScanning ||
+    selectionOverlay !== null ||
+    ocrLoadingEl !== null
+  );
+}
 
 function clampPopupOpacity(val: number): number {
   if (Number.isNaN(val)) return 1;
@@ -345,6 +354,10 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
     return;
   }
 
+  // Đóng toàn bộ popup khác và đánh dấu đang scan OCR
+  closeAllPopups();
+  isOcrScanning = true;
+
   const requestId = ++ocrRequestId;
 
   try {
@@ -387,6 +400,8 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
           pending: wantsVertical,
           request: () => readVertical(blob, requestId),
         };
+        isOcrScanning = false;
+        setOcrLoading(false);
         const popup = showPopupNear(
           rectBounds,
           normalizedText,
@@ -411,6 +426,7 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
     alert("Error capturing screenshot: " + error);
   } finally {
     if (requestId === ocrRequestId) {
+      isOcrScanning = false;
       setOcrLoading(false);
     }
   }
@@ -558,8 +574,9 @@ export default defineContentScript({
       if (Date.now() < suppressSelectionPopupUntil) {
         return;
       }
-      // Don't process if selection overlay is active, or clicking inside popups/button
+      // Don't process if OCR is active, selection overlay is active, or clicking inside popups/button
       if (
+        isOcrActive() ||
         selectionOverlay !== null ||
         (popupContainer && popupContainer.contains(event.target as Node)) ||
         (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
@@ -621,6 +638,10 @@ export default defineContentScript({
       selectionPopupTimeout = window.setTimeout(() => {
         selectionPopupTimeout = null;
 
+        if (isOcrActive()) {
+          return;
+        }
+
         const currentSelection = window.getSelection();
         if (
           !currentSelection ||
@@ -646,7 +667,8 @@ export default defineContentScript({
         hoverPopupContainer !== null ||
         buttonContainer !== null ||
         selectionOverlay !== null ||
-        ocrLoadingEl !== null;
+        ocrLoadingEl !== null ||
+        isOcrScanning;
 
       if (!hasOpenUi) return;
 
@@ -926,6 +948,7 @@ function closeAllPopups() {
   }
   lastHoveredText = null;
   setOcrLoading(false);
+  isOcrScanning = false;
   ocrRequestId += 1;
 }
 
@@ -943,6 +966,10 @@ function showButtonNear(
   sourceRange: Range,
   isTextTruncated = false,
 ) {
+  if (isOcrActive()) {
+    return;
+  }
+
   // Remove existing button and popup
   removeButton();
   removePopup();
@@ -1359,9 +1386,13 @@ function setupHoverMode() {
       hoverLeaveTimeout = null;
     }
 
-    // Do nothing if selection overlay is active
-    if (selectionOverlay !== null) {
+    // Do nothing if OCR is active (selecting overlay, reading, scanning)
+    if (isOcrActive()) {
       removeHoverPopup();
+      if (hoverTimeout !== null) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
       return;
     }
 
@@ -1412,8 +1443,8 @@ function setupHoverMode() {
     hoverTimeout = window.setTimeout(() => {
       hoverTimeout = null;
 
-      // Double-check: if selection/highlight popup is active, abort immediately
-      if (isHighlightPopupActive()) {
+      // Double-check: if OCR or selection/highlight popup is active, abort immediately
+      if (isOcrActive() || isHighlightPopupActive()) {
         removeHoverPopup();
         return;
       }
@@ -1483,8 +1514,8 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   // Remove existing hover popup
   removeHoverPopup();
 
-  // Don't show hover popup if selection/highlight popup is active
-  if (isHighlightPopupActive()) {
+  // Don't show hover popup if OCR or selection/highlight popup is active
+  if (isOcrActive() || isHighlightPopupActive()) {
     return;
   }
 
@@ -1566,8 +1597,8 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
   // Remove existing hover popup
   removeHoverPopup();
 
-  // Don't show hover popup if selection/highlight popup is active
-  if (isHighlightPopupActive()) {
+  // Don't show hover popup if OCR or selection/highlight popup is active
+  if (isOcrActive() || isHighlightPopupActive()) {
     return;
   }
 

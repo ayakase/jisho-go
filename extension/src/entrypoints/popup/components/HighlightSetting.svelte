@@ -266,7 +266,7 @@
             <span class="radio-label">
               <strong>Tức thì</strong>
               <span class="radio-description"
-                >Hiển thị popup tự động khi chọn văn bản</span
+                >Hiển thị tự động khi chọn văn bản</span
               >
             </span>
           </label>
@@ -281,7 +281,7 @@
             <span class="radio-label">
               <strong>Chế độ nút</strong>
               <span class="radio-description"
-                >Hiển thị nút trước, nhấp để mở popup</span
+                >Hiển thị nút trước, nhấp để mở</span
               >
             </span>
           </label>
@@ -291,7 +291,7 @@
             <span class="selection-delay-label">
               <strong>Độ trễ bôi đen</strong>
               <span class="selection-delay-description"
-                >Thời gian chờ trước khi hiện popup sau khi bôi đen</span
+                >Thời gian chờ trước khi hiện và sau khi bôi đen</span
               >
             </span>
           </label>
@@ -310,7 +310,7 @@
   </div>
   {#if isPopupEnabled()}
   <div class="setting-item">
-    <h3>Vị trí Popup</h3>
+    <h3>Vị trí</h3>
     <div class="setting-controls position-radio-group">
       <label
         class="position-radio-card"
@@ -324,7 +324,7 @@
           class="custom-radio"
         />
         <span class="position-radio-text"
-          >Ngay tại văn bản đang chọn (Mặc định)</span
+          >Ngay tại văn bản đang chọn</span
         >
       </label>
 
@@ -340,7 +340,7 @@
           class="custom-radio"
         />
         <span class="position-radio-text"
-          >Tại vị trí kéo thả được ghi nhớ gần nhất</span
+          >Tại vị trí kéo thả gần đây nhất</span
         >
       </label>
 
@@ -352,7 +352,7 @@
           bind:group={positionMode}
           class="custom-radio"
         />
-        <span class="position-radio-text">Tại góc màn hình cố định</span>
+        <span class="position-radio-text">Cố định tại góc màn hình</span>
       </label>
     </div>
 
@@ -392,7 +392,7 @@
   </div>
 
   <div class="setting-item">
-    <h3>Độ mờ popup</h3>
+    <h3>Độ mờ</h3>
     <div class="setting-controls opacity-control">
       <div class="opacity-header">
         <div class="opacity-value" aria-live="polite">
