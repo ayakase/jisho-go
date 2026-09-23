@@ -14,16 +14,16 @@ type PopupMode = 'off' | 'immediate' | 'button';
 type HoverGrabMode = 'single-kanji' | 'paragraph';
 type SearchButtonSize = 'small' | 'medium' | 'big';
 type HoverParagraphSections = {
+  kanji: boolean;
   translate: boolean;
   vocab: boolean;
-  kanji: boolean;
 };
 const MAX_SELECTION_TEXT_LENGTH = 300;
 
 const DEFAULT_HOVER_PARAGRAPH_SECTIONS: HoverParagraphSections = {
+  kanji: true,
   translate: true,
   vocab: true,
-  kanji: false,
 };
 
 let popupContainer: HTMLElement | null = null; // Click/selection popup
@@ -57,9 +57,9 @@ function normalizeHoverParagraphSections(value: unknown): HoverParagraphSections
   }
   const raw = value as Partial<HoverParagraphSections>;
   return {
+    kanji: typeof raw.kanji === 'boolean' ? raw.kanji : DEFAULT_HOVER_PARAGRAPH_SECTIONS.kanji,
     translate: typeof raw.translate === 'boolean' ? raw.translate : DEFAULT_HOVER_PARAGRAPH_SECTIONS.translate,
     vocab: typeof raw.vocab === 'boolean' ? raw.vocab : DEFAULT_HOVER_PARAGRAPH_SECTIONS.vocab,
-    kanji: typeof raw.kanji === 'boolean' ? raw.kanji : DEFAULT_HOVER_PARAGRAPH_SECTIONS.kanji,
   };
 }
 
@@ -1433,19 +1433,31 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
     },
   });
 
-  // Stop clicks inside hover popup from propagating
+  // Stop clicks inside hover popup from selecting page text, but allow buttons/clickable elements
   const stopPropagation = (ev: Event) => {
+    const target = ev.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'BUTTON' ||
+        target.closest('button') ||
+        target.closest('.source-kanji-clickable, .kanji-chip, .source-match, a, input, select, textarea'))
+    ) {
+      return;
+    }
     ev.stopPropagation();
   };
   hoverPopupContainer.addEventListener('mousedown', stopPropagation, true);
   hoverPopupContainer.addEventListener('mouseup', stopPropagation, true);
-  hoverPopupContainer.addEventListener('click', stopPropagation, true);
 
   // Keep hover popup open when hovering over it
   hoverPopupContainer.addEventListener('mouseenter', () => {
     if (hoverTimeout !== null) {
       clearTimeout(hoverTimeout);
       hoverTimeout = null;
+    }
+    if (hoverLeaveTimeout !== null) {
+      clearTimeout(hoverLeaveTimeout);
+      hoverLeaveTimeout = null;
     }
   });
 }
@@ -1469,7 +1481,7 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
 
   // Popup dimensions
   const POPUP_WIDTH = 440; // Match CSS width in HoverParagraphPopup.svelte
-  const POPUP_MAX_HEIGHT = Math.min(440, window.innerHeight * 0.8);
+  const POPUP_MAX_HEIGHT = Math.min(520, window.innerHeight * 0.8);
   const GAP = 15; // Slightly larger gap for mouse positioning
   const PADDING = 12;
 
@@ -1504,19 +1516,31 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
     },
   });
 
-  // Stop clicks inside hover popup from propagating
+  // Stop clicks inside hover popup from selecting page text, but allow buttons/clickable elements
   const stopPropagation = (ev: Event) => {
+    const target = ev.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'BUTTON' ||
+        target.closest('button') ||
+        target.closest('.source-kanji-clickable, .kanji-chip, .source-match, a, input, select, textarea'))
+    ) {
+      return;
+    }
     ev.stopPropagation();
   };
   hoverPopupContainer.addEventListener('mousedown', stopPropagation, true);
   hoverPopupContainer.addEventListener('mouseup', stopPropagation, true);
-  hoverPopupContainer.addEventListener('click', stopPropagation, true);
 
   // Keep hover popup open when hovering over it
   hoverPopupContainer.addEventListener('mouseenter', () => {
     if (hoverTimeout !== null) {
       clearTimeout(hoverTimeout);
       hoverTimeout = null;
+    }
+    if (hoverLeaveTimeout !== null) {
+      clearTimeout(hoverLeaveTimeout);
+      hoverLeaveTimeout = null;
     }
   });
 }

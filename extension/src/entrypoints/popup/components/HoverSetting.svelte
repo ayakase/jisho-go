@@ -3,14 +3,14 @@
 
   type HoverGrabMode = "single-kanji" | "paragraph";
   type HoverParagraphSections = {
+    kanji: boolean;
     translate: boolean;
     vocab: boolean;
-    kanji: boolean;
   };
   const DEFAULT_HOVER_PARAGRAPH_SECTIONS: HoverParagraphSections = {
+    kanji: true,
     translate: true,
     vocab: true,
-    kanji: false,
   };
 
   let hoverMode = $state<boolean>(false);
@@ -26,6 +26,10 @@
     }
     const raw = value as Partial<HoverParagraphSections>;
     return {
+      kanji:
+        typeof raw.kanji === "boolean"
+          ? raw.kanji
+          : DEFAULT_HOVER_PARAGRAPH_SECTIONS.kanji,
       translate:
         typeof raw.translate === "boolean"
           ? raw.translate
@@ -34,10 +38,6 @@
         typeof raw.vocab === "boolean"
           ? raw.vocab
           : DEFAULT_HOVER_PARAGRAPH_SECTIONS.vocab,
-      kanji:
-        typeof raw.kanji === "boolean"
-          ? raw.kanji
-          : DEFAULT_HOVER_PARAGRAPH_SECTIONS.kanji,
     };
   }
 
@@ -212,6 +212,21 @@
             <label class="toggle-option">
               <input
                 type="checkbox"
+                checked={hoverParagraphSections.kanji}
+                onchange={(e) =>
+                  (hoverParagraphSections = {
+                    ...hoverParagraphSections,
+                    kanji: (e.target as HTMLInputElement).checked,
+                  })}
+              />
+              <span class="toggle-label">
+                <strong>Kanji</strong>
+                <span class="toggle-description">Hiển thị các kanji trong đoạn (bấm để xem chi tiết)</span>
+              </span>
+            </label>
+            <label class="toggle-option">
+              <input
+                type="checkbox"
                 checked={hoverParagraphSections.translate}
                 onchange={(e) =>
                   (hoverParagraphSections = {
@@ -237,21 +252,6 @@
               <span class="toggle-label">
                 <strong>Từ vựng</strong>
                 <span class="toggle-description">Hiển thị danh sách từ vựng rút gọn</span>
-              </span>
-            </label>
-            <label class="toggle-option">
-              <input
-                type="checkbox"
-                checked={hoverParagraphSections.kanji}
-                onchange={(e) =>
-                  (hoverParagraphSections = {
-                    ...hoverParagraphSections,
-                    kanji: (e.target as HTMLInputElement).checked,
-                  })}
-              />
-              <span class="toggle-label">
-                <strong>Kanji</strong>
-                <span class="toggle-description">Hiển thị các kanji chính trong đoạn</span>
               </span>
             </label>
           </div>
