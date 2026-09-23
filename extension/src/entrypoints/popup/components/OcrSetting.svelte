@@ -109,7 +109,7 @@
 
 <div class="settings-container">
   <div class="setting-item">
-    <h3>Scan bằng phím tắt</h3>
+    <h3>Phím tắt</h3>
     <div class="setting-controls">
       <button
         type="button"
@@ -121,14 +121,11 @@
         {:else if shortcut}
           {formatShortcut(shortcut)}
         {:else}
-          Chưa đặt phím tắt
+          Click để đặt phím tắt
         {/if}
       </button>
 
       {#if isRecording}
-        <div class="shortcut-hint">
-          Nhấn tổ hợp phím mong muốn rồi bấm Lưu. Bấm Esc để hủy.
-        </div>
         <div class="shortcut-actions">
           <button class="save-button" onclick={confirmRecording} disabled={!draft}
             >Lưu</button
@@ -177,6 +174,17 @@
           bấm phím tắt scan ảnh (chưa gán phím tắt)
         {/if}
         rồi di chuột lên ảnh và click để scan ảnh đó.
+      </div>
+      <div class="shortcut-hint">
+      <b>Lưu ý: </b>
+        <div>
+          - Tính năng click trực tiếp để scan ảnh có thể không hoạt động trên một số trang web, ví dụ
+          trang web dùng canvas để hiển thị ảnh. Tuy nhiên khoanh vùng ảnh bằng chuột vẫn hoạt động trên hầu hết các trang web.
+        </div>
+        <div>
+          - Do ảnh có nhiều kích cỡ khác nhau, <b> nên việc click và scan trực tiếp có thể sẽ không chính
+          xác bằng việc khoanh vùng ảnh bằng chuột. </b> Nếu việc chọn ảnh và scan ra kết quả không chính xác, hãy thử khoanh vùng ảnh bằng chuột.
+        </div>
       </div>
     </div>
   </div>

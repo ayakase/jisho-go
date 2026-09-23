@@ -60,13 +60,23 @@
     sourceRange,
     isTextTruncated = false,
     vertical = null,
+    onClose,
   }: {
     text: string;
     position: Position;
     sourceRange?: Range | null;
     isTextTruncated?: boolean;
     vertical?: VerticalRequest | null;
+    onClose?: () => void;
   } = $props();
+
+  function handleClose() {
+    if (onClose) {
+      onClose();
+    } else {
+      document.getElementById("jisho-go-selection-popup-container")?.remove();
+    }
+  }
 
   // `text` là đoạn đang được tra: mặc định là bản ngang, đổi sang bản dọc được khi
   // đã có kết quả. `verticalBusy` = đang đọc bản dọc (đọc trước, hoặc vừa bấm nút).
@@ -534,8 +544,9 @@
 
     const target = e.target as HTMLElement | null;
 
-    // Don't steal the interaction from form controls / buttons.
-    if (target?.closest("button, input, textarea, select, a, .source-match")) return;
+    // Don't steal the interaction from form controls / close button / other buttons (except drag button itself).
+    if (target?.closest("button.popup-btn-close, input, textarea, select, a, .source-match")) return;
+    if (target?.closest("button:not(.popup-btn-drag)")) return;
 
     e.stopPropagation();
     e.preventDefault();
@@ -543,7 +554,7 @@
     popupDragging = true;
     dragOffsetX = e.clientX - popupLeft;
     dragOffsetY = e.clientY - popupTop;
-    document.body.style.cursor = "move";
+    document.body.style.cursor = "grabbing";
     document.body.style.userSelect = "none";
 
     const onMove = (ev: PointerEvent) => {
@@ -889,22 +900,49 @@
   tabindex="-1"
   onkeydown={(event) => {
     if (event.key === "Escape") {
-      clearSourceSelection();
+      if (selectedKanjiWord || activeKanjiSource || selectedSourceMatch) {
+        clearSourceSelection();
+      } else {
+        handleClose();
+      }
     }
   }}
 >
-  <div
-    class="popup-drag-handle"
-    role="presentation"
-    aria-hidden="true"
-    title={positionMode === "static" ? undefined : "Kéo để di chuyển popup"}
-    onpointerdown={startDragPopup}
-  >
-    <span class="drag-grip" aria-hidden="true">
-      <span></span><span></span><span></span>
-      <span></span><span></span><span></span>
-    </span>
+  <div class="popup-top-dock">
+    <div class="popup-controls" role="toolbar" aria-label="Điều khiển popup">
+      <button
+        type="button"
+        class="popup-control-btn popup-btn-drag"
+        aria-label="Kéo để di chuyển"
+        title={positionMode === "static" ? undefined : "Kéo để di chuyển popup"}
+        onpointerdown={startDragPopup}
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 1L11 4H9V7H12V5L15 8L12 11V9H9V12H11L8 15L5 12H7V9H4V11L1 8L4 5V7H7V4H5L8 1Z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="popup-control-btn popup-btn-close"
+        aria-label="Đóng popup (ESC)"
+        title="Đóng (ESC)"
+        onclick={(e) => {
+          e.stopPropagation();
+          handleClose();
+        }}
+        onpointerdown={(e) => {
+          e.stopPropagation();
+        }}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+          <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" />
+          <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" />
+        </svg>
+      </button>
+    </div>
   </div>
+
+  <div class="popup-card">
   {#if loading}
     <div class="loading">Searching...</div>
   {:else if skipped}
@@ -1371,6 +1409,7 @@
       </div>
     </div>
   {/if}
+  </div>
 </div>
 
 <style>
@@ -1385,23 +1424,15 @@
     position: fixed;
     width: 700px;
     max-width: 90vw;
-    min-height: min(320px, 60vh);
-    max-height: min(600px, 80vh);
-    overflow: hidden;
-    overflow-x: hidden;
-    background: #ffffff;
-    color: #111827;
-    border-radius: 0.5rem;
+    max-height: min(624px, calc(80vh + 24px));
+    overflow: visible;
+    background: transparent;
     padding: 0;
     font-size: 14px;
     line-height: 1.4;
     text-align: left;
     letter-spacing: normal;
     word-spacing: normal;
-    box-shadow:
-      0 10px 15px -3px rgba(0, 0, 0, 0.1),
-      0 4px 6px -4px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e5e7eb;
     z-index: 2147483647;
     cursor: default;
     font-family:
@@ -1412,62 +1443,146 @@
       sans-serif;
     display: flex;
     flex-direction: column;
-  }
-
-  .popup-drag-handle {
-    flex: 0 0 0.8rem;
-    width: 100%;
-    background: #f3f4f6;
-    border-bottom: 1px solid #e5e7eb;
-    cursor: move;
-    touch-action: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.15s ease;
-  }
-
-  .popup-drag-handle:hover {
-    background: #e5e7eb;
-    cursor: move;
-  }
-
-  .popup-drag-handle:hover .drag-grip span {
-    background: #6b7280;
-  }
-
-  .drag-grip {
-    display: grid;
-    grid-template-columns: repeat(3, 0.22rem);
-    grid-template-rows: repeat(2, 0.22rem);
-    gap: 0.12rem 0.18rem;
     pointer-events: none;
   }
 
-  .drag-grip span {
-    width: 0.22rem;
-    height: 0.22rem;
-    border-radius: 50%;
-    background: #9ca3af;
-    transition: background-color 0.15s ease;
+  .popup-top-dock {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    height: 24px;
+    width: 100%;
+    background: transparent;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+
+  .popup-controls {
+    display: inline-flex;
+    align-items: stretch;
+    height: 24px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 6px;
+    overflow: hidden;
+    pointer-events: auto;
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.04);
+    margin-bottom: -1px;
+    z-index: 2;
+  }
+
+  .popup-control-btn {
+    width: 36px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    color: #6b7280;
+    transition: background-color 0.12s ease, color 0.12s ease;
+    user-select: none;
+    outline: none;
+  }
+
+  .popup-btn-drag {
+    cursor: grab;
+    border-right: 1px solid #e5e7eb;
+  }
+
+  .popup-btn-drag:hover {
+    background: #e5e7eb;
+    color: #111827;
+    cursor: grab;
+  }
+
+  .popup-btn-drag:active {
+    cursor: grabbing;
+    background: #d1d5db;
+  }
+
+  .popup-btn-close {
+    cursor: pointer;
+  }
+
+  .popup-btn-close:hover {
+    background: #e81123 !important;
+    color: #ffffff !important;
+  }
+
+  .popup-btn-close:active {
+    background: #c4101e !important;
+    color: #ffffff !important;
   }
 
   .popup.dragging,
   .popup.dragging * {
-    cursor: move !important;
+    cursor: grabbing !important;
     user-select: none !important;
   }
 
-  .popup.dragging .popup-drag-handle {
-    background: #e5e7eb;
-    cursor: move;
+  .popup.static-mode .popup-btn-drag {
+    cursor: default;
+    opacity: 0.35;
+    pointer-events: none;
   }
 
-  .popup.static-mode .popup-drag-handle {
-    cursor: default;
+  .popup-card {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: min(320px, 60vh);
+    max-height: min(600px, 80vh);
+    overflow: hidden;
+    overflow-x: hidden;
+    background: #ffffff;
+    color: #111827;
+    border-radius: 0.5rem;
+    border-top-right-radius: 0;
+    border: 1px solid #e5e7eb;
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    pointer-events: auto;
   }
 
   .popup.dark-mode {
+    color: #e5e7eb;
+  }
+
+  .popup.dark-mode .popup-controls {
+    background: #111827;
+    border-color: #374151;
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  .popup.dark-mode .popup-control-btn {
+    color: #9ca3af;
+  }
+
+  .popup.dark-mode .popup-btn-drag {
+    border-right-color: #374151;
+  }
+
+  .popup.dark-mode .popup-btn-drag:hover {
+    background: #374151;
+    color: #f3f4f6;
+  }
+
+  .popup.dark-mode .popup-btn-drag:active {
+    background: #4b5563;
+  }
+
+  .popup.dark-mode .popup-btn-close:hover {
+    background: #e81123 !important;
+    color: #ffffff !important;
+  }
+
+  .popup.dark-mode .popup-card {
     background: #111827;
     color: #e5e7eb;
     border-color: #374151;
@@ -1477,31 +1592,9 @@
   .popup.dark-mode .extracted-text-section,
   .popup.dark-mode .vocab-section,
   .popup.dark-mode .kanji-accordion-header,
-  .popup.dark-mode .kanji-accordion-content
-  /* .popup.dark-mode .explain-section */ {
+  .popup.dark-mode .kanji-accordion-content {
     background: #111827;
     color: #e5e7eb;
-  }
-
-  .popup.dark-mode .popup-drag-handle {
-    background: #1f2937;
-    border-bottom-color: #374151;
-  }
-
-  .popup.dark-mode .popup-drag-handle:hover {
-    background: #374151;
-  }
-
-  .popup.dark-mode .drag-grip span {
-    background: #9ca3af;
-  }
-
-  .popup.dark-mode .popup-drag-handle:hover .drag-grip span {
-    background: #d1d5db;
-  }
-
-  .popup.dark-mode.dragging .popup-drag-handle {
-    background: #374151;
   }
 
   .popup.dark-mode .extracted-text-section {

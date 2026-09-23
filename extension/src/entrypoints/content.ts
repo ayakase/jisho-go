@@ -1104,7 +1104,8 @@ function showPopupNear(
 
   // Popup dimensions (from CSS)
   const POPUP_MAX_WIDTH = 700;
-  const POPUP_MAX_HEIGHT = Math.min(600, window.innerHeight * 0.8); // 600px or 80vh, whichever is smaller
+  const POPUP_DOCK_HEIGHT = 24;
+  const POPUP_MAX_HEIGHT = Math.min(600, window.innerHeight * 0.8) + POPUP_DOCK_HEIGHT;
   const GAP = 8; // Gap between selection and popup
   const PADDING = 12; // Padding from viewport edges
 
@@ -1163,6 +1164,9 @@ function showPopupNear(
         left,
         top,
       },
+      onClose: () => {
+        removePopup();
+      },
     },
   }) as SelectionPopupHandle;
 
@@ -1174,7 +1178,7 @@ function showPopupNear(
     if (
       target.tagName === 'BUTTON' ||
       target.closest('button') ||
-      target.closest('.source-match, .source-kanji-clickable, .popup-drag-handle')
+      target.closest('.source-match, .source-kanji-clickable, .popup-btn-drag, .popup-btn-close')
     ) {
       return;
     }

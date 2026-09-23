@@ -462,6 +462,12 @@
     flex-direction: row;
     gap: 0.65rem;
     margin-top: 0;
+    width: 100%;
+  }
+
+  .popup-mode-options .radio-option {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .opacity-control {
