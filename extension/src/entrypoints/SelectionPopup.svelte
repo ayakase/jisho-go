@@ -543,6 +543,8 @@
     popupDragging = true;
     dragOffsetX = e.clientX - popupLeft;
     dragOffsetY = e.clientY - popupTop;
+    document.body.style.cursor = "move";
+    document.body.style.userSelect = "none";
 
     const onMove = (ev: PointerEvent) => {
       popupLeft = ev.clientX - dragOffsetX;
@@ -551,6 +553,8 @@
 
     const onUp = () => {
       popupDragging = false;
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
@@ -868,6 +872,7 @@
   id="jisho-go-selection-popup"
   class="popup {popupDragging ? 'dragging' : ''}"
   class:dark-mode={darkMode}
+  class:static-mode={positionMode === "static"}
   style={popupStyle}
   role="dialog"
   aria-label="Dictionary popup"
@@ -882,6 +887,7 @@
     class="popup-drag-handle"
     role="presentation"
     aria-hidden="true"
+    title={positionMode === "static" ? undefined : "Kéo để di chuyển popup"}
     onpointerdown={startDragPopup}
   >
     <span class="drag-grip" aria-hidden="true">
@@ -1356,15 +1362,25 @@
   }
 
   .popup-drag-handle {
-    flex: 0 0 0.7rem;
+    flex: 0 0 0.8rem;
     width: 100%;
     background: #f3f4f6;
     border-bottom: 1px solid #e5e7eb;
-    cursor: grab;
+    cursor: move;
     touch-action: none;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background-color 0.15s ease;
+  }
+
+  .popup-drag-handle:hover {
+    background: #e5e7eb;
+    cursor: move;
+  }
+
+  .popup-drag-handle:hover .drag-grip span {
+    background: #6b7280;
   }
 
   .drag-grip {
@@ -1380,10 +1396,22 @@
     height: 0.22rem;
     border-radius: 50%;
     background: #9ca3af;
+    transition: background-color 0.15s ease;
+  }
+
+  .popup.dragging,
+  .popup.dragging * {
+    cursor: move !important;
+    user-select: none !important;
   }
 
   .popup.dragging .popup-drag-handle {
-    cursor: grabbing;
+    background: #e5e7eb;
+    cursor: move;
+  }
+
+  .popup.static-mode .popup-drag-handle {
+    cursor: default;
   }
 
   .popup.dark-mode {
@@ -1407,8 +1435,20 @@
     border-bottom-color: #374151;
   }
 
+  .popup.dark-mode .popup-drag-handle:hover {
+    background: #374151;
+  }
+
   .popup.dark-mode .drag-grip span {
     background: #9ca3af;
+  }
+
+  .popup.dark-mode .popup-drag-handle:hover .drag-grip span {
+    background: #d1d5db;
+  }
+
+  .popup.dark-mode.dragging .popup-drag-handle {
+    background: #374151;
   }
 
   .popup.dark-mode .extracted-text-section {

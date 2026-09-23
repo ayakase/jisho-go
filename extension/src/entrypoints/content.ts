@@ -43,6 +43,7 @@ let blacklist: string[] = [];
 let popupOpacity = 1;
 let searchButtonSize: SearchButtonSize = 'medium';
 let suppressSelectionPopupUntil = 0;
+let suppressHoverPopupUntil = 0;
 let lastContextMenuImage: HTMLImageElement | null = null;
 let ocrShortcut: OcrShortcut | null = null;
 
@@ -456,6 +457,14 @@ export default defineContentScript({
     // Keyboard shortcut for the region-select OCR overlay
     document.addEventListener('keydown', handleOcrShortcutKeydown, true);
 
+    // Escape để đóng hover popup nếu đang mở
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && hoverPopupContainer) {
+        removeHoverPopup();
+        suppressHoverPopupUntil = Date.now() + 250;
+      }
+    }, true);
+
     // Watch blacklist changes so updates from the popup apply without reload
     storage.watch<unknown>('local:blacklist', (value) => {
       if (Array.isArray(value)) {
@@ -512,6 +521,20 @@ export default defineContentScript({
 
     // Show a small popup next to highlighted text on the page
     document.addEventListener('mousedown', (event) => {
+      // Bấm ra ngoài hover popup -> tắt ngay lập tức
+      if (hoverPopupContainer && !hoverPopupContainer.contains(event.target as Node)) {
+        removeHoverPopup();
+        suppressHoverPopupUntil = Date.now() + 250;
+        if (hoverTimeout !== null) {
+          clearTimeout(hoverTimeout);
+          hoverTimeout = null;
+        }
+        if (hoverLeaveTimeout !== null) {
+          clearTimeout(hoverLeaveTimeout);
+          hoverLeaveTimeout = null;
+        }
+      }
+
       if (
         (popupContainer && popupContainer.contains(event.target as Node)) ||
         (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
@@ -548,6 +571,7 @@ export default defineContentScript({
       if (isBlacklistedLocation()) {
         removePopup();
         removeButton();
+        removeHoverPopup();
         return;
       }
 
@@ -555,6 +579,7 @@ export default defineContentScript({
       if (popupMode === 'off') {
         removePopup();
         removeButton();
+        removeHoverPopup();
         return;
       }
 
@@ -564,6 +589,7 @@ export default defineContentScript({
         // If no text is selected, remove popup and button
         removePopup();
         removeButton();
+        removeHoverPopup();
         return;
       }
 
@@ -1351,6 +1377,10 @@ function setupHoverMode() {
         clearTimeout(hoverTimeout);
         hoverTimeout = null;
       }
+      return;
+    }
+
+    if (Date.now() < suppressHoverPopupUntil) {
       return;
     }
 
