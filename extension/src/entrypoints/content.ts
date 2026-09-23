@@ -1536,20 +1536,20 @@ function setupHoverMode() {
 
       if (hoverGrabMode === 'paragraph') {
         const textChunk = getTextChunkFromTarget(e.target);
-        
+
+        if (!textChunk || !hasJapaneseChars(textChunk)) {
+          removeHoverPopup();
+          return;
+        }
+
         // Skip reload if we're still hovering over the same content
-        if (textChunk && textChunk === lastHoveredText && hoverPopupContainer) {
+        if (textChunk === lastHoveredText && hoverPopupContainer) {
           return;
         }
 
         removeHoverPopup();
-        
-        if (textChunk) {
-          lastHoveredText = textChunk;
-          showHoverParagraphPopupNear(e.clientX, e.clientY, textChunk);
-        } else {
-          removeHoverPopup();
-        }
+        lastHoveredText = textChunk;
+        showHoverParagraphPopupNear(e.clientX, e.clientY, textChunk);
         return;
       }
 
