@@ -729,6 +729,16 @@
     return text;
   }
 
+  function getExampleCount(
+    examplesObj?: Record<string, Array<any>> | null
+  ): number {
+    if (!examplesObj) return 0;
+    return Object.values(examplesObj).reduce(
+      (sum, list) => sum + (Array.isArray(list) ? list.length : 0),
+      0
+    );
+  }
+
   // Search immediately when component is created (component is remounted each time)
   (async () => {
     if (text) {
@@ -1060,7 +1070,11 @@
           <div class="kanji-section">
             {#each getDisplayedKanjiResults() as kanjiEntry}
               {@const isExpanded = expandedKanjiWord === kanjiEntry.w}
-              <div class="kanji-accordion-item" data-kanji-word={kanjiEntry.w}>
+              <div
+                class="kanji-accordion-item"
+                class:kanji-selected={selectedKanjiWord === kanjiEntry.w}
+                data-kanji-word={kanjiEntry.w}
+              >
                 <button
                   class:kanji-selected={selectedKanjiWord === kanjiEntry.w}
                   class="kanji-accordion-header"
@@ -1108,7 +1122,10 @@
                 </button>
 
                 {#if isExpanded}
-                  <div class="kanji-accordion-content">
+                  <div
+                    class="kanji-accordion-content"
+                    class:kanji-selected={selectedKanjiWord === kanjiEntry.w}
+                  >
                   {#if kanjiEntry.detail}
                     <div class="detail-section">
                       <div class="popup-section-title">Chi tiết {kanjiEntry.w}</div>
@@ -1124,7 +1141,7 @@
 
                   {#if kanjiEntry.examples && kanjiEntry.examples.length > 0}
                     <div class="examples-section">
-                      <div class="popup-section-title">Từ vựng hay gặp</div>
+                      <div class="popup-section-title">Từ vựng hay gặp ({kanjiEntry.examples.length})</div>
                       <div class="examples-list">
                         {#each kanjiEntry.examples as example}
                           <div class="example-item">
@@ -1150,10 +1167,23 @@
                           toggleOnExamples(kanjiEntry.w);
                         }}
                       >
-                        <span class="popup-section-title">Từ vựng On</span>
-                        <span class="examples-collapse-icon" aria-hidden="true">
-                          {expandedOnKanjiWord === kanjiEntry.w ? "⌃" : "⌄"}
+                        <span class="popup-section-title">
+                          Từ vựng On ({getExampleCount(kanjiEntry.example_on)})
                         </span>
+                        <svg
+                          class="examples-collapse-icon"
+                          class:expanded={expandedOnKanjiWord === kanjiEntry.w}
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
                       </button>
                       {#if expandedOnKanjiWord === kanjiEntry.w}
                         <div class="examples-list">
@@ -1184,10 +1214,23 @@
                           toggleKunExamples(kanjiEntry.w);
                         }}
                       >
-                        <span class="popup-section-title">Từ vựng Kun</span>
-                        <span class="examples-collapse-icon" aria-hidden="true">
-                          {expandedKunKanjiWord === kanjiEntry.w ? "⌃" : "⌄"}
+                        <span class="popup-section-title">
+                          Từ vựng Kun ({getExampleCount(kanjiEntry.example_kun)})
                         </span>
+                        <svg
+                          class="examples-collapse-icon"
+                          class:expanded={expandedKunKanjiWord === kanjiEntry.w}
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
                       </button>
                       {#if expandedKunKanjiWord === kanjiEntry.w}
                         <div class="examples-list">
@@ -1515,9 +1558,28 @@
   }
 
   .popup.dark-mode .vocab-group:hover,
-  .popup.dark-mode .kanji-accordion-header:hover,
-  .popup.dark-mode .kanji-selected {
+  .popup.dark-mode .kanji-accordion-header:hover {
     background: #292524;
+  }
+
+  .popup.dark-mode .kanji-selected,
+  .popup.dark-mode .kanji-accordion-item.kanji-selected,
+  .popup.dark-mode .kanji-accordion-item.kanji-selected .kanji-accordion-header,
+  .popup.dark-mode .kanji-accordion-item.kanji-selected .kanji-accordion-content {
+    background: #292524 !important;
+  }
+
+  .popup.dark-mode .kanji-accordion-item.kanji-selected .kanji-accordion-header:hover {
+    background: #362f2d !important;
+  }
+
+  .popup.dark-mode .kanji-accordion-item.kanji-selected .kanji-accordion-content {
+    border-top-color: #44403c !important;
+  }
+
+  .popup.dark-mode .kanji-accordion-item.kanji-selected .example-item {
+    background: #1c1917 !important;
+    border-color: #44403c !important;
   }
 
   .popup.dark-mode .vocab-item {
@@ -1561,6 +1623,18 @@
 
   .popup.dark-mode .examples-collapse-header {
     color: #f3f4f6;
+  }
+
+  .popup.dark-mode .examples-collapse-header:hover {
+    color: #fca5a5;
+  }
+
+  .popup.dark-mode .examples-collapse-icon {
+    color: #9ca3af;
+  }
+
+  .popup.dark-mode .examples-collapse-header:hover .examples-collapse-icon {
+    color: #fca5a5;
   }
 
   .popup.dark-mode .example-item {
@@ -1847,8 +1921,28 @@
     background: #f9fafb;
   }
 
-  .kanji-selected {
-    background: #fff7ed;
+  .kanji-selected,
+  .kanji-accordion-item.kanji-selected,
+  .kanji-accordion-item.kanji-selected .kanji-accordion-header,
+  .kanji-accordion-item.kanji-selected .kanji-accordion-content {
+    background: #fffbeb !important;
+    background: #fffaf5 !important;
+  }
+
+  .kanji-accordion-item.kanji-selected .kanji-accordion-header:hover {
+    background: #fef3c7 !important;
+    background: #fff1e6 !important;
+  }
+
+  .kanji-accordion-item.kanji-selected .kanji-accordion-content {
+    border-top: 1px solid #fde68a !important;
+    border-top: 1px solid #fed7aa !important;
+  }
+
+  .kanji-accordion-item.kanji-selected .example-item {
+    background: #ffffff !important;
+    border-color: #fde68a !important;
+    border-color: #fed7aa !important;
   }
 
   .kanji-summary {
@@ -1968,7 +2062,7 @@
   }
 
   .examples-collapse-header {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     width: fit-content;
     gap: 0.35rem;
@@ -1978,6 +2072,7 @@
     color: #111827;
     cursor: pointer;
     text-align: left;
+    line-height: 1;
   }
 
   .examples-collapse-header:hover {
@@ -1990,15 +2085,24 @@
   }
 
   .examples-collapse-header .popup-section-title {
-    margin-bottom: 0 !important;
+    margin: 0 !important;
   }
 
   .examples-collapse-icon {
+    width: 13px;
+    height: 13px;
     color: #6b7280;
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
+    flex-shrink: 0;
+    transition: transform 0.18s ease;
+    display: inline-block;
+  }
+
+  .examples-collapse-icon.expanded {
+    transform: rotate(180deg);
+  }
+
+  .examples-collapse-header:hover .examples-collapse-icon {
+    color: #991b1b;
   }
 
   .examples-list {

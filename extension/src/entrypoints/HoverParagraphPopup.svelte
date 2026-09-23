@@ -124,6 +124,16 @@
     return textVal;
   }
 
+  function getExampleCount(
+    examplesObj?: Record<string, Array<{ w: string; m: string; p: string }>> | null
+  ): number {
+    if (!examplesObj) return 0;
+    return Object.values(examplesObj).reduce(
+      (sum, list) => sum + (Array.isArray(list) ? list.length : 0),
+      0
+    );
+  }
+
   function normalizeKanjiEntry(entry: any): DictEntry {
     return {
       w: entry.w,
@@ -380,7 +390,7 @@
 
             {#if selectedKanjiEntry.examples && selectedKanjiEntry.examples.length > 0}
               <div class="examples-section">
-                <div class="detail-subheading">Từ vựng hay gặp</div>
+                <div class="detail-subheading">Từ vựng hay gặp ({selectedKanjiEntry.examples.length})</div>
                 <div class="examples-list">
                   {#each selectedKanjiEntry.examples as example}
                     <div class="example-item">
@@ -403,8 +413,23 @@
                     expandedOn = !expandedOn;
                   }}
                 >
-                  <span class="detail-subheading">Từ vựng On</span>
-                  <span class="examples-collapse-icon">{expandedOn ? "⌃" : "⌄"}</span>
+                  <span class="detail-subheading">
+                    Từ vựng On ({getExampleCount(selectedKanjiEntry.example_on)})
+                  </span>
+                  <svg
+                    class="examples-collapse-icon"
+                    class:expanded={expandedOn}
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
                 </button>
                 {#if expandedOn}
                   <div class="examples-list">
@@ -432,8 +457,23 @@
                     expandedKun = !expandedKun;
                   }}
                 >
-                  <span class="detail-subheading">Từ vựng Kun</span>
-                  <span class="examples-collapse-icon">{expandedKun ? "⌃" : "⌄"}</span>
+                  <span class="detail-subheading">
+                    Từ vựng Kun ({getExampleCount(selectedKanjiEntry.example_kun)})
+                  </span>
+                  <svg
+                    class="examples-collapse-icon"
+                    class:expanded={expandedKun}
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
                 </button>
                 {#if expandedKun}
                   <div class="examples-list">
@@ -741,7 +781,7 @@
   }
 
   .examples-collapse-header {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     width: fit-content;
     gap: 0.35rem;
@@ -751,6 +791,7 @@
     color: #111827;
     cursor: pointer;
     text-align: left;
+    line-height: 1;
   }
 
   .examples-collapse-header:hover {
@@ -758,13 +799,24 @@
   }
 
   .examples-collapse-header .detail-subheading {
-    margin-bottom: 0;
+    margin: 0 !important;
   }
 
   .examples-collapse-icon {
+    width: 13px;
+    height: 13px;
     color: #6b7280;
-    font-size: 0.95rem;
-    font-weight: 700;
+    flex-shrink: 0;
+    transition: transform 0.18s ease;
+    display: inline-block;
+  }
+
+  .examples-collapse-icon.expanded {
+    transform: rotate(180deg);
+  }
+
+  .examples-collapse-header:hover .examples-collapse-icon {
+    color: #991b1b;
   }
 
   .examples-list {
@@ -981,6 +1033,10 @@
 
   .hover-paragraph-popup.dark-mode .examples-collapse-icon {
     color: #9ca3af;
+  }
+
+  .hover-paragraph-popup.dark-mode .examples-collapse-header:hover .examples-collapse-icon {
+    color: #fca5a5;
   }
 
   .hover-paragraph-popup.dark-mode .example-item {
