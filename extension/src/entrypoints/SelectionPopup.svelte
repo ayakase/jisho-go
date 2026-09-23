@@ -981,9 +981,9 @@
 
   <div class="popup-card">
   {#if loading}
-    <div class="loading">Searching...</div>
+    <div class="loading">Đang tra cứu...</div>
   {:else if skipped}
-    <div class="skipped">No Japanese characters found</div>
+    <div class="skipped">Không tìm thấy ký tự tiếng Nhật</div>
   {:else if error}
     <div class="error">{error}</div>
   {:else}

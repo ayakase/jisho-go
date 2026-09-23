@@ -16,8 +16,11 @@ export default defineConfig({
     }]
   }),
   manifest: {
-    name: 'Kanji Go - Tra Kanji siêu tốc',
-    description: 'Kanji Go - Tra Kanji siêu tốc',
+    name: 'Jisho Go - Tra tiếng Nhật siêu tốc',
+    description: 'Công cụ tra từ điển và Kanji tiếng Nhật tức thì: hỗ trợ bôi đen tra nhanh, hover chữ Hán và nhận diện chữ trong ảnh (OCR).',
+    action: {
+      default_title: 'Jisho Go - Tra tiếng Nhật siêu tốc',
+    },
     permissions: [
       "activeTab",
       "tabs",

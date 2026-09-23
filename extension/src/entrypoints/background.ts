@@ -118,22 +118,30 @@ export default defineBackground(() => {
   // listen for menu item clicks
   browser.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === "capture-selection" && tab?.id) {
-      browser.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => {
-          window.postMessage({ type: "START_SELECTION" }, "*");
-        },
-      });
+      browser.scripting
+        .executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            window.postMessage({ type: "START_SELECTION" }, "*");
+          },
+        })
+        .catch((err) => {
+          console.debug("Không thể thực thi script trong tab này:", err);
+        });
     }
 
     if (info.menuItemId === "ocr-image" && tab?.id) {
-      browser.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: (srcUrl) => {
-          window.postMessage({ type: "START_IMAGE_OCR", srcUrl }, "*");
-        },
-        args: [info.srcUrl],
-      });
+      browser.scripting
+        .executeScript({
+          target: { tabId: tab.id },
+          func: (srcUrl) => {
+            window.postMessage({ type: "START_IMAGE_OCR", srcUrl }, "*");
+          },
+          args: [info.srcUrl],
+        })
+        .catch((err) => {
+          console.debug("Không thể thực thi script trong tab này:", err);
+        });
     }
   });
 
@@ -253,6 +261,12 @@ export default defineBackground(() => {
         if (browser.runtime.lastError) {
           console.error("Background: Capture error:", browser.runtime.lastError);
           sendResponse({ error: browser.runtime.lastError.message });
+          return;
+        }
+
+        if (!dataUrl) {
+          console.error("Background: Capture dataUrl is empty");
+          sendResponse({ error: "Không thể lấy dữ liệu ảnh chụp màn hình" });
           return;
         }
 

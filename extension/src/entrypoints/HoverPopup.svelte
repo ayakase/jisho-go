@@ -127,7 +127,7 @@
     } else if (found) {
       kanjiResult = normalizeKanjiEntry(found as DictEntry);
     } else {
-      error = "Kanji not found";
+      error = "Không tìm thấy chữ Kanji này";
     }
 
     loading = false;
@@ -143,7 +143,7 @@
   aria-label="Kanji hover popup"
 >
   {#if loading}
-    <div class="loading">Loading...</div>
+    <div class="loading">Đang tải...</div>
   {:else if error}
     <div class="error">{error}</div>
   {:else if kanjiResult}

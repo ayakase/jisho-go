@@ -56,6 +56,40 @@ function isOcrActive(): boolean {
   );
 }
 
+function showNotice(message: string) {
+  const existing = document.getElementById("jisho-go-notice");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "jisho-go-notice";
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #18181b;
+    color: #f4f4f5;
+    border: 1px solid #3f3f46;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    z-index: 2147483647;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  `;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+  });
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 250);
+  }, 2500);
+}
+
 function clampPopupOpacity(val: number): number {
   if (Number.isNaN(val)) return 1;
   return Math.max(0.1, Math.min(1, val));
@@ -419,11 +453,11 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
       }
     } else if (response && response.error) {
       console.error("Capture error from background:", response.error);
-      alert("Failed to capture: " + response.error);
+      showNotice("Không thể chụp ảnh màn hình vùng đã chọn.");
     }
   } catch (error) {
     console.error("Content: OCR failed:", error);
-    alert("Error capturing screenshot: " + error);
+    showNotice("Lỗi khi quét ảnh màn hình.");
   } finally {
     if (requestId === ocrRequestId) {
       isOcrScanning = false;
@@ -1825,11 +1859,11 @@ function startSelectionOcr() {
   banner.innerHTML = `
     <img
       src="${iconUrl}"
-      alt="Kanji Go"
+      alt="Jisho Go"
       style="width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0; display: block;"
     />
     <div style="display: flex; align-items: baseline; gap: 6px; font-size: 13px;">
-      <span style="font-weight: 700; color: #f87171; letter-spacing: 0.01em;">Kanji Go</span>
+      <span style="font-weight: 700; color: #f87171; letter-spacing: 0.01em;">Jisho Go</span>
       <span style="font-size: 10px; color: #71717a;">•</span>
       <span style="color: #f4f4f5; font-weight: 500;">Scan ảnh</span>
     </div>
@@ -2022,7 +2056,7 @@ window.addEventListener("message", (event) => {
     closeAllPopups();
     const image = getImageFromContextMenu(event.data.srcUrl);
     if (!image) {
-      alert("Không tìm thấy ảnh để scan.");
+      showNotice("Không tìm thấy ảnh để scan.");
       return;
     }
 
