@@ -154,7 +154,7 @@
       </div>
       {#if kanjiResult.detail}
         <div class="detail-section">
-          <div class="section-title">Chi tiết</div>
+          <div class="kanji-section-title">Chi tiết</div>
           <div class="detail-text">
             {#each kanjiResult.detail.split("##") as paragraph}
               {#if paragraph.trim()}
@@ -182,7 +182,7 @@
 
       {#if kanjiResult.example_kun}
         <div class="examples-section">
-          <div class="section-title">Từ vựng (Kun)</div>
+          <div class="kanji-section-title">Từ vựng (Kun)</div>
           <div class="examples-list">
             {#each Object.entries(kanjiResult.example_kun) as [reading, examples]}
               {#each examples as example}
@@ -201,7 +201,7 @@
 
       {#if kanjiResult.example_on}
         <div class="examples-section">
-          <div class="section-title">Từ vựng (On)</div>
+          <div class="kanji-section-title">Từ vựng (On)</div>
           <div class="examples-list">
             {#each Object.entries(kanjiResult.example_on) as [reading, examples]}
               {#each examples as example}
@@ -220,7 +220,7 @@
 
       {#if kanjiResult.examples && kanjiResult.examples.length > 0}
         <div class="examples-section">
-          <div class="section-title">Từ vựng</div>
+          <div class="kanji-section-title">Từ vựng</div>
           <div class="examples-list">
             {#each kanjiResult.examples as example}
               <div class="example-item">
@@ -239,6 +239,13 @@
 </div>
 
 <style>
+  .hover-popup,
+  .hover-popup *,
+  .hover-popup *::before,
+  .hover-popup *::after {
+    box-sizing: border-box;
+  }
+
   .hover-popup {
     position: fixed;
     width: 500px;
@@ -252,6 +259,9 @@
     padding: 1rem;
     font-size: 14px;
     line-height: 1.4;
+    text-align: left;
+    letter-spacing: normal;
+    word-spacing: normal;
     box-shadow:
       0 10px 15px -3px rgba(0, 0, 0, 0.1),
       0 4px 6px -4px rgba(0, 0, 0, 0.1);
@@ -320,13 +330,15 @@
     margin-top: 0.5rem;
   }
 
-  .section-title {
-    font-weight: 600;
-    color: #111827;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .kanji-section-title {
+    margin: 0 0 0.5rem 0 !important;
+    padding: 0 !important;
+    font-weight: 600 !important;
+    color: #111827 !important;
+    font-size: 0.9rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    line-height: 1.3 !important;
   }
 
   .detail-text {
@@ -336,11 +348,13 @@
   }
 
   .detail-text p {
-    margin-bottom: 0.5rem;
+    margin: 0 0 0.5rem 0 !important;
+    padding: 0 !important;
+    line-height: 1.5 !important;
   }
 
   .detail-text p:last-child {
-    margin-bottom: 0;
+    margin-bottom: 0 !important;
   }
 
   .examples-list {
@@ -401,8 +415,8 @@
     color: #9ca3af;
   }
 
-  .hover-popup.dark-mode .section-title {
-    color: #f3f4f6;
+  .hover-popup.dark-mode .kanji-section-title {
+    color: #f3f4f6 !important;
   }
 
   .hover-popup.dark-mode .detail-text,

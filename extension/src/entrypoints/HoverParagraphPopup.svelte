@@ -291,8 +291,8 @@
   </div>
 
   {#if sections.translate}
-    <div class="section">
-      <div class="section-title">Dịch nhanh</div>
+    <div class="hp-section">
+      <div class="hp-section-title">Dịch nhanh</div>
       {#if translateLoading}
         <div class="muted">Đang dịch...</div>
       {:else if translatedText}
@@ -304,8 +304,8 @@
   {/if}
 
   {#if sections.kanji}
-    <div class="section kanji-section">
-      <div class="section-title">
+    <div class="hp-section kanji-section">
+      <div class="hp-section-title">
         Kanji {#if kanjiResults.length > 0}({kanjiResults.length}){/if}
       </div>
 
@@ -458,22 +458,9 @@
     </div>
   {/if}
 
-  {#if sections.translate}
-    <div class="section">
-      <div class="section-title">Dịch nhanh</div>
-      {#if translateLoading}
-        <div class="muted">Đang dịch...</div>
-      {:else if translatedText}
-        <div class="translated-text">{translatedText}</div>
-      {:else if translateError}
-        <div class="error-text">{translateError}</div>
-      {/if}
-    </div>
-  {/if}
-
   {#if sections.vocab}
-    <div class="section">
-      <div class="section-title">
+    <div class="hp-section">
+      <div class="hp-section-title">
         Từ vựng {#if vocabResults.length > 0}({vocabResults.length}){/if}
       </div>
       {#if dictLoading}
@@ -502,6 +489,13 @@
 </div>
 
 <style>
+  .hover-paragraph-popup,
+  .hover-paragraph-popup *,
+  .hover-paragraph-popup *::before,
+  .hover-paragraph-popup *::after {
+    box-sizing: border-box;
+  }
+
   .hover-paragraph-popup {
     position: fixed;
     width: 440px;
@@ -515,6 +509,9 @@
     padding: 0.75rem;
     font-size: 13px;
     line-height: 1.4;
+    text-align: left;
+    letter-spacing: normal;
+    word-spacing: normal;
     box-shadow:
       0 10px 15px -3px rgba(0, 0, 0, 0.1),
       0 4px 6px -4px rgba(0, 0, 0, 0.1);
@@ -559,19 +556,24 @@
     border-radius: 0.2rem;
   }
 
-  .section {
-    margin-top: 0.55rem;
-    border-top: 1px dashed #e5e7eb;
-    padding-top: 0.5rem;
+  .hp-section {
+    margin: 0.55rem 0 0 0 !important;
+    border-top: 1px dashed #e5e7eb !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    padding: 0.5rem 0 0 0 !important;
   }
 
-  .section-title {
-    font-size: 0.74rem;
-    font-weight: 700;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.35rem;
+  .hp-section-title {
+    margin: 0 0 0.35rem 0 !important;
+    padding: 0 !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    color: #6b7280 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    line-height: 1.3 !important;
   }
 
   .kanji-chips-row {
@@ -708,12 +710,14 @@
   }
 
   .detail-subheading {
-    font-size: 0.74rem;
-    font-weight: 700;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.25rem;
+    margin: 0 0 0.25rem 0 !important;
+    padding: 0 !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    color: #6b7280 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    line-height: 1.3 !important;
   }
 
   .detail-text {
@@ -723,7 +727,8 @@
   }
 
   .detail-text p {
-    margin: 0 0 0.3rem;
+    margin: 0 0 0.3rem 0 !important;
+    padding: 0 !important;
   }
 
   .detail-text p:last-child {
@@ -885,12 +890,12 @@
     box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
   }
 
-  .hover-paragraph-popup.dark-mode .section {
-    border-top-color: #374151;
+  .hover-paragraph-popup.dark-mode .hp-section {
+    border-top-color: #374151 !important;
   }
 
-  .hover-paragraph-popup.dark-mode .section-title {
-    color: #9ca3af;
+  .hover-paragraph-popup.dark-mode .hp-section-title {
+    color: #9ca3af !important;
   }
 
   .hover-paragraph-popup.dark-mode .kanji-chip {

@@ -1111,7 +1111,7 @@
                   <div class="kanji-accordion-content">
                   {#if kanjiEntry.detail}
                     <div class="detail-section">
-                      <div class="section-title">Chi tiết {kanjiEntry.w}</div>
+                      <div class="popup-section-title">Chi tiết {kanjiEntry.w}</div>
                       <div class="detail-text">
                         {#each kanjiEntry.detail.split("##") as paragraph}
                           {#if paragraph.trim()}
@@ -1124,7 +1124,7 @@
 
                   {#if kanjiEntry.examples && kanjiEntry.examples.length > 0}
                     <div class="examples-section">
-                      <div class="section-title">Từ vựng hay gặp</div>
+                      <div class="popup-section-title">Từ vựng hay gặp</div>
                       <div class="examples-list">
                         {#each kanjiEntry.examples as example}
                           <div class="example-item">
@@ -1150,7 +1150,7 @@
                           toggleOnExamples(kanjiEntry.w);
                         }}
                       >
-                        <span class="section-title">Từ vựng On</span>
+                        <span class="popup-section-title">Từ vựng On</span>
                         <span class="examples-collapse-icon" aria-hidden="true">
                           {expandedOnKanjiWord === kanjiEntry.w ? "⌃" : "⌄"}
                         </span>
@@ -1184,7 +1184,7 @@
                           toggleKunExamples(kanjiEntry.w);
                         }}
                       >
-                        <span class="section-title">Từ vựng Kun</span>
+                        <span class="popup-section-title">Từ vựng Kun</span>
                         <span class="examples-collapse-icon" aria-hidden="true">
                           {expandedKunKanjiWord === kanjiEntry.w ? "⌃" : "⌄"}
                         </span>
@@ -1229,7 +1229,7 @@
               explainPayload.grammar.length > 0}
             {#if explainPayload.sentence_hiragana?.trim() || explainPayload.sentence_meaning_vi?.trim()}
               <div class="explain-block explain-sentence-block">
-                <div class="section-title">Nghĩa cả câu / đoạn chọn</div>
+                <div class="popup-section-title">Nghĩa cả câu / đoạn chọn</div>
                 {#if explainPayload.sentence_hiragana?.trim()}
                   <div class="ev-hiragana-line sentence-hiragana">
                     <span class="ev-label">Hiragana</span>
@@ -1247,13 +1247,13 @@
             {/if}
             {#if explainPayload.notes?.trim()}
               <div class="explain-block explain-notes-block">
-                <div class="section-title">Ghi chú</div>
+                <div class="popup-section-title">Ghi chú</div>
                 <div class="explain-notes-text">{explainPayload.notes}</div>
               </div>
             {/if}
             {#if explainPayload.vocabularies.length > 0}
               <div class="explain-block">
-                <div class="section-title">Từ vựng</div>
+                <div class="popup-section-title">Từ vựng</div>
                 <ul class="explain-vocab-list">
                   {#each explainPayload.vocabularies as item}
                     {@const hira =
@@ -1278,7 +1278,7 @@
             {/if}
             {#if explainPayload.grammar.length > 0}
               <div class="explain-block">
-                <div class="section-title">Ngữ pháp</div>
+                <div class="popup-section-title">Ngữ pháp</div>
                 <ul class="explain-grammar-list">
                   {#each explainPayload.grammar as g}
                     <li class="explain-grammar-item">
@@ -1331,6 +1331,13 @@
 </div>
 
 <style>
+  .popup,
+  .popup *,
+  .popup *::before,
+  .popup *::after {
+    box-sizing: border-box;
+  }
+
   .popup {
     position: fixed;
     width: 700px;
@@ -1345,6 +1352,9 @@
     padding: 0;
     font-size: 14px;
     line-height: 1.4;
+    text-align: left;
+    letter-spacing: normal;
+    word-spacing: normal;
     box-shadow:
       0 10px 15px -3px rgba(0, 0, 0, 0.1),
       0 4px 6px -4px rgba(0, 0, 0, 0.1);
@@ -1520,7 +1530,7 @@
   .popup.dark-mode .kanji-reading-summary,
   .popup.dark-mode .kanji-detail-summary,
   .popup.dark-mode .meta-item,
-  .popup.dark-mode .section-title,
+  .popup.dark-mode .popup-section-title,
   .popup.dark-mode .example-word,
   .popup.dark-mode .example-mean,
   .popup.dark-mode .detail-text,
@@ -1979,8 +1989,8 @@
     outline-offset: 2px;
   }
 
-  .examples-collapse-header .section-title {
-    margin-bottom: 0;
+  .examples-collapse-header .popup-section-title {
+    margin-bottom: 0 !important;
   }
 
   .examples-collapse-icon {
@@ -2021,13 +2031,15 @@
     color: #374151;
   }
 
-  .section-title {
-    font-weight: 600;
-    color: #111827;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .popup-section-title {
+    margin: 0 0 0.5rem 0 !important;
+    padding: 0 !important;
+    font-weight: 600 !important;
+    color: #111827 !important;
+    font-size: 0.9rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    line-height: 1.3 !important;
   }
 
   .no-results {
