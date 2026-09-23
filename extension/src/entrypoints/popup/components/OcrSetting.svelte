@@ -170,9 +170,13 @@
     <h3>Scan ảnh (Thử nghiệm, có thể lỗi)</h3>
     <div class="setting-controls">
       <div class="shortcut-hint">
-        Chuột phải vào ảnh rồi chọn “Scan ảnh này”, hoặc bấm phím tắt scan ảnh {formatShortcut(SUGGESTED_OCR_SHORTCUT)} rồi di
-        chuột lên ảnh, và click để scan.
-        ảnh đó.
+        Chuột phải vào ảnh rồi chọn “Scan ảnh này”, hoặc
+        {#if shortcut}
+          bấm phím tắt scan ảnh <kbd class="shortcut-kbd">{formatShortcut(shortcut)}</kbd>
+        {:else}
+          bấm phím tắt scan ảnh (chưa gán phím tắt)
+        {/if}
+        rồi di chuột lên ảnh và click để scan ảnh đó.
       </div>
     </div>
   </div>

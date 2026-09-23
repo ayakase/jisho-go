@@ -167,7 +167,7 @@
             <span class="radio-label">
               <strong>Từng kanji</strong>
               <span class="radio-description"
-                >Di chuột vào 1 kanji để hiện popup</span
+                >Di chuột vào từng kanji</span
               >
             </span>
           </label>
@@ -182,7 +182,7 @@
             <span class="radio-label">
               <strong>Cả đoạn</strong>
               <span class="radio-description"
-                >Lấy toàn bộ đoạn văn đang trỏ và hiện popup</span
+                >Lấy toàn bộ đoạn văn đang trỏ</span
               >
             </span>
           </label>

@@ -40,6 +40,7 @@ export default defineConfig({
     web_accessible_resources: [
       {
         resources: [
+          "icon/*",
           "tesseract/worker.min.js",
           "tesseract/tesseract-core.wasm",
           "tesseract/tesseract-core.wasm.js",

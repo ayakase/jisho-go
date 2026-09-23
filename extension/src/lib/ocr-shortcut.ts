@@ -81,8 +81,8 @@ function isMacPlatform(): boolean {
   return /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 }
 
-export function formatShortcut(shortcut: OcrShortcut): string {
-  if (!shortcut.code) return "";
+export function formatShortcut(shortcut?: OcrShortcut | null): string {
+  if (!shortcut || !shortcut.code) return "";
   const mac = isMacPlatform();
   const parts: string[] = [];
   if (shortcut.ctrl) parts.push("Ctrl");
@@ -93,8 +93,8 @@ export function formatShortcut(shortcut: OcrShortcut): string {
   return parts.join(" + ");
 }
 
-export function isValidShortcut(shortcut: OcrShortcut): boolean {
-  if (!shortcut.code || isModifierCode(shortcut.code)) return false;
+export function isValidShortcut(shortcut?: OcrShortcut | null): boolean {
+  if (!shortcut || !shortcut.code || isModifierCode(shortcut.code)) return false;
   if (shortcut.ctrl || shortcut.alt || shortcut.meta) return true;
   return FUNCTION_KEY.test(shortcut.code);
 }

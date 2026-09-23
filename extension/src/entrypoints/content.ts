@@ -329,6 +329,16 @@ function readVertical(blob: Blob, requestId: number): Promise<string | null> {
   });
 }
 
+function waitForCleanPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 20);
+      });
+    });
+  });
+}
+
 async function runOcrFromBounds(rectBounds: DOMRect) {
   if (rectBounds.width <= 0 || rectBounds.height <= 0) {
     return;
@@ -337,6 +347,9 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
   const requestId = ++ocrRequestId;
 
   try {
+    // Chờ trình duyệt repaint sạch hoàn toàn mọi UI / overlay trước khi chụp ảnh
+    await waitForCleanPaint();
+
     const response = await browser.runtime.sendMessage({
       type: "CAPTURE_SCREENSHOT",
       bounds: {
@@ -852,6 +865,7 @@ function removeButton() {
 
 function removeSelectionOverlay() {
   if (selectionOverlay) {
+    selectionOverlay.style.display = 'none';
     selectionOverlay.remove();
     selectionOverlay = null;
   }
@@ -1667,12 +1681,98 @@ function startSelectionOcr() {
   highlight.style.display = "none";
   overlay.appendChild(highlight);
 
+  // Banner hiển thị logo và hướng dẫn ở trên cùng màn hình
+  const banner = document.createElement("div");
+  banner.id = "jisho-go-ocr-banner";
+  banner.style.position = "fixed";
+  banner.style.top = "18px";
+  banner.style.left = "50%";
+  banner.style.transform = "translateX(-50%)";
+  banner.style.display = "flex";
+  banner.style.alignItems = "center";
+  banner.style.gap = "10px";
+  banner.style.padding = "6px 12px 6px 8px";
+  banner.style.background = "rgba(18, 18, 22, 0.92)";
+  banner.style.backdropFilter = "blur(12px)";
+  banner.style.setProperty("-webkit-backdrop-filter", "blur(12px)");
+  banner.style.border = "1px solid rgba(255, 255, 255, 0.16)";
+  banner.style.borderRadius = "9999px";
+  banner.style.boxShadow = "0 8px 24px -4px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)";
+  banner.style.color = "#ffffff";
+  banner.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  banner.style.fontSize = "13px";
+  banner.style.lineHeight = "1.3";
+  banner.style.userSelect = "none";
+  banner.style.webkitUserSelect = "none";
+  banner.style.cursor = "default";
+  banner.style.zIndex = "10";
+  banner.style.pointerEvents = "auto";
+
+  const iconUrl = browser.runtime.getURL("/icon/32.png");
+
+  banner.innerHTML = `
+    <img
+      src="${iconUrl}"
+      alt="Kanji Go"
+      style="width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0; display: block;"
+    />
+    <div style="display: flex; align-items: baseline; gap: 6px; font-size: 13px;">
+      <span style="font-weight: 700; color: #f87171; letter-spacing: 0.01em;">Kanji Go</span>
+      <span style="font-size: 10px; color: #71717a;">•</span>
+      <span style="color: #f4f4f5; font-weight: 500;">Scan ảnh</span>
+    </div>
+    <div style="width: 1px; height: 14px; background: rgba(255, 255, 255, 0.15); margin: 0 2px;"></div>
+    <div style="font-size: 12px; color: #d4d4d8; display: flex; align-items: center; gap: 8px;">
+      Kéo chuột khoanh vùng hoặc click vào ảnh, ESC để hủy
+    </div>
+    <button
+      type="button"
+      id="jisho-go-ocr-banner-close"
+      title="Hủy scan (ESC)"
+      style="background: transparent; border: none; color: #a1a1aa; cursor: pointer; padding: 2px 6px; margin-left: 2px; border-radius: 50%; font-size: 13px; line-height: 1; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center;"
+    >✕</button>
+  `;
+
+  // Ngăn chặn sự kiện click/mousedown từ banner lan ra overlay tạo khung quét nhầm
+  banner.addEventListener("mousedown", (ev) => ev.stopPropagation());
+  banner.addEventListener("mouseup", (ev) => ev.stopPropagation());
+  banner.addEventListener("click", (ev) => ev.stopPropagation());
+
+  const closeBtn = banner.querySelector("#jisho-go-ocr-banner-close") as HTMLButtonElement | null;
+  if (closeBtn) {
+    closeBtn.onmouseenter = () => {
+      closeBtn.style.color = "#ffffff";
+      closeBtn.style.backgroundColor = "rgba(255, 255, 255, 0.16)";
+    };
+    closeBtn.onmouseleave = () => {
+      closeBtn.style.color = "#a1a1aa";
+      closeBtn.style.backgroundColor = "transparent";
+    };
+    closeBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      removeOverlay();
+    };
+  }
+
+  overlay.appendChild(banner);
+
   let startX = 0, startY = 0, downX = 0, downY = 0;
   let rect: HTMLDivElement | null = null;
   let isDrawing = false;
   let hoveredImage: HTMLImageElement | null = null;
 
+  const handleKeyDown = (ev: KeyboardEvent) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      removeOverlay();
+    }
+  };
+  window.addEventListener("keydown", handleKeyDown, true);
+
   const removeOverlay = () => {
+    overlay.style.display = "none";
+    window.removeEventListener("keydown", handleKeyDown, true);
     if (selectionOverlay === overlay) {
       removeSelectionOverlay();
     } else {
@@ -1704,6 +1804,9 @@ function startSelectionOcr() {
     startY = e.clientY;
     downX = e.clientX;
     downY = e.clientY;
+
+    // Ẩn banner hướng dẫn khi đang kéo để không che khuất chữ/vùng chọn bên dưới
+    banner.style.display = "none";
 
     // Chốt ảnh ngay tại điểm bấm (không phụ thuộc lần mousemove trước đó) để
     // biết đây là click vào ảnh hay kéo khoanh vùng.
@@ -1777,8 +1880,10 @@ function startSelectionOcr() {
     // Remove overlay immediately to prevent blocking
     removeOverlay();
 
-    // Capture the selected area
-    await runOcrFromBounds(rectBounds);
+    if (rectBounds.width > 2 && rectBounds.height > 2) {
+      // Capture the selected area
+      await runOcrFromBounds(rectBounds);
+    }
   };
 }
 
