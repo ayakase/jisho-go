@@ -289,7 +289,7 @@
         <div class="selection-delay-setting">
           <label class="selection-delay-option" for="selection-delay-ms">
             <span class="selection-delay-label">
-              <strong>Độ trễ bôi đen</strong>
+              <strong>Độ trễ hiển thị</strong>
               <span class="selection-delay-description"
                 >Thời gian chờ trước khi hiện và sau khi bôi đen</span
               >
