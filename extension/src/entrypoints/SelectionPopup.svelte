@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { searchSelectionDicts } from "../lib/dict-loaders";
   import { storage } from "#imports";
   // import { getStoredSession } from "../lib/auth";
@@ -48,37 +48,46 @@
     reading: string;
     entries: VocabEntry[];
   };
+  // Yêu cầu đọc bản chữ dọc do content script truyền vào cho kết quả OCR.
+  type VerticalRequest = {
+    pending: boolean;
+    request: () => Promise<string | null>;
+  };
+
   let {
     text: initialText,
     position,
     sourceRange,
     isTextTruncated = false,
-    hasVertical = false,
+    vertical = null,
   }: {
     text: string;
     position: Position;
     sourceRange?: Range | null;
     isTextTruncated?: boolean;
-    hasVertical?: boolean;
+    vertical?: VerticalRequest | null;
   } = $props();
 
-  // `text` là đoạn đang được tra: mặc định là bản ngang, đổi sang bản dọc được
-  // khi lượt OCR chữ dọc chạy nền xong.
+  // `text` là đoạn đang được tra: mặc định là bản ngang, đổi sang bản dọc được khi
+  // đã có kết quả. `verticalBusy` = đang đọc bản dọc (đọc trước, hoặc vừa bấm nút).
   let verticalText = $state<string | null>(null);
+  let verticalBusy = $state(untrack(() => vertical?.pending ?? false));
   let activeSource = $state<"horizontal" | "vertical">("horizontal");
   let text = $derived(
     activeSource === "vertical" && verticalText ? verticalText : initialText
   );
 
-  export function setVerticalText(value: string) {
-    verticalText = value;
+  // Content script gọi khi đọc xong bản dọc. null = đọc không ra, chỉ tắt trạng
+  // thái đang đọc để nút bấm lại được.
+  export function setVerticalText(value: string | null) {
+    verticalBusy = false;
+    if (value) verticalText = value;
   }
 
-  function selectSource(source: "horizontal" | "vertical") {
-    if (source === activeSource) return;
-    if (source === "vertical" && !verticalText) return;
+  function applySource(source: "horizontal" | "vertical") {
+    const next = source === "vertical" ? verticalText : initialText;
+    if (!next) return;
 
-    const next = source === "vertical" ? verticalText! : initialText;
     activeSource = source;
 
     // Kết quả cũ không còn ứng với đoạn đang tra nữa.
@@ -92,6 +101,29 @@
 
     void translateSelectedText(next);
     void search(next);
+  }
+
+  function selectSource(source: "horizontal" | "vertical") {
+    if (source === activeSource) return;
+
+    if (source === "horizontal" || verticalText) {
+      applySource(source);
+      return;
+    }
+
+    // Chưa có bản dọc (vùng rộng hơn cao thì content script không đọc trước) nên
+    // đọc ngay lúc bấm.
+    if (!vertical || verticalBusy) return;
+
+    verticalBusy = true;
+    void (async () => {
+      const verticalResult = await vertical.request();
+      verticalBusy = false;
+      if (verticalResult) {
+        verticalText = verticalResult;
+        applySource("vertical");
+      }
+    })();
   }
 
   let kanjiResults: DictEntry[] = $state([]);
@@ -421,8 +453,10 @@
   }
 
   // Drag the whole popup (fixed-position panel).
-  let popupLeft = $state(position.left);
-  let popupTop = $state(position.top);
+  // `position` chỉ dùng làm giá trị khởi tạo: component được mount lại mỗi lần
+  // bôi đen nên không cần đồng bộ theo prop, sau đó popup tự quản lý vị trí.
+  let popupLeft = $state(untrack(() => position.left));
+  let popupTop = $state(untrack(() => position.top));
   let popupDragging = $state(false);
   let dragOffsetX = 0;
   let dragOffsetY = 0;
@@ -935,7 +969,7 @@
           </div>
         </div>
       </div>
-      {#if hasVertical}
+      {#if vertical}
         <div class="source-switch">
           <span class="source-switch-label">Bản đọc</span>
           <button
@@ -948,13 +982,13 @@
           <button
             type="button"
             class="tab {activeSource === 'vertical' ? 'active' : ''}"
-            disabled={!verticalText}
-            title={verticalText
-              ? "Xem bản đọc chữ dọc"
-              : "Đang đọc lại theo chiều dọc…"}
+            disabled={verticalBusy}
+            title={verticalBusy
+              ? "Đang đọc lại theo chiều dọc…"
+              : "Xem bản đọc chữ dọc"}
             onclick={() => selectSource("vertical")}
           >
-            {verticalText ? "Dọc" : "Dọc…"}
+            {verticalBusy ? "Dọc…" : "Dọc"}
           </button>
         </div>
       {/if}

@@ -77,8 +77,17 @@ let ocrDarkMode = false;
 let ocrRequestId = 0;
 let selectionOverlay: HTMLDivElement | null = null;
 
-type SelectionPopupHandle = { setVerticalText: (text: string) => void };
+type SelectionPopupHandle = {
+  setVerticalText: (text: string | null) => void;
+};
 let selectionPopupInstance: SelectionPopupHandle | null = null;
+
+// Yêu cầu đọc bản chữ dọc cho popup: `pending` = content script đang đọc trước,
+// `request()` = đọc khi người dùng bấm nút (vùng rộng hơn cao thì không đọc trước).
+type VerticalRequest = {
+  pending: boolean;
+  request: () => Promise<string | null>;
+};
 
 const OCR_SCAN_FADE_MS = 220;
 const OCR_SCAN_LINE_H = 5;
@@ -299,26 +308,24 @@ function hasJapaneseText(text: string): boolean {
   return /[\u3040-\u30FF\u4E00-\u9FFF]/.test(text);
 }
 
-// Đọc lại vùng chọn bằng model chữ dọc (PSM 5) ở nền; xong thì đưa kết quả cho
-// popup đang mở để nó bật nút chuyển sang bản dọc. Chạy nền nên không làm chậm
-// bản ngang đang hiển thị.
-function runVerticalPass(blob: Blob, requestId: number) {
-  void queueOcr(async (worker) => {
+// Đọc lại vùng chọn bằng model chữ dọc (PSM 5). Trả về null nếu lượt OCR đã bị
+// thay thế trong lúc chờ, hoặc đọc không ra chữ Nhật nào.
+function readVertical(blob: Blob, requestId: number): Promise<string | null> {
+  return queueOcr(async (worker) => {
     // Đã có lượt OCR mới trong lúc chờ tới lượt -> bỏ, đừng tốn thời gian.
-    if (requestId !== ocrRequestId) return;
+    if (requestId !== ocrRequestId) return null;
 
     await worker.setParameters({
       tessedit_pageseg_mode: PSM.SINGLE_BLOCK_VERT_TEXT,
     });
     const { data } = await worker.recognize(blob);
-    if (requestId !== ocrRequestId) return;
+    if (requestId !== ocrRequestId) return null;
 
     const text = normalizeOcrText(data.text ?? '');
-    if (hasJapaneseText(text)) {
-      selectionPopupInstance?.setVerticalText(text);
-    }
+    return hasJapaneseText(text) ? text : null;
   }).catch((error) => {
     console.error('Content: OCR chữ dọc lỗi:', error);
+    return null;
   });
 }
 
@@ -360,9 +367,25 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
       const wantsVertical = rectBounds.height > rectBounds.width;
 
       if (hasJapanese && requestId === ocrRequestId) {
-        showPopupNear(rectBounds, normalizedText, null, false, wantsVertical);
+        // Nút chuyển bản dọc lúc nào cũng có. Vùng cao hơn rộng thì đọc trước
+        // luôn cho nhanh; vùng rộng hơn cao thì để dành, người dùng bấm mới đọc.
+        const vertical: VerticalRequest = {
+          pending: wantsVertical,
+          request: () => readVertical(blob, requestId),
+        };
+        const popup = showPopupNear(
+          rectBounds,
+          normalizedText,
+          null,
+          false,
+          vertical,
+        );
         if (wantsVertical) {
-          runVerticalPass(blob, requestId);
+          void vertical.request().then((text) => {
+            if (selectionPopupInstance === popup) {
+              popup?.setVerticalText(text);
+            }
+          });
         }
       }
     } else if (response && response.error) {
@@ -958,8 +981,8 @@ function showPopupNear(
   text: string,
   sourceRange?: Range | null,
   isTextTruncated = false,
-  withVertical = false,
-) {
+  vertical: VerticalRequest | null = null,
+): SelectionPopupHandle | null {
   // Remove existing popup and button
   removePopup();
   removeButton();
@@ -1030,7 +1053,7 @@ function showPopupNear(
     props: {
       text,
       isTextTruncated,
-      hasVertical: withVertical,
+      vertical,
       sourceRange: sourceRange?.cloneRange() ?? null,
       position: {
         left,
@@ -1055,6 +1078,8 @@ function showPopupNear(
   };
   popupContainer.addEventListener('mousedown', stopPropagation, true);
   popupContainer.addEventListener('mouseup', stopPropagation, true);
+
+  return selectionPopupInstance;
 }
 
 // Check if a character is a kanji
