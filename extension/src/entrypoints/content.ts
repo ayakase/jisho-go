@@ -1,19 +1,19 @@
-import { mount, unmount } from 'svelte';
-import { storage } from '#imports';
-import SelectionPopup from './SelectionPopup.svelte';
-import HoverPopup from './HoverPopup.svelte';
-import HoverParagraphPopup from './HoverParagraphPopup.svelte';
-import PassivePopup, { type PassiveLearnPayload } from './PassivePopup.svelte';
-import { createWorker, PSM } from 'tesseract.js';
+import { mount, unmount } from "svelte";
+import { storage } from "#imports";
+import SelectionPopup from "./SelectionPopup.svelte";
+import HoverPopup from "./HoverPopup.svelte";
+import HoverParagraphPopup from "./HoverParagraphPopup.svelte";
+import PassivePopup, { type PassiveLearnPayload } from "./PassivePopup.svelte";
+import { createWorker, PSM } from "tesseract.js";
 import {
   matchesOcrShortcut,
   normalizeOcrShortcut,
   type OcrShortcut,
-} from '../lib/ocr-shortcut';
+} from "../lib/ocr-shortcut";
 
-type PopupMode = 'off' | 'immediate' | 'button';
-type HoverGrabMode = 'single-kanji' | 'paragraph';
-type SearchButtonSize = 'small' | 'medium' | 'big';
+type PopupMode = "off" | "immediate" | "button";
+type HoverGrabMode = "single-kanji" | "paragraph";
+type SearchButtonSize = "small" | "medium" | "big";
 type HoverParagraphSections = {
   translate: boolean;
   kanji: boolean;
@@ -33,18 +33,20 @@ let passivePopupContainer: HTMLElement | null = null; // Passive learning flashc
 let passivePopupInstance: ReturnType<typeof mount> | null = null;
 let buttonContainer: HTMLElement | null = null;
 let popupText: string | null = null;
-let popupMode: PopupMode = 'immediate';
+let popupMode: PopupMode = "immediate";
 let hoverMode = false;
-let hoverGrabMode: HoverGrabMode = 'single-kanji';
+let hoverGrabMode: HoverGrabMode = "single-kanji";
 let hoverTimeout: number | null = null;
 let hoverDelayMs = 300;
 let selectionDelayMs = 300;
 let lastHoveredText: string | null = null;
 let selectionPopupTimeout: number | null = null;
-let hoverParagraphSections: HoverParagraphSections = { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
+let hoverParagraphSections: HoverParagraphSections = {
+  ...DEFAULT_HOVER_PARAGRAPH_SECTIONS,
+};
 let blacklist: string[] = [];
 let popupOpacity = 1;
-let searchButtonSize: SearchButtonSize = 'medium';
+let searchButtonSize: SearchButtonSize = "medium";
 let suppressSelectionPopupUntil = 0;
 let suppressHoverPopupUntil = 0;
 let lastContextMenuImage: HTMLImageElement | null = null;
@@ -52,11 +54,7 @@ let ocrShortcut: OcrShortcut | null = null;
 let isOcrScanning = false;
 
 function isOcrActive(): boolean {
-  return (
-    isOcrScanning ||
-    selectionOverlay !== null ||
-    ocrLoadingEl !== null
-  );
+  return isOcrScanning || selectionOverlay !== null || ocrLoadingEl !== null;
 }
 
 function showNotice(message: string) {
@@ -98,15 +96,26 @@ function clampPopupOpacity(val: number): number {
   return Math.max(0.1, Math.min(1, val));
 }
 
-function normalizeHoverParagraphSections(value: unknown): HoverParagraphSections {
-  if (!value || typeof value !== 'object') {
+function normalizeHoverParagraphSections(
+  value: unknown,
+): HoverParagraphSections {
+  if (!value || typeof value !== "object") {
     return { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
   }
   const raw = value as Partial<HoverParagraphSections>;
   return {
-    kanji: typeof raw.kanji === 'boolean' ? raw.kanji : DEFAULT_HOVER_PARAGRAPH_SECTIONS.kanji,
-    translate: typeof raw.translate === 'boolean' ? raw.translate : DEFAULT_HOVER_PARAGRAPH_SECTIONS.translate,
-    vocab: typeof raw.vocab === 'boolean' ? raw.vocab : DEFAULT_HOVER_PARAGRAPH_SECTIONS.vocab,
+    kanji:
+      typeof raw.kanji === "boolean"
+        ? raw.kanji
+        : DEFAULT_HOVER_PARAGRAPH_SECTIONS.kanji,
+    translate:
+      typeof raw.translate === "boolean"
+        ? raw.translate
+        : DEFAULT_HOVER_PARAGRAPH_SECTIONS.translate,
+    vocab:
+      typeof raw.vocab === "boolean"
+        ? raw.vocab
+        : DEFAULT_HOVER_PARAGRAPH_SECTIONS.vocab,
   };
 }
 
@@ -145,16 +154,16 @@ const OCR_CLICK_SLOP_PX = 4;
 function ocrScanColors(isDark: boolean) {
   return isDark
     ? {
-        fill: 'rgba(158, 195, 232, 0.16)',
-        line: '#9ec3e8',
-        glow: 'rgba(158, 195, 232, 0.65)',
-        ring: 'rgba(158, 195, 232, 0.55)',
+        fill: "rgba(158, 195, 232, 0.16)",
+        line: "#9ec3e8",
+        glow: "rgba(158, 195, 232, 0.65)",
+        ring: "rgba(158, 195, 232, 0.55)",
       }
     : {
-        fill: 'rgba(91, 143, 197, 0.18)',
-        line: '#5b8fc5',
-        glow: 'rgba(91, 143, 197, 0.7)',
-        ring: 'rgba(91, 143, 197, 0.5)',
+        fill: "rgba(91, 143, 197, 0.18)",
+        line: "#5b8fc5",
+        glow: "rgba(91, 143, 197, 0.7)",
+        ring: "rgba(91, 143, 197, 0.5)",
       };
 }
 
@@ -179,10 +188,10 @@ const OCR_SCAN_CREEP_TICK = 100;
 // Tesseract báo progress theo từng phase, mỗi phase 0 → 1. Trải đều ra timeline
 // để vệt quét chạy liền mạch từ lúc bắt đầu tới lúc xong.
 const OCR_SCAN_PHASES: Record<string, [number, number]> = {
-  'initializing tesseract': [0, 5],
-  'loading language traineddata': [5, 25],
-  'initializing api': [25, 30],
-  'recognizing text': [30, 100],
+  "initializing tesseract": [0, 5],
+  "loading language traineddata": [5, 25],
+  "initializing api": [25, 30],
+  "recognizing text": [30, 100],
 };
 
 function stopOcrScanCreep() {
@@ -207,7 +216,9 @@ function startOcrScanCreep() {
   ocrScanCreepStart = performance.now();
   ocrScanCreepTimer = setInterval(() => {
     const elapsed = performance.now() - ocrScanCreepStart;
-    setOcrScanPct(OCR_SCAN_CREEP_CAP * (1 - Math.exp(-elapsed / OCR_SCAN_CREEP_TAU)));
+    setOcrScanPct(
+      OCR_SCAN_CREEP_CAP * (1 - Math.exp(-elapsed / OCR_SCAN_CREEP_TAU)),
+    );
   }, OCR_SCAN_CREEP_TICK);
 }
 
@@ -227,7 +238,7 @@ function startOcrScan(bounds: DOMRect) {
   ocrScanInitSeen = false;
 
   if (!ocrLoadingEl) {
-    ocrLoadingEl = document.createElement('div');
+    ocrLoadingEl = document.createElement("div");
     ocrLoadingEl.style.cssText = `
       position: fixed;
       z-index: 2147483647;
@@ -239,7 +250,7 @@ function startOcrScan(bounds: DOMRect) {
     `;
 
     // Lớp phủ mờ dần phần đã "quét" qua
-    ocrScanFillEl = document.createElement('div');
+    ocrScanFillEl = document.createElement("div");
     ocrScanFillEl.style.cssText = `
       position: absolute;
       left: 0; right: 0; top: 0;
@@ -248,7 +259,7 @@ function startOcrScan(bounds: DOMRect) {
     `;
 
     // Vạch sáng chạy đúng vị trí progress
-    ocrScanLineEl = document.createElement('div');
+    ocrScanLineEl = document.createElement("div");
     ocrScanLineEl.style.cssText = `
       position: absolute;
       left: 2px; right: 2px;
@@ -266,7 +277,7 @@ function startOcrScan(bounds: DOMRect) {
   ocrLoadingEl.style.top = `${bounds.top}px`;
   ocrLoadingEl.style.width = `${bounds.width}px`;
   ocrLoadingEl.style.height = `${bounds.height}px`;
-  ocrLoadingEl.style.opacity = '1';
+  ocrLoadingEl.style.opacity = "1";
 
   applyOcrTheme();
   positionOcrScanProgress(0);
@@ -292,19 +303,19 @@ function setOcrLoading(visible: boolean) {
   ocrScanLineEl = null;
   ocrScanBounds = null;
 
-  el.style.opacity = '0';
+  el.style.opacity = "0";
   window.setTimeout(() => el.remove(), OCR_SCAN_FADE_MS + 40);
 }
 
 function handleTesseractLog(m: any) {
   // Keep console logs off; use UI instead.
-  if (!m || typeof m !== 'object') return;
+  if (!m || typeof m !== "object") return;
 
-  const status = typeof m.status === 'string' ? m.status : null;
-  const progress = typeof m.progress === 'number' ? m.progress : null;
+  const status = typeof m.status === "string" ? m.status : null;
+  const progress = typeof m.progress === "number" ? m.progress : null;
   if (!status || progress === null) return;
 
-  if (status !== 'recognizing text') {
+  if (status !== "recognizing text") {
     ocrScanInitSeen = true;
   }
 
@@ -313,7 +324,8 @@ function handleTesseractLog(m: any) {
 
   // Worker đã warm (core + api init sẵn) thì chỉ còn phase recognizing, cho nó
   // chạy full 0 → 100 thay vì nhảy thẳng lên 30%.
-  const [start, end] = status === 'recognizing text' && !ocrScanInitSeen ? [0, 100] : range;
+  const [start, end] =
+    status === "recognizing text" && !ocrScanInitSeen ? [0, 100] : range;
   const phase = Math.max(0, Math.min(1, progress));
   setOcrScanPct(start + (end - start) * phase);
 }
@@ -324,11 +336,11 @@ function getOcrWorker() {
   if (!ocrWorkerPromise) {
     // Nạp kèm jpn_vert vì nó không tự được kéo vào qua `tessedit_load_sublangs`
     // trong config của jpn — phải liệt kê thẳng ra thì PSM 5 mới dùng được.
-    ocrWorkerPromise = createWorker('jpn+jpn_vert', 1, {
+    ocrWorkerPromise = createWorker("jpn+jpn_vert", 1, {
       logger: handleTesseractLog,
-      workerPath: browser.runtime.getURL('/tesseract/worker.min.js'),
-      corePath: browser.runtime.getURL('/tesseract/tesseract-core.wasm.js'),
-      langPath: browser.runtime.getURL('/tesseract/lang' as any) + '/',
+      workerPath: browser.runtime.getURL("/tesseract/worker.min.js"),
+      corePath: browser.runtime.getURL("/tesseract/tesseract-core.wasm.js"),
+      langPath: browser.runtime.getURL("/tesseract/lang" as any) + "/",
     });
   }
   return ocrWorkerPromise;
@@ -348,7 +360,7 @@ function queueOcr<T>(task: (worker: OcrWorker) => Promise<T>): Promise<T> {
 // searchSelection() tra từ bằng includes()/indexOf() nên chỉ cần một dấu cách là
 // không khớp được nữa. Bỏ hết khoảng trắng luôn.
 function normalizeOcrText(text: string): string {
-  return text.replace(/\s+/g, '');
+  return text.replace(/\s+/g, "");
 }
 
 function hasJapaneseText(text: string): boolean {
@@ -368,10 +380,10 @@ function readVertical(blob: Blob, requestId: number): Promise<string | null> {
     const { data } = await worker.recognize(blob);
     if (requestId !== ocrRequestId) return null;
 
-    const text = normalizeOcrText(data.text ?? '');
+    const text = normalizeOcrText(data.text ?? "");
     return hasJapaneseText(text) ? text : null;
   }).catch((error) => {
-    console.error('Content: OCR chữ dọc lỗi:', error);
+    console.error("Content: OCR chữ dọc lỗi:", error);
     return null;
   });
 }
@@ -408,8 +420,8 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
         y: rectBounds.y,
         width: rectBounds.width,
         height: rectBounds.height,
-        devicePixelRatio: window.devicePixelRatio
-      }
+        devicePixelRatio: window.devicePixelRatio,
+      },
     });
 
     if (response && response.imageDataUrl) {
@@ -423,7 +435,7 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
       const rawText = await queueOcr(async (worker) => {
         await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
         const { data } = await worker.recognize(blob);
-        return data.text ?? '';
+        return data.text ?? "";
       });
       const normalizedText = normalizeOcrText(rawText);
       const hasJapanese = hasJapaneseText(normalizedText);
@@ -472,7 +484,9 @@ async function runOcrFromBounds(rectBounds: DOMRect) {
 function getImageFromContextMenu(srcUrl?: string): HTMLImageElement | null {
   if (
     lastContextMenuImage &&
-    (!srcUrl || lastContextMenuImage.currentSrc === srcUrl || lastContextMenuImage.src === srcUrl) &&
+    (!srcUrl ||
+      lastContextMenuImage.currentSrc === srcUrl ||
+      lastContextMenuImage.src === srcUrl) &&
     document.contains(lastContextMenuImage)
   ) {
     return lastContextMenuImage;
@@ -482,13 +496,15 @@ function getImageFromContextMenu(srcUrl?: string): HTMLImageElement | null {
     return null;
   }
 
-  return Array.from(document.images).find((img) => {
-    return img.currentSrc === srcUrl || img.src === srcUrl;
-  }) ?? null;
+  return (
+    Array.from(document.images).find((img) => {
+      return img.currentSrc === srcUrl || img.src === srcUrl;
+    }) ?? null
+  );
 }
 
 export default defineContentScript({
-  matches: ['<all_urls>'],
+  matches: ["<all_urls>"],
   async main() {
     // Load settings
     await loadPopupMode();
@@ -503,31 +519,35 @@ export default defineContentScript({
     await loadOcrTheme();
     await loadOcrShortcut();
 
-    storage.watch<unknown>('local:ocrShortcut', (value) => {
+    storage.watch<unknown>("local:ocrShortcut", (value) => {
       ocrShortcut = normalizeOcrShortcut(value);
     });
 
     // Keyboard shortcut for the region-select OCR overlay
-    document.addEventListener('keydown', handleOcrShortcutKeydown, true);
+    document.addEventListener("keydown", handleOcrShortcutKeydown, true);
 
     // Escape để đóng hover popup nếu đang mở
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && hoverPopupContainer) {
-        removeHoverPopup();
-        suppressHoverPopupUntil = Date.now() + 250;
-      }
-    }, true);
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Escape" && hoverPopupContainer) {
+          removeHoverPopup();
+          suppressHoverPopupUntil = Date.now() + 250;
+        }
+      },
+      true,
+    );
 
     // Watch blacklist changes so updates from the popup apply without reload
-    storage.watch<unknown>('local:blacklist', (value) => {
+    storage.watch<unknown>("local:blacklist", (value) => {
       if (Array.isArray(value)) {
         blacklist = value as string[];
-      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      } else if (value && typeof value === "object" && !Array.isArray(value)) {
         const values = Object.values(value as Record<string, unknown>)
-          .map((v) => (typeof v === 'string' ? v.trim() : ''))
+          .map((v) => (typeof v === "string" ? v.trim() : ""))
           .filter((v) => v.length > 0);
         blacklist = values;
-      } else if (typeof value === 'string' && value.trim()) {
+      } else if (typeof value === "string" && value.trim()) {
         blacklist = [value.trim()];
       } else {
         blacklist = [];
@@ -542,10 +562,10 @@ export default defineContentScript({
     });
 
     // Listen for storage changes using WXT storage watch
-    storage.watch<PopupMode>('local:popupMode', (newMode, oldMode) => {
+    storage.watch<PopupMode>("local:popupMode", (newMode, oldMode) => {
       if (newMode) {
         popupMode = newMode;
-        if (popupMode === 'off') {
+        if (popupMode === "off") {
           removePopup();
           removeButton();
         }
@@ -553,21 +573,21 @@ export default defineContentScript({
     });
 
     // Watch for popup opacity changes
-    storage.watch<number>('local:popupOpacity', (newOpacity) => {
+    storage.watch<number>("local:popupOpacity", (newOpacity) => {
       popupOpacity =
         typeof newOpacity === "number" ? clampPopupOpacity(newOpacity) : 1;
       applyPopupOpacity();
     });
 
-    storage.watch<SearchButtonSize>('local:searchButtonSize', (newSize) => {
-      if (newSize === 'small' || newSize === 'medium' || newSize === 'big') {
+    storage.watch<SearchButtonSize>("local:searchButtonSize", (newSize) => {
+      if (newSize === "small" || newSize === "medium" || newSize === "big") {
         searchButtonSize = newSize;
       } else {
-        searchButtonSize = 'medium';
+        searchButtonSize = "medium";
       }
     });
 
-    storage.watch<boolean>('local:darkMode', (newMode) => {
+    storage.watch<boolean>("local:darkMode", (newMode) => {
       ocrDarkMode = newMode === true;
       applyOcrTheme();
     });
@@ -577,55 +597,66 @@ export default defineContentScript({
     let hadHighlightPopupOnMouseDown = false;
 
     // Show a small popup next to highlighted text on the page
-    document.addEventListener('mousedown', (event) => {
-      mouseDownX = event.clientX;
-      mouseDownY = event.clientY;
+    document.addEventListener(
+      "mousedown",
+      (event) => {
+        mouseDownX = event.clientX;
+        mouseDownY = event.clientY;
 
-      // Bấm ra ngoài hover popup -> tắt ngay lập tức
-      if (hoverPopupContainer && !hoverPopupContainer.contains(event.target as Node)) {
-        removeHoverPopup();
-        suppressHoverPopupUntil = Date.now() + 250;
-        if (hoverTimeout !== null) {
-          clearTimeout(hoverTimeout);
-          hoverTimeout = null;
+        // Bấm ra ngoài hover popup -> tắt ngay lập tức
+        if (
+          hoverPopupContainer &&
+          !hoverPopupContainer.contains(event.target as Node)
+        ) {
+          removeHoverPopup();
+          suppressHoverPopupUntil = Date.now() + 250;
+          if (hoverTimeout !== null) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+          }
+          if (hoverLeaveTimeout !== null) {
+            clearTimeout(hoverLeaveTimeout);
+            hoverLeaveTimeout = null;
+          }
         }
-        if (hoverLeaveTimeout !== null) {
-          clearTimeout(hoverLeaveTimeout);
-          hoverLeaveTimeout = null;
+
+        // Bấm ra ngoài highlight popup hoặc search button -> tắt ngay lập tức chỉ với 1 click
+        const clickedOutsidePopup =
+          popupContainer !== null &&
+          !popupContainer.contains(event.target as Node);
+        const clickedOutsideButton =
+          buttonContainer !== null &&
+          !buttonContainer.contains(event.target as Node);
+
+        hadHighlightPopupOnMouseDown =
+          clickedOutsidePopup || clickedOutsideButton;
+
+        if (clickedOutsidePopup) {
+          removePopup();
+          window.getSelection()?.removeAllRanges();
         }
-      }
+        if (clickedOutsideButton) {
+          removeButton();
+        }
 
-      // Bấm ra ngoài highlight popup hoặc search button -> tắt ngay lập tức chỉ với 1 click
-      const clickedOutsidePopup =
-        popupContainer !== null && !popupContainer.contains(event.target as Node);
-      const clickedOutsideButton =
-        buttonContainer !== null && !buttonContainer.contains(event.target as Node);
+        if (
+          (popupContainer && popupContainer.contains(event.target as Node)) ||
+          (hoverPopupContainer &&
+            hoverPopupContainer.contains(event.target as Node)) ||
+          (buttonContainer && buttonContainer.contains(event.target as Node))
+        ) {
+          return;
+        }
 
-      hadHighlightPopupOnMouseDown = clickedOutsidePopup || clickedOutsideButton;
+        if (selectionPopupTimeout !== null) {
+          clearTimeout(selectionPopupTimeout);
+          selectionPopupTimeout = null;
+        }
+      },
+      true,
+    );
 
-      if (clickedOutsidePopup) {
-        removePopup();
-        window.getSelection()?.removeAllRanges();
-      }
-      if (clickedOutsideButton) {
-        removeButton();
-      }
-
-      if (
-        (popupContainer && popupContainer.contains(event.target as Node)) ||
-        (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
-        (buttonContainer && buttonContainer.contains(event.target as Node))
-      ) {
-        return;
-      }
-
-      if (selectionPopupTimeout !== null) {
-        clearTimeout(selectionPopupTimeout);
-        selectionPopupTimeout = null;
-      }
-    }, true);
-
-    document.addEventListener('mouseup', (event) => {
+    document.addEventListener("mouseup", (event) => {
       if (selectionPopupTimeout !== null) {
         clearTimeout(selectionPopupTimeout);
         selectionPopupTimeout = null;
@@ -651,7 +682,8 @@ export default defineContentScript({
         isOcrActive() ||
         selectionOverlay !== null ||
         (popupContainer && popupContainer.contains(event.target as Node)) ||
-        (hoverPopupContainer && hoverPopupContainer.contains(event.target as Node)) ||
+        (hoverPopupContainer &&
+          hoverPopupContainer.contains(event.target as Node)) ||
         (buttonContainer && buttonContainer.contains(event.target as Node))
       ) {
         return;
@@ -665,7 +697,7 @@ export default defineContentScript({
       }
 
       // If popup mode is off, don't show anything
-      if (popupMode === 'off') {
+      if (popupMode === "off") {
         removePopup();
         removeButton();
         removeHoverPopup();
@@ -723,7 +755,7 @@ export default defineContentScript({
           return;
         }
 
-        if (popupMode === 'button') {
+        if (popupMode === "button") {
           showButtonNear(rect, lookupText, sourceRange, isTextTruncated);
         } else {
           showPopupNear(rect, lookupText, sourceRange, isTextTruncated);
@@ -731,27 +763,31 @@ export default defineContentScript({
       }, selectionDelayMs);
     });
     // Escape closes every extension overlay currently shown on the page.
-    document.addEventListener('keydown', (event) => {
-      if (event.key !== 'Escape') return;
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "Escape") return;
 
-      const hasOpenUi =
-        popupContainer !== null ||
-        hoverPopupContainer !== null ||
-        buttonContainer !== null ||
-        selectionOverlay !== null ||
-        ocrLoadingEl !== null ||
-        passivePopupContainer !== null ||
-        isOcrScanning;
+        const hasOpenUi =
+          popupContainer !== null ||
+          hoverPopupContainer !== null ||
+          buttonContainer !== null ||
+          selectionOverlay !== null ||
+          ocrLoadingEl !== null ||
+          passivePopupContainer !== null ||
+          isOcrScanning;
 
-      if (!hasOpenUi) return;
+        if (!hasOpenUi) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-      closeAllPopups();
-    }, true);
+        event.preventDefault();
+        event.stopPropagation();
+        closeAllPopups();
+      },
+      true,
+    );
 
     // Watch for hover mode changes
-    storage.watch<boolean>('local:hoverMode', (newMode) => {
+    storage.watch<boolean>("local:hoverMode", (newMode) => {
       hoverMode = newMode ?? false;
       if (hoverMode) {
         setupHoverMode();
@@ -760,31 +796,31 @@ export default defineContentScript({
       }
     });
 
-    storage.watch<HoverGrabMode>('local:hoverGrabMode', (newMode) => {
-      if (newMode === 'paragraph' || newMode === 'single-kanji') {
+    storage.watch<HoverGrabMode>("local:hoverGrabMode", (newMode) => {
+      if (newMode === "paragraph" || newMode === "single-kanji") {
         hoverGrabMode = newMode;
       } else {
-        hoverGrabMode = 'single-kanji';
+        hoverGrabMode = "single-kanji";
       }
     });
 
-    storage.watch<number>('local:hoverDelayMs', (newDelay) => {
-      if (typeof newDelay === 'number' && Number.isFinite(newDelay)) {
+    storage.watch<number>("local:hoverDelayMs", (newDelay) => {
+      if (typeof newDelay === "number" && Number.isFinite(newDelay)) {
         hoverDelayMs = Math.max(0, Math.round(newDelay));
       } else {
         hoverDelayMs = 300;
       }
     });
 
-    storage.watch<number>('local:selectionDelayMs', (newDelay) => {
-      if (typeof newDelay === 'number' && Number.isFinite(newDelay)) {
+    storage.watch<number>("local:selectionDelayMs", (newDelay) => {
+      if (typeof newDelay === "number" && Number.isFinite(newDelay)) {
         selectionDelayMs = Math.max(0, Math.min(3000, Math.round(newDelay)));
       } else {
         selectionDelayMs = 300;
       }
     });
 
-    storage.watch<unknown>('local:hoverParagraphSections', (newSections) => {
+    storage.watch<unknown>("local:hoverParagraphSections", (newSections) => {
       hoverParagraphSections = normalizeHoverParagraphSections(newSections);
     });
 
@@ -793,145 +829,156 @@ export default defineContentScript({
       setupHoverMode();
     }
 
-    document.addEventListener('contextmenu', (event) => {
-      const image = (event.target as Element | null)?.closest?.('img');
-      lastContextMenuImage = image instanceof HTMLImageElement ? image : null;
-    }, true);
+    document.addEventListener(
+      "contextmenu",
+      (event) => {
+        const image = (event.target as Element | null)?.closest?.("img");
+        lastContextMenuImage = image instanceof HTMLImageElement ? image : null;
+      },
+      true,
+    );
   },
 });
 
 async function loadPopupMode() {
   try {
-    const stored = await storage.getItem<PopupMode>('local:popupMode');
+    const stored = await storage.getItem<PopupMode>("local:popupMode");
     if (stored) {
       popupMode = stored;
     }
   } catch (error) {
-    console.error('Failed to load popup mode:', error);
+    console.error("Failed to load popup mode:", error);
   }
 }
 
 async function loadOcrTheme() {
   try {
-    ocrDarkMode = (await storage.getItem<boolean>('local:darkMode')) === true;
+    ocrDarkMode = (await storage.getItem<boolean>("local:darkMode")) === true;
   } catch (error) {
-    console.error('Failed to load OCR theme:', error);
+    console.error("Failed to load OCR theme:", error);
   }
 }
 
 async function loadOcrShortcut() {
   try {
-    const stored = await storage.getItem<unknown>('local:ocrShortcut');
+    const stored = await storage.getItem<unknown>("local:ocrShortcut");
     ocrShortcut = normalizeOcrShortcut(stored);
   } catch (error) {
-    console.error('Failed to load OCR shortcut:', error);
+    console.error("Failed to load OCR shortcut:", error);
     ocrShortcut = null;
   }
 }
 
 async function loadHoverMode() {
   try {
-    const stored = await storage.getItem<boolean>('local:hoverMode');
+    const stored = await storage.getItem<boolean>("local:hoverMode");
     if (stored !== null && stored !== undefined) {
       hoverMode = stored;
     }
   } catch (error) {
-    console.error('Failed to load hover mode:', error);
+    console.error("Failed to load hover mode:", error);
   }
 }
 
 async function loadHoverGrabMode() {
   try {
-    const stored = await storage.getItem<HoverGrabMode>('local:hoverGrabMode');
-    if (stored === 'paragraph' || stored === 'single-kanji') {
+    const stored = await storage.getItem<HoverGrabMode>("local:hoverGrabMode");
+    if (stored === "paragraph" || stored === "single-kanji") {
       hoverGrabMode = stored;
     }
   } catch (error) {
-    console.error('Failed to load hover grab mode:', error);
+    console.error("Failed to load hover grab mode:", error);
   }
 }
 
 async function loadHoverDelayMs() {
   try {
-    const stored = await storage.getItem<number>('local:hoverDelayMs');
-    if (typeof stored === 'number' && Number.isFinite(stored)) {
+    const stored = await storage.getItem<number>("local:hoverDelayMs");
+    if (typeof stored === "number" && Number.isFinite(stored)) {
       hoverDelayMs = Math.max(0, Math.round(stored));
     }
   } catch (error) {
-    console.error('Failed to load hover delay ms:', error);
+    console.error("Failed to load hover delay ms:", error);
   }
 }
 
 async function loadSelectionDelayMs() {
   try {
-    const stored = await storage.getItem<number>('local:selectionDelayMs');
-    if (typeof stored === 'number' && Number.isFinite(stored)) {
+    const stored = await storage.getItem<number>("local:selectionDelayMs");
+    if (typeof stored === "number" && Number.isFinite(stored)) {
       selectionDelayMs = Math.max(0, Math.min(3000, Math.round(stored)));
     }
   } catch (error) {
-    console.error('Failed to load selection delay ms:', error);
+    console.error("Failed to load selection delay ms:", error);
   }
 }
 
 async function loadHoverParagraphSections() {
   try {
-    const stored = await storage.getItem<unknown>('local:hoverParagraphSections');
+    const stored = await storage.getItem<unknown>(
+      "local:hoverParagraphSections",
+    );
     hoverParagraphSections = normalizeHoverParagraphSections(stored);
   } catch (error) {
-    console.error('Failed to load hover paragraph sections:', error);
+    console.error("Failed to load hover paragraph sections:", error);
     hoverParagraphSections = { ...DEFAULT_HOVER_PARAGRAPH_SECTIONS };
   }
 }
 
 async function loadBlacklist() {
   try {
-    const stored = await storage.getItem<unknown>('local:blacklist');
+    const stored = await storage.getItem<unknown>("local:blacklist");
     if (Array.isArray(stored)) {
       // Đã là array rồi
       blacklist = stored as string[];
-    } else if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    } else if (stored && typeof stored === "object" && !Array.isArray(stored)) {
       // Trường hợp Chrome/WXT show dạng {"0":"url1","1":"url2"}
       const values = Object.values(stored as Record<string, unknown>)
-        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
         .filter((v) => v.length > 0);
       blacklist = values;
-    } else if (typeof stored === 'string' && stored.trim()) {
+    } else if (typeof stored === "string" && stored.trim()) {
       // Backward compatibility if a single string was stored before
       blacklist = [stored.trim()];
     } else {
       blacklist = [];
     }
   } catch (error) {
-    console.error('Failed to load blacklist:', error);
+    console.error("Failed to load blacklist:", error);
   }
 }
 
 async function loadPopupOpacity() {
   try {
-    const stored = await storage.getItem<number>('local:popupOpacity');
-    popupOpacity =
-      typeof stored === 'number' ? clampPopupOpacity(stored) : 1;
+    const stored = await storage.getItem<number>("local:popupOpacity");
+    popupOpacity = typeof stored === "number" ? clampPopupOpacity(stored) : 1;
   } catch (error) {
-    console.error('Failed to load popup opacity:', error);
+    console.error("Failed to load popup opacity:", error);
     popupOpacity = 1;
   }
 }
 
 function applyPopupOpacity() {
   if (popupContainer) popupContainer.style.opacity = popupOpacity.toString();
-  if (hoverPopupContainer) hoverPopupContainer.style.opacity = popupOpacity.toString();
+  if (hoverPopupContainer)
+    hoverPopupContainer.style.opacity = popupOpacity.toString();
 }
 
 async function loadSearchButtonSettings() {
   try {
-    const storedSize = await storage.getItem<SearchButtonSize>('local:searchButtonSize');
-    if (storedSize === 'small' || storedSize === 'medium' || storedSize === 'big') {
+    const storedSize = await storage.getItem<SearchButtonSize>(
+      "local:searchButtonSize",
+    );
+    if (
+      storedSize === "small" ||
+      storedSize === "medium" ||
+      storedSize === "big"
+    ) {
       searchButtonSize = storedSize;
     }
-
   } catch (error) {
-    console.error('Failed to load search button settings:', error);
-    searchButtonSize = 'medium';
+    console.error("Failed to load search button settings:", error);
+    searchButtonSize = "medium";
   }
 }
 
@@ -986,7 +1033,7 @@ function removeButton() {
 
 function removeSelectionOverlay() {
   if (selectionOverlay) {
-    selectionOverlay.style.display = 'none';
+    selectionOverlay.style.display = "none";
     selectionOverlay.remove();
     selectionOverlay = null;
   }
@@ -1010,8 +1057,8 @@ function showPassivePopup(payload: PassiveLearnPayload) {
 
   removePassivePopup();
 
-  passivePopupContainer = document.createElement('div');
-  passivePopupContainer.id = 'jisho-go-passive-container';
+  passivePopupContainer = document.createElement("div");
+  passivePopupContainer.id = "jisho-go-passive-container";
   document.body.appendChild(passivePopupContainer);
 
   passivePopupInstance = mount(PassivePopup, {
@@ -1030,8 +1077,8 @@ function isHighlightPopupActive(): boolean {
     popupContainer !== null ||
     buttonContainer !== null ||
     selectionPopupTimeout !== null ||
-    document.getElementById('jisho-go-selection-popup-container') !== null ||
-    document.getElementById('jisho-go-search-button') !== null
+    document.getElementById("jisho-go-selection-popup-container") !== null ||
+    document.getElementById("jisho-go-search-button") !== null
   );
 }
 
@@ -1064,7 +1111,9 @@ function hasJapaneseChars(str: string): boolean {
   const kanjiRegex = /[\u4E00-\u9FAF]/;
   const hiraganaRegex = /[\u3040-\u309F]/;
   const katakanaRegex = /[\u30A0-\u30FF]/;
-  return kanjiRegex.test(str) || hiraganaRegex.test(str) || katakanaRegex.test(str);
+  return (
+    kanjiRegex.test(str) || hiraganaRegex.test(str) || katakanaRegex.test(str)
+  );
 }
 
 function showButtonNear(
@@ -1091,8 +1140,8 @@ function showButtonNear(
   }
 
   // Create button container
-  buttonContainer = document.createElement('div');
-  buttonContainer.id = 'jisho-go-search-button';
+  buttonContainer = document.createElement("div");
+  buttonContainer.id = "jisho-go-search-button";
   buttonContainer.style.cssText = `
     position: fixed;
     z-index: 2147483647;
@@ -1100,9 +1149,9 @@ function showButtonNear(
   `;
 
   const sizeConfig =
-    searchButtonSize === 'small'
+    searchButtonSize === "small"
       ? { buttonSize: 30, iconSize: 16, paddingRem: 0.35 }
-      : searchButtonSize === 'big'
+      : searchButtonSize === "big"
         ? { buttonSize: 44, iconSize: 24, paddingRem: 0.65 }
         : { buttonSize: 36, iconSize: 20, paddingRem: 0.5 };
 
@@ -1130,7 +1179,7 @@ function showButtonNear(
   buttonContainer.style.top = `${top}px`;
 
   // Create button element
-  const button = document.createElement('button');
+  const button = document.createElement("button");
   button.innerHTML = `
     <svg width="${sizeConfig.iconSize}px" height="${sizeConfig.iconSize}px" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
       <path d="M17.545 15.467l-3.779-3.779a6.15 6.15 0 0 0 .898-3.21c0-3.417-2.961-6.377-6.378-6.377A6.185 6.185 0 0 0 2.1 8.287c0 3.416 2.961 6.377 6.377 6.377a6.15 6.15 0 0 0 3.115-.844l3.799 3.801a.953.953 0 0 0 1.346 0l.943-.943c.371-.371.236-.84-.135-1.211zM4.004 8.287a4.282 4.282 0 0 1 4.282-4.283c2.366 0 4.474 2.107 4.474 4.474a4.284 4.284 0 0 1-4.283 4.283c-2.366-.001-4.473-2.109-4.473-4.474z" fill="white"/>
@@ -1151,10 +1200,10 @@ function showButtonNear(
   `;
 
   button.onmouseenter = () => {
-    button.style.backgroundColor = '#ef4444';
+    button.style.backgroundColor = "#ef4444";
   };
   button.onmouseleave = () => {
-    button.style.backgroundColor = '#f87171';
+    button.style.backgroundColor = "#f87171";
   };
 
   button.onclick = (e) => {
@@ -1170,11 +1219,11 @@ function showButtonNear(
   const handleClickOutside = (ev: MouseEvent) => {
     if (buttonContainer && !buttonContainer.contains(ev.target as Node)) {
       removeButton();
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     }
   };
   setTimeout(() => {
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
   }, 0);
 }
 
@@ -1199,10 +1248,10 @@ function showPopupNear(
   }
 
   // Create container for the Svelte component
-  popupContainer = document.createElement('div');
-  popupContainer.id = 'jisho-go-selection-popup-container';
-  popupContainer.style.position = 'absolute';
-  popupContainer.style.zIndex = '2147483647';
+  popupContainer = document.createElement("div");
+  popupContainer.id = "jisho-go-selection-popup-container";
+  popupContainer.style.position = "absolute";
+  popupContainer.style.zIndex = "2147483647";
   document.body.appendChild(popupContainer);
   applyPopupOpacity();
 
@@ -1212,7 +1261,8 @@ function showPopupNear(
   // Popup dimensions (from CSS)
   const POPUP_MAX_WIDTH = 700;
   const POPUP_DOCK_HEIGHT = 28;
-  const POPUP_MAX_HEIGHT = Math.min(600, window.innerHeight * 0.8) + POPUP_DOCK_HEIGHT;
+  const POPUP_MAX_HEIGHT =
+    Math.min(600, window.innerHeight * 0.8) + POPUP_DOCK_HEIGHT;
   const GAP = 8; // Gap between selection and popup
   const PADDING = 12; // Padding from viewport edges
 
@@ -1283,16 +1333,18 @@ function showPopupNear(
     const target = ev.target as HTMLElement;
     // Don't stop propagation for buttons - they need to handle their own clicks
     if (
-      target.tagName === 'BUTTON' ||
-      target.closest('button') ||
-      target.closest('.source-match, .source-kanji-clickable, .popup-btn-drag, .popup-btn-close, .popup-btn-theme')
+      target.tagName === "BUTTON" ||
+      target.closest("button") ||
+      target.closest(
+        ".source-match, .source-kanji-clickable, .popup-btn-drag, .popup-btn-close, .popup-btn-theme",
+      )
     ) {
       return;
     }
     ev.stopPropagation();
   };
-  popupContainer.addEventListener('mousedown', stopPropagation, true);
-  popupContainer.addEventListener('mouseup', stopPropagation, true);
+  popupContainer.addEventListener("mousedown", stopPropagation, true);
+  popupContainer.addEventListener("mouseup", stopPropagation, true);
 
   return selectionPopupInstance;
 }
@@ -1303,7 +1355,12 @@ function isKanji(char: string): boolean {
   return kanjiRegex.test(char);
 }
 
-function isPointInRect(x: number, y: number, rect: DOMRect, tolerance = 2): boolean {
+function isPointInRect(
+  x: number,
+  y: number,
+  rect: DOMRect,
+  tolerance = 2,
+): boolean {
   return (
     x >= rect.left - tolerance &&
     x <= rect.right + tolerance &&
@@ -1328,7 +1385,10 @@ function getCharRect(container: Node, index: number): DOMRect | null {
 }
 
 // Get character at cursor position
-function getCharAtPosition(x: number, y: number): { char: string; rect: DOMRect | null } {
+function getCharAtPosition(
+  x: number,
+  y: number,
+): { char: string; rect: DOMRect | null } {
   // Try caretRangeFromPoint first (Chrome, Firefox)
   let range: Range | null = null;
   if (document.caretRangeFromPoint) {
@@ -1344,19 +1404,21 @@ function getCharAtPosition(x: number, y: number): { char: string; rect: DOMRect 
   }
 
   if (!range) {
-    return { char: '', rect: null };
+    return { char: "", rect: null };
   }
 
   const container = range.startContainer;
   if (container.nodeType !== Node.TEXT_NODE) {
-    return { char: '', rect: null };
+    return { char: "", rect: null };
   }
 
-  const text = container.textContent || '';
+  const text = container.textContent || "";
   const offset = range.startOffset;
 
   // Check character at offset first, then offset - 1
-  const candidates = [offset, offset - 1].filter((idx) => idx >= 0 && idx < text.length);
+  const candidates = [offset, offset - 1].filter(
+    (idx) => idx >= 0 && idx < text.length,
+  );
 
   for (const idx of candidates) {
     const char = text.charAt(idx);
@@ -1368,7 +1430,7 @@ function getCharAtPosition(x: number, y: number): { char: string; rect: DOMRect 
     }
   }
 
-  return { char: '', rect: null };
+  return { char: "", rect: null };
 }
 
 let hoverMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
@@ -1376,7 +1438,7 @@ let hoverMouseLeaveHandler: ((e: MouseEvent) => void) | null = null;
 let hoverLeaveTimeout: number | null = null;
 
 function normalizeWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function isLikelyBlockElement(el: Element): boolean {
@@ -1384,54 +1446,57 @@ function isLikelyBlockElement(el: Element): boolean {
   if (/^H[1-6]$/.test(tag)) return true;
   const display = window.getComputedStyle(el).display;
   return (
-    display === 'block' ||
-    display === 'list-item' ||
-    display === 'table-cell' ||
-    display === 'table-row' ||
-    display === 'flex' ||
-    display === 'grid'
+    display === "block" ||
+    display === "list-item" ||
+    display === "table-cell" ||
+    display === "table-row" ||
+    display === "flex" ||
+    display === "grid"
   );
 }
 
-type TextChunkCaptureMode = 'legacy' | 'semantic-only' | 'bounded-block';
+type TextChunkCaptureMode = "legacy" | "semantic-only" | "bounded-block";
 
-const TEXT_CHUNK_CAPTURE_MODE_OPTIONS: Array<{ mode: TextChunkCaptureMode; description: string }> = [
+const TEXT_CHUNK_CAPTURE_MODE_OPTIONS: Array<{
+  mode: TextChunkCaptureMode;
+  description: string;
+}> = [
   {
-    mode: 'legacy',
+    mode: "legacy",
     description:
-      'Current behavior: semantic tags first, then nearest block ancestor, then target text fallback.',
+      "Current behavior: semantic tags first, then nearest block ancestor, then target text fallback.",
   },
   {
-    mode: 'semantic-only',
+    mode: "semantic-only",
     description:
-      'Strict mode: only capture from semantic text containers (p/li/headings/etc), otherwise return empty.',
+      "Strict mode: only capture from semantic text containers (p/li/headings/etc), otherwise return empty.",
   },
   {
-    mode: 'bounded-block',
+    mode: "bounded-block",
     description:
-      'Balanced mode: semantic first; otherwise allow nearby block elements but reject huge page-level wrappers.',
+      "Balanced mode: semantic first; otherwise allow nearby block elements but reject huge page-level wrappers.",
   },
 ];
 
 // Change this value directly in code to compare strategies quickly.
-const CURRENT_TEXT_CHUNK_CAPTURE_MODE: TextChunkCaptureMode = 'bounded-block';
+const CURRENT_TEXT_CHUNK_CAPTURE_MODE: TextChunkCaptureMode = "bounded-block";
 
 function getTextChunkFromTargetLegacy(target: EventTarget | null): string {
-  if (!(target instanceof Element)) return '';
+  if (!(target instanceof Element)) return "";
 
   // Prefer explicit text containers first.
   const preferred = target.closest(
-    'h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,figcaption,label',
+    "h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,figcaption,label",
   );
   if (preferred) {
-    const preferredText = normalizeWhitespace(preferred.textContent || '');
+    const preferredText = normalizeWhitespace(preferred.textContent || "");
     if (preferredText) return preferredText;
   }
 
   // Fallback: find nearest block-like ancestor that has meaningful text.
   let current: Element | null = target;
   while (current && current !== document.body) {
-    const text = normalizeWhitespace(current.textContent || '');
+    const text = normalizeWhitespace(current.textContent || "");
     if (text && isLikelyBlockElement(current)) {
       return text;
     }
@@ -1439,30 +1504,38 @@ function getTextChunkFromTargetLegacy(target: EventTarget | null): string {
   }
 
   // Last resort for inline-only fragments.
-  return normalizeWhitespace(target.textContent || '');
+  return normalizeWhitespace(target.textContent || "");
 }
 
-function getTextChunkFromTargetSemanticOnly(target: EventTarget | null): string {
-  if (!(target instanceof Element)) return '';
+function getTextChunkFromTargetSemanticOnly(
+  target: EventTarget | null,
+): string {
+  if (!(target instanceof Element)) return "";
 
   const preferred = target.closest(
-    'h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,figcaption,label',
+    "h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,td,th,figcaption,label",
   );
-  if (!preferred) return '';
+  if (!preferred) return "";
 
-  return normalizeWhitespace(preferred.textContent || '');
+  return normalizeWhitespace(preferred.textContent || "");
 }
 
-function getTextChunkFromTargetBoundedBlock(target: EventTarget | null): string {
-  if (!(target instanceof Element)) return '';
+function getTextChunkFromTargetBoundedBlock(
+  target: EventTarget | null,
+): string {
+  if (!(target instanceof Element)) return "";
 
   const semantic = getTextChunkFromTargetSemanticOnly(target);
   if (semantic) return semantic;
 
   const viewportArea = window.innerWidth * window.innerHeight;
   let current: Element | null = target;
-  while (current && current !== document.body && current !== document.documentElement) {
-    const text = normalizeWhitespace(current.textContent || '');
+  while (
+    current &&
+    current !== document.body &&
+    current !== document.documentElement
+  ) {
+    const text = normalizeWhitespace(current.textContent || "");
     if (!text || !isLikelyBlockElement(current)) {
       current = current.parentElement;
       continue;
@@ -1478,16 +1551,16 @@ function getTextChunkFromTargetBoundedBlock(target: EventTarget | null): string 
     current = current.parentElement;
   }
 
-  return '';
+  return "";
 }
 
 function getTextChunkFromTarget(target: EventTarget | null): string {
   switch (CURRENT_TEXT_CHUNK_CAPTURE_MODE) {
-    case 'semantic-only':
+    case "semantic-only":
       return getTextChunkFromTargetSemanticOnly(target);
-    case 'bounded-block':
+    case "bounded-block":
       return getTextChunkFromTargetBoundedBlock(target);
-    case 'legacy':
+    case "legacy":
     default:
       return getTextChunkFromTargetLegacy(target);
   }
@@ -1572,7 +1645,7 @@ function setupHoverMode() {
         return;
       }
 
-      if (hoverGrabMode === 'paragraph') {
+      if (hoverGrabMode === "paragraph") {
         const textChunk = getTextChunkFromTarget(e.target);
 
         if (!textChunk || !hasJapaneseChars(textChunk)) {
@@ -1607,7 +1680,11 @@ function setupHoverMode() {
       hoverTimeout = null;
     }
     // Don't remove if moving to hover popup - let it stay open
-    if (hoverPopupContainer && e.relatedTarget && hoverPopupContainer.contains(e.relatedTarget as Node)) {
+    if (
+      hoverPopupContainer &&
+      e.relatedTarget &&
+      hoverPopupContainer.contains(e.relatedTarget as Node)
+    ) {
       return;
     }
     // Only remove if not hovering over the popup itself
@@ -1616,12 +1693,17 @@ function setupHoverMode() {
       hoverLeaveTimeout = null;
     }
     hoverLeaveTimeout = window.setTimeout(() => {
-      if (hoverPopupContainer && !hoverPopupContainer.matches(':hover')) {
+      if (hoverPopupContainer && !hoverPopupContainer.matches(":hover")) {
         // Check if mouse is still over the popup
         const rect = hoverPopupContainer.getBoundingClientRect();
         const x = (e as any).clientX || 0;
         const y = (e as any).clientY || 0;
-        if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        if (
+          x < rect.left ||
+          x > rect.right ||
+          y < rect.top ||
+          y > rect.bottom
+        ) {
           removeHoverPopup();
         }
       }
@@ -1629,8 +1711,8 @@ function setupHoverMode() {
     }, 500); // Longer delay to allow moving to popup
   };
 
-  document.addEventListener('mousemove', hoverMouseMoveHandler);
-  document.addEventListener('mouseout', hoverMouseLeaveHandler);
+  document.addEventListener("mousemove", hoverMouseMoveHandler);
+  document.addEventListener("mouseout", hoverMouseLeaveHandler);
 }
 
 function showHoverPopupNear(rect: DOMRect, kanji: string) {
@@ -1643,10 +1725,10 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   }
 
   // Create container for the hover popup
-  hoverPopupContainer = document.createElement('div');
-  hoverPopupContainer.id = 'jisho-go-hover-popup-container';
-  hoverPopupContainer.style.position = 'absolute';
-  hoverPopupContainer.style.zIndex = '2147483647';
+  hoverPopupContainer = document.createElement("div");
+  hoverPopupContainer.id = "jisho-go-hover-popup-container";
+  hoverPopupContainer.style.position = "absolute";
+  hoverPopupContainer.style.zIndex = "2147483647";
   document.body.appendChild(hoverPopupContainer);
   applyPopupOpacity();
 
@@ -1665,7 +1747,10 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
   if (left + POPUP_WIDTH > viewportWidth - PADDING) {
     left = rect.left - POPUP_WIDTH - GAP;
   }
-  left = Math.max(PADDING, Math.min(left, viewportWidth - POPUP_WIDTH - PADDING));
+  left = Math.max(
+    PADDING,
+    Math.min(left, viewportWidth - POPUP_WIDTH - PADDING),
+  );
 
   // Vertical positioning
   let top = rect.top;
@@ -1692,19 +1777,21 @@ function showHoverPopupNear(rect: DOMRect, kanji: string) {
     const target = ev.target as HTMLElement | null;
     if (
       target &&
-      (target.tagName === 'BUTTON' ||
-        target.closest('button') ||
-        target.closest('.source-kanji-clickable, .kanji-chip, .source-match, a, input, select, textarea'))
+      (target.tagName === "BUTTON" ||
+        target.closest("button") ||
+        target.closest(
+          ".source-kanji-clickable, .kanji-chip, .source-match, a, input, select, textarea",
+        ))
     ) {
       return;
     }
     ev.stopPropagation();
   };
-  hoverPopupContainer.addEventListener('mousedown', stopPropagation, true);
-  hoverPopupContainer.addEventListener('mouseup', stopPropagation, true);
+  hoverPopupContainer.addEventListener("mousedown", stopPropagation, true);
+  hoverPopupContainer.addEventListener("mouseup", stopPropagation, true);
 
   // Keep hover popup open when hovering over it
-  hoverPopupContainer.addEventListener('mouseenter', () => {
+  hoverPopupContainer.addEventListener("mouseenter", () => {
     if (hoverTimeout !== null) {
       clearTimeout(hoverTimeout);
       hoverTimeout = null;
@@ -1726,10 +1813,10 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
   }
 
   // Create container for the hover popup
-  hoverPopupContainer = document.createElement('div');
-  hoverPopupContainer.id = 'jisho-go-hover-popup-container';
-  hoverPopupContainer.style.position = 'absolute';
-  hoverPopupContainer.style.zIndex = '2147483647';
+  hoverPopupContainer = document.createElement("div");
+  hoverPopupContainer.id = "jisho-go-hover-popup-container";
+  hoverPopupContainer.style.position = "absolute";
+  hoverPopupContainer.style.zIndex = "2147483647";
   document.body.appendChild(hoverPopupContainer);
   applyPopupOpacity();
 
@@ -1748,7 +1835,10 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
   if (left + POPUP_WIDTH > viewportWidth - PADDING) {
     left = x - POPUP_WIDTH - GAP;
   }
-  left = Math.max(PADDING, Math.min(left, viewportWidth - POPUP_WIDTH - PADDING));
+  left = Math.max(
+    PADDING,
+    Math.min(left, viewportWidth - POPUP_WIDTH - PADDING),
+  );
 
   // Vertical positioning - below mouse, or above if no space
   let top = y + GAP;
@@ -1776,19 +1866,21 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
     const target = ev.target as HTMLElement | null;
     if (
       target &&
-      (target.tagName === 'BUTTON' ||
-        target.closest('button') ||
-        target.closest('.source-kanji-clickable, .kanji-chip, .source-match, a, input, select, textarea'))
+      (target.tagName === "BUTTON" ||
+        target.closest("button") ||
+        target.closest(
+          ".source-kanji-clickable, .kanji-chip, .source-match, a, input, select, textarea",
+        ))
     ) {
       return;
     }
     ev.stopPropagation();
   };
-  hoverPopupContainer.addEventListener('mousedown', stopPropagation, true);
-  hoverPopupContainer.addEventListener('mouseup', stopPropagation, true);
+  hoverPopupContainer.addEventListener("mousedown", stopPropagation, true);
+  hoverPopupContainer.addEventListener("mouseup", stopPropagation, true);
 
   // Keep hover popup open when hovering over it
-  hoverPopupContainer.addEventListener('mouseenter', () => {
+  hoverPopupContainer.addEventListener("mouseenter", () => {
     if (hoverTimeout !== null) {
       clearTimeout(hoverTimeout);
       hoverTimeout = null;
@@ -1802,11 +1894,11 @@ function showHoverParagraphPopupNear(x: number, y: number, text: string) {
 
 function cleanupHoverMode() {
   if (hoverMouseMoveHandler) {
-    document.removeEventListener('mousemove', hoverMouseMoveHandler);
+    document.removeEventListener("mousemove", hoverMouseMoveHandler);
     hoverMouseMoveHandler = null;
   }
   if (hoverMouseLeaveHandler) {
-    document.removeEventListener('mouseout', hoverMouseLeaveHandler);
+    document.removeEventListener("mouseout", hoverMouseLeaveHandler);
     hoverMouseLeaveHandler = null;
   }
   if (hoverTimeout !== null) {
@@ -1881,9 +1973,11 @@ function startSelectionOcr() {
   banner.style.setProperty("-webkit-backdrop-filter", "blur(12px)");
   banner.style.border = "1px solid rgba(255, 255, 255, 0.16)";
   banner.style.borderRadius = "9999px";
-  banner.style.boxShadow = "0 8px 24px -4px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)";
+  banner.style.boxShadow =
+    "0 8px 24px -4px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4)";
   banner.style.color = "#ffffff";
-  banner.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  banner.style.fontFamily =
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   banner.style.fontSize = "13px";
   banner.style.lineHeight = "1.3";
   banner.style.userSelect = "none";
@@ -1922,7 +2016,9 @@ function startSelectionOcr() {
   banner.addEventListener("mouseup", (ev) => ev.stopPropagation());
   banner.addEventListener("click", (ev) => ev.stopPropagation());
 
-  const closeBtn = banner.querySelector("#jisho-go-ocr-banner-close") as HTMLButtonElement | null;
+  const closeBtn = banner.querySelector(
+    "#jisho-go-ocr-banner-close",
+  ) as HTMLButtonElement | null;
   if (closeBtn) {
     closeBtn.onmouseenter = () => {
       closeBtn.style.color = "#ffffff";
@@ -1940,7 +2036,10 @@ function startSelectionOcr() {
 
   overlay.appendChild(banner);
 
-  let startX = 0, startY = 0, downX = 0, downY = 0;
+  let startX = 0,
+    startY = 0,
+    downX = 0,
+    downY = 0;
   let rect: HTMLDivElement | null = null;
   let isDrawing = false;
   let hoveredImage: HTMLImageElement | null = null;
@@ -2109,6 +2208,11 @@ window.addEventListener("message", (event) => {
 
 browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "SHOW_PASSIVE_LEARN") {
+    // Nếu là background alarm tự động và thẻ đang hiển thị -> không nhảy đè lên thẻ người dùng đang xem
+    if (!message.isUserTriggered && passivePopupInstance) {
+      sendResponse({ ok: true, skipped: true });
+      return true;
+    }
     showPassivePopup(message.payload);
     sendResponse({ ok: true });
     return true;

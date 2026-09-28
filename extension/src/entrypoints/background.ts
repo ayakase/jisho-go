@@ -341,7 +341,20 @@ export default defineBackground(() => {
     }
 
     if (message.type === "TRIGGER_TEST_PASSIVE_LEARN") {
-      triggerPassiveLearnCard().then((res) => sendResponse(res));
+      const tabId = sender.tab?.id;
+      triggerPassiveLearnCard(tabId, true).then((res) => {
+        void scheduleNextPassiveLearn();
+        sendResponse(res);
+      });
+      return true;
+    }
+
+    if (
+      message.type === "RESET_PASSIVE_TIMER" ||
+      message.type === "PASSIVE_CARD_CLOSED"
+    ) {
+      void scheduleNextPassiveLearn();
+      sendResponse({ ok: true });
       return true;
     }
   });
@@ -404,6 +417,7 @@ export default defineBackground(() => {
 
   async function triggerPassiveLearnCard(
     targetTabId?: number,
+    isUserTriggered = false,
   ): Promise<{ ok: boolean; error?: string }> {
     try {
       const recent = (await storage.getItem<string>("local:recentKanji")) || "";
@@ -527,6 +541,7 @@ export default defineBackground(() => {
         try {
           await browser.tabs.sendMessage(tabId, {
             type: "SHOW_PASSIVE_LEARN",
+            isUserTriggered,
             payload: {
               mode: currentMode,
               kanji: entry.w,

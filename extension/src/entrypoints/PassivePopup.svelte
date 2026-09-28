@@ -42,13 +42,127 @@
   let remainingMs = $state(20000);
   let isPaused = $state(false);
   let darkMode = $state(false);
-  let mascotSrc = $state("https://i.ibb.co/WWn5BGrV/Gemini-Generated-Image-p6r6kxp6r6kxp6r6.webp");
-  let intervalTimer: ReturnType<typeof setInterval> | null = null;
+  let mascotNormalSrc = $state(
+    typeof browser !== "undefined" && browser.runtime?.getURL
+      ? browser.runtime.getURL("/icon/mascot.webp")
+      : "https://i.ibb.co/WWn5BGrV/Gemini-Generated-Image-p6r6kxp6r6kxp6r6.webp"
+  );
+  let mascotCrySrc = $state(
+    typeof browser !== "undefined" && browser.runtime?.getURL
+      ? browser.runtime.getURL("/icon/mascot-cry.webp")
+      : ""
+  );
+  let mascotHappySrc = $state(
+    typeof browser !== "undefined" && browser.runtime?.getURL
+      ? browser.runtime.getURL("/icon/mascot-happy.webp")
+      : ""
+  );
 
   // Trạng thái câu hỏi trắc nghiệm
   let hasAnswered = $state(false);
   let selectedAnswerIndex = $state<number | null>(null);
   let isUserCorrect = $state<boolean | null>(null);
+  let storedQuizRate = $state("");
+  let feedbackMessage = $state("");
+  let currentAccuracy = $state<number | null>(null);
+
+  const feedbackMessages: Record<string, { c: string[]; w: string[] }> = {
+  "95-100": {
+    c: ["Đỉnh vl!", "Chuẩn bài luôn!", "Vl đẳng cấp!"],
+    w: ["Ơ hay sai à?", "Sơ suất vl!", "Tí nữa thì perfecto!"]
+  },
+  "90-94": {
+    c: ["Quá đỉnh!", "Bay vl!", "Xuất sắc thật!"],
+    w: ["Sai rồi à?", "Hơi phí!", "Gần lắm rồi còn sai!"]
+  },
+  "85-89": {
+    c: ["Đỉnh thật!", "Chuẩn luôn!", "Ổn áp vl!"],
+    w: ["Ơ kìa!", "Sơ suất rồi!", "Hơi tiếc!"]
+  },
+  "80-84": {
+    c: ["Tốt vl!", "Đúng bài!", "Chuẩn không cần chỉnh!"],
+    w: ["Sai mất tiêu!", "Hơi ẩu!", "Cẩn thận tí đi!"]
+  },
+  "75-79": {
+    c: ["Được đấy!", "Ổn áp!", "Đúng rồi đó!"],
+    w: ["Sai rồi!", "Hơi chủ quan!", "Chú ý hơn đi!"]
+  },
+  "70-74": {
+    c: ["Đúng!", "Ổn!", "Được luôn!"],
+    w: ["Sai cmnr!", "Hơi lơ!", "Cẩn thận nào!"]
+  },
+  "65-69": {
+    c: ["Đúng rồi!", "Ổn đấy!", "Được!"],
+    w: ["Sai rồi!", "Hơi yếu!", "Chú ý đi!"]
+  },
+  "60-64": {
+    c: ["Đúng!", "Ổn!", "Giữ phong độ nha!"],
+    w: ["Sai!", "Hơi ẩu đấy!", "Cẩn thận hơn!"]
+  },
+  "55-59": {
+    c: ["Đúng rồi!", "Ổn!", "Được!"],
+    w: ["Sai rồi!", "Hơi đuối!", "Chú ý nào!"]
+  },
+  "50-54": {
+    c: ["Đúng!", "Được, cố lên!", "Được đấy!"],
+    w: ["Sai!", "Hơi kém!", "Cẩn thận đi!"]
+  },
+  "45-49": {
+    c: ["Đúng rồi!", "Ồ đúng!", "Được!"],
+    w: ["Sai rồi!", "Yếu rồi đó!", "Chú ý hơn!"]
+  },
+  "40-44": {
+    c: ["Đúng!", "Đúng à?", "Được rồi!"],
+    w: ["Sai vl!", "Yếu thật!", "Học gì vậy má?"]
+  },
+  "35-39": {
+    c: ["Ồ đúng luôn!", "Đúng à?", "Bất ngờ!"],
+    w: ["Sai nhiều quá!", "Yếu vl!", "Học hành kiểu gì vậy?"]
+  },
+  "30-34": {
+    c: ["Ồ đúng!", "Đúng luôn à?", "Hay đấy!"],
+    w: ["Sai nhiều quá má!", "Yếu quá!", "Có học không vậy má?"]
+  },
+  "25-29": {
+    c: ["Ồ đúng luôn!", "Học hay khoanh bừa vậy? =))", "Bất ngờ thật!"],
+    w: ["Sai quá trời!", "Yếu vl thật!", "Học gì vậy má?"]
+  },
+  "20-24": {
+    c: ["Ồ đúng!", "Đúng luôn?", "Có chút hi vọng rồi"],
+    w: ["Sai quá nhiều!", "Học chăm chỉ vào má ơi!", "Có làm đc không má?"]
+  },
+  "15-19": {
+    c: ["Ồ đúng luôn!", "Đúng thật luôn?", "Bất ngờ!"],
+    w: ["Sai quá trời sai!", "Yếu vl!", "Học hành ra sao vậy má?"]
+  },
+  "10-14": {
+    c: ["Ồ đúng!", "Đúng luôn à?", "Hay đấy!"],
+    w: ["Bruh...", "Có học không vậy?", "Dude..."]
+  },
+  "5-9": {
+    c: ["Ồ đúng luôn!", "Chắc khoanh bừa :)))", "Bất ngờ thật!"],
+    w: ["Lại sai!", "Có nghiêm túc học không má?", "Wtf?"]
+  },
+  "0-4": {
+    c: ["Ồ đúng luôn!", "Tầm này chắc bừa?", "Bất ngờ!"],
+    w: ["Dude...", "Hết cứu rồi", "?????"]
+  }
+};
+  function getFeedbackKey(rate: number): string {
+    const clamped = Math.max(0, Math.min(100, rate));
+    if (clamped >= 95) return "95-100";
+    const lower = Math.floor(clamped / 5) * 5;
+    const upper = lower + 4;
+    return `${lower}-${upper}`;
+  }
+
+  function getRandomFeedbackMessage(rate: number, isCorrect: boolean): string {
+    const key = getFeedbackKey(rate);
+    const bucket = feedbackMessages[key] || feedbackMessages["50-54"];
+    const list = isCorrect ? bucket.c : bucket.w;
+    const randomIndex = Math.floor(Math.random() * list.length);
+    return list[randomIndex] || (isCorrect ? "Chính xác!" : "Sai rồi!");
+  }
 
   function handleSelectAnswer(opt: QuizOption, index: number) {
     if (hasAnswered) return;
@@ -56,9 +170,61 @@
     selectedAnswerIndex = index;
     isUserCorrect = opt.isCorrect;
 
-    // Reset lại thời gian hiển thị để người dùng có đủ thời gian đọc kết quả và giải thích
+    // Khi đã hiện đáp án: reset lại thời gian hiển thị đầy đủ
+    // Cho tối thiểu 20 giây để người dùng kịp đọc kết quả, phản hồi và thông tin Kanji gốc
+    const revealDurationSec = Math.max(Math.round(totalDurationMs / 1000), 20);
+    totalDurationMs = revealDurationSec * 1000;
     remainingMs = totalDurationMs;
+
+    // Reset lại bộ đếm interval hiển thị từ đầu
+    if (intervalTimer) {
+      clearInterval(intervalTimer);
+      intervalTimer = null;
+    }
+    const TICK_INTERVAL = 100;
+    intervalTimer = setInterval(() => {
+      if (!isPaused) {
+        remainingMs -= TICK_INTERVAL;
+        if (remainingMs <= 0) {
+          clearInterval(intervalTimer!);
+          intervalTimer = null;
+          onClose();
+        }
+      }
+    }, TICK_INTERVAL);
+
+    // Cập nhật chuỗi kết quả (c: đúng, w: sai) và lưu tối đa 100 lần gần nhất
+    const newChar = opt.isCorrect ? "c" : "w";
+    const nextHistory = (storedQuizRate + newChar).slice(-100);
+    storedQuizRate = nextHistory;
+
+    const total = nextHistory.length;
+    const cCount = (nextHistory.match(/c/g) || []).length;
+    const rate = total > 0 ? Math.round((cCount / total) * 100) : (opt.isCorrect ? 100 : 0);
+    currentAccuracy = rate;
+    feedbackMessage = getRandomFeedbackMessage(rate, opt.isCorrect);
+
+    void storage.setItem("local:passiveQuizRate", nextHistory).catch((err) => {
+      console.error("Failed to save passive quiz rate:", err);
+    });
+
+    // Báo background hoãn và đặt lại lịch chạy tiếp theo, không được nhảy câu khi đang đọc đáp án
+    void browser.runtime?.sendMessage({ type: "RESET_PASSIVE_TIMER" }).catch(() => {});
   }
+
+  let currentMascotSrc = $derived.by(() => {
+    if (hasAnswered) {
+      if (isUserCorrect === true && mascotHappySrc) {
+        return mascotHappySrc;
+      }
+      if (isUserCorrect === false && mascotCrySrc) {
+        return mascotCrySrc;
+      }
+    }
+    return mascotNormalSrc;
+  });
+
+  let intervalTimer: ReturnType<typeof setInterval> | null = null;
 
   // Chu vi vòng tròn: 2 * PI * 11.5 ≈ 72.257
   const CIRCLE_CIRCUMFERENCE = 72.257;
@@ -71,11 +237,47 @@
     CIRCLE_CIRCUMFERENCE * (1 - progressPct / 100)
   );
 
+  let isNextLoading = $state(false);
+
+  async function handleNext() {
+    if (isNextLoading) return;
+    isNextLoading = true;
+    try {
+      if (typeof browser !== "undefined" && browser.runtime?.sendMessage) {
+        await browser.runtime.sendMessage({
+          type: "TRIGGER_TEST_PASSIVE_LEARN",
+        });
+      }
+    } catch (e) {
+      console.error("Failed to trigger next passive learn card:", e);
+    } finally {
+      setTimeout(() => {
+        isNextLoading = false;
+      }, 400);
+    }
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
       onClose();
       return;
     }
+
+    const activeEl = document.activeElement;
+    const isEditing =
+      activeEl &&
+      (activeEl.tagName === "INPUT" ||
+        activeEl.tagName === "TEXTAREA" ||
+        (activeEl as HTMLElement).isContentEditable);
+
+    if (isEditing) return;
+
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      void handleNext();
+      return;
+    }
+
     if (payload.mode === "quiz" && payload.quiz && !hasAnswered) {
       if (["1", "2", "3", "4"].includes(e.key)) {
         const idx = parseInt(e.key, 10) - 1;
@@ -88,7 +290,9 @@
 
   onMount(() => {
     try {
-      mascotSrc = browser.runtime.getURL("/icon/mascot.webp");
+      mascotNormalSrc = browser.runtime.getURL("/icon/mascot.webp");
+      mascotCrySrc = browser.runtime.getURL("/icon/mascot-cry.webp");
+      mascotHappySrc = browser.runtime.getURL("/icon/mascot-happy.webp");
     } catch {
       // fallback to remote webp
     }
@@ -98,6 +302,15 @@
         darkMode = (await storage.getItem<boolean>("local:darkMode")) ?? false;
       } catch {
         darkMode = false;
+      }
+
+      try {
+        const rawRate = await storage.getItem<string>("local:passiveQuizRate");
+        if (typeof rawRate === "string") {
+          storedQuizRate = rawRate.replace(/[^cw]/g, "");
+        }
+      } catch {
+        storedQuizRate = "";
       }
 
       let durSec = payload.displaySeconds;
@@ -129,6 +342,7 @@
   onDestroy(() => {
     if (intervalTimer) clearInterval(intervalTimer);
     window.removeEventListener("keydown", handleKeydown);
+    void browser.runtime?.sendMessage({ type: "PASSIVE_CARD_CLOSED" }).catch(() => {});
   });
 </script>
 
@@ -160,41 +374,67 @@
         </span>
       </div>
 
-      <!-- Nút tắt có vòng tròn đếm ngược bo quanh dấu X -->
-      <button
-        type="button"
-        class="btn-close-circle"
-        onclick={onClose}
-        aria-label="Đóng (Esc)"
-        title="Đóng (Esc)"
-      >
-        <svg class="countdown-svg" viewBox="0 0 28 28" aria-hidden="true">
-          <circle
-            class="circle-bg"
-            cx="14"
-            cy="14"
-            r="11.5"
-          />
-          <circle
-            class="circle-progress"
-            cx="14"
-            cy="14"
-            r="11.5"
-            style="stroke-dashoffset: {strokeOffset}; transition: {isPaused ? 'none' : 'stroke-dashoffset 0.1s linear'};"
-          />
-        </svg>
-        <svg
-          class="x-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.3"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+      <div class="header-actions">
+        <!-- Nút sang câu tiếp theo -->
+        <button
+          type="button"
+          class="btn-next"
+          onclick={handleNext}
+          disabled={isNextLoading}
+          aria-label="Câu tiếp theo (→)"
+          title="Câu tiếp theo (→)"
         >
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M5 12l14 0" />
+            <path d="M13 18l6 -6" />
+            <path d="M13 6l6 6" />
+          </svg>
+        </button>
+
+        <!-- Nút tắt có vòng tròn đếm ngược bo quanh dấu X -->
+        <button
+          type="button"
+          class="btn-close-circle"
+          onclick={onClose}
+          aria-label="Đóng (Esc)"
+          title="Đóng (Esc)"
+        >
+          <svg class="countdown-svg" viewBox="0 0 28 28" aria-hidden="true">
+            <circle
+              class="circle-bg"
+              cx="14"
+              cy="14"
+              r="11.5"
+            />
+            <circle
+              class="circle-progress"
+              cx="14"
+              cy="14"
+              r="11.5"
+              style="stroke-dashoffset: {strokeOffset}; transition: {isPaused ? 'none' : 'stroke-dashoffset 0.1s linear'};"
+            />
+          </svg>
+          <svg
+            class="x-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="passive-body">
@@ -255,10 +495,20 @@
             >
               {#if isUserCorrect}
                 <span class="result-icon">🎉</span>
-                <span><strong>Chính xác!</strong> Bạn nhớ rất chuẩn!</span>
+                <span class="result-text">
+                  <strong>{feedbackMessage}</strong>
+                  {#if currentAccuracy !== null}
+                    <span class="accuracy-tag">({currentAccuracy}%)</span>
+                  {/if}
+                </span>
               {:else}
                 <span class="result-icon">💡</span>
-                <span>Chưa đúng rồi! Đáp án là <strong>{payload.hanViet}</strong></span>
+                <span class="result-text">
+                  <strong>{feedbackMessage}</strong>
+                  {#if currentAccuracy !== null}
+                    <span class="accuracy-tag">({currentAccuracy}%)</span>
+                  {/if}
+                </span>
               {/if}
             </div>
           {/if}
@@ -334,7 +584,13 @@
     <div class="mascot__pop">
       <div class="mascot__bob">
         <div class="mascot__sway">
-          <img src={mascotSrc} alt="Onigiri Mascot" draggable="false" />
+          <img
+            src={currentMascotSrc}
+            alt="Onigiri Mascot"
+            class:cry-shake={hasAnswered && isUserCorrect === false}
+            class:happy-hop={hasAnswered && isUserCorrect === true}
+            draggable="false"
+          />
         </div>
       </div>
     </div>
@@ -377,6 +633,27 @@
     pointer-events: auto;
     box-sizing: border-box;
     overflow: visible;
+    transform-origin: 240px bottom;
+    will-change: transform, opacity;
+    animation: card-pop 0.38s calc(var(--pop-time) * 0.48) cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  }
+
+  @keyframes card-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.35) translateY(20px);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.03) translateY(-3px);
+    }
+    82% {
+      transform: scale(0.985) translateY(1px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 
   .wrap.dark-mode .card {
@@ -448,7 +725,8 @@
     display: flex;
     align-items: flex-end;   /* chân mascot = đáy màn hình */
     justify-content: center;
-    overflow: hidden;
+    overflow: visible;
+    clip-path: inset(-200px -50px 0 -50px); /* chỉ clip mép dưới đáy màn hình, đỉnh đầu thoải mái bung cao */
     pointer-events: none;
   }
 
@@ -470,6 +748,47 @@
     user-select: none;
     transform-origin: bottom center;
     will-change: transform;
+  }
+
+  img.cry-shake {
+    animation: cry-wobble 0.5s ease-in-out;
+  }
+
+  @keyframes cry-wobble {
+    0%, 100% {
+      transform: rotate(0deg);
+    }
+    15% {
+      transform: rotate(-8deg) scale(0.96);
+    }
+    35% {
+      transform: rotate(8deg) scale(1.02);
+    }
+    55% {
+      transform: rotate(-6deg);
+    }
+    75% {
+      transform: rotate(4deg);
+    }
+  }
+
+  img.happy-hop {
+    animation: happy-bounce 0.45s cubic-bezier(0.2, 0.8, 0.4, 1.3);
+  }
+
+  @keyframes happy-bounce {
+    0%, 100% {
+      transform: translateY(0) scale(1, 1);
+    }
+    30% {
+      transform: translateY(-9px) scale(0.96, 1.07);
+    }
+    50% {
+      transform: translateY(0) scale(1.05, 0.95);
+    }
+    70% {
+      transform: translateY(-3px) scale(0.99, 1.02);
+    }
   }
 
   /* 1. ENTRANCE */
@@ -542,20 +861,7 @@
     75%      { transform: rotate(var(--sway-angle)); }
   }
 
-  /* 3. HOVER WIGGLE */
-  .wrap:hover img {
-    animation: wiggle 0.7s ease-in-out 2;
-  }
 
-  @keyframes wiggle {
-    0%   { transform: translateY(0) scale(1, 1) rotate(0deg); }
-    15%  { transform: translateY(0) scale(1.14, 0.84) rotate(0deg); }
-    35%  { transform: translateY(-14%) scale(0.92, 1.13) rotate(-7deg); }
-    50%  { transform: translateY(0) scale(1.08, 0.92) rotate(6deg); }
-    65%  { transform: translateY(-8%) scale(0.96, 1.06) rotate(-5deg); }
-    80%  { transform: translateY(0) scale(1.03, 0.97) rotate(4deg); }
-    100% { transform: translateY(0) scale(1, 1) rotate(0deg); }
-  }
 
   /* ============================================================
      NỘI DUNG CARD CHI TIẾT
@@ -586,6 +892,65 @@
     width: 14px;
     height: 14px;
     stroke: currentColor;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Nút sang câu tiếp theo */
+  .btn-next {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 50%;
+    color: #607d8b;
+    outline: none;
+    transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-next:hover:not(:disabled) {
+    transform: scale(1.12);
+    color: #374151;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .btn-next:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+
+  .btn-next:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-next svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    transition: transform 0.15s ease;
+  }
+
+  .btn-next:hover:not(:disabled) svg {
+    transform: translateX(1.5px);
+  }
+
+  .wrap.dark-mode .btn-next {
+    color: #90a4ae;
+  }
+
+  .wrap.dark-mode .btn-next:hover:not(:disabled) {
+    color: #f3f4f6;
+    background: rgba(255, 255, 255, 0.08);
   }
 
   /* ============================================================
@@ -977,6 +1342,14 @@
     margin-top: 3px;
   }
 
+  .accuracy-tag {
+    font-size: 10px;
+    font-weight: 700;
+    opacity: 0.85;
+    margin-left: 5px;
+    display: inline-block;
+  }
+
   .result-correct {
     background: #ecfdf5;
     color: #065f46;
@@ -1058,11 +1431,12 @@
 
   /* Accessibility: tắt loop nếu bật reduce motion */
   @media (prefers-reduced-motion: reduce) {
+    .card,
     .mascot__bob,
-    .mascot__sway,
-    .wrap:hover img {
+    .mascot__sway {
       animation: none;
     }
+    .card,
     .mascot__pop,
     .tail {
       animation-duration: 0.01s;
