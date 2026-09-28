@@ -1,28 +1,21 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { storage } from "#imports";
-  import {
-    clearRecentKanji,
-    getRecentKanji,
-    getRecentKanjiLimit,
-    setRecentKanjiLimit,
-  } from "../../../lib/recent-kanji";
-
   type Unit = "s" | "m" | "h";
 
   let modeFlashcard = $state(false);
   let modeQuiz = $state(false);
   let enabled = $derived(modeFlashcard || modeQuiz);
 
-  let recentLimit = $state(30);
   let displaySeconds = $state(20);
-  let intervalValue = $state(20);
+  let intervalValue = $state(10);
   let intervalUnit = $state<Unit>("m");
-  let recentKanjiStr = $state("");
   let testStatus = $state<{ type: "error"; text: string } | null>(null);
   let isTesting = $state(false);
 
-  let recentList = $derived(Array.from(recentKanjiStr));
+  let positionSide = $state<"left" | "right">("right");
+  let sideOffset = $state<number>(10);
+  let bottomOffset = $state<number>(10);
 
   function getCalculatedSeconds(val: number, unit: Unit, dispSec: number): number {
     if (unit === "s") {
@@ -34,7 +27,7 @@
     if (unit === "h") {
       return Math.max(1, val) * 3600;
     }
-    return 20 * 60;
+    return 10 * 60;
   }
 
   onMount(async () => {
@@ -45,26 +38,31 @@
 
       if (storedFlash !== null && storedFlash !== undefined) {
         modeFlashcard = storedFlash;
-      } else if (storedEnabled === false) {
-        modeFlashcard = false;
-      } else {
+      } else if (storedEnabled === true) {
         modeFlashcard = true;
+      } else {
+        modeFlashcard = false;
       }
 
       if (storedQuiz !== null && storedQuiz !== undefined) {
         modeQuiz = storedQuiz;
-      } else if (storedEnabled === false) {
-        modeQuiz = false;
-      } else {
+      } else if (storedEnabled === true) {
         modeQuiz = true;
+      } else {
+        modeQuiz = false;
       }
 
-      recentLimit = await getRecentKanjiLimit();
-      displaySeconds = (await storage.getItem<number>("local:passiveLearnDisplaySeconds")) || 20;
+      const storedDisplaySeconds = await storage.getItem<number>("local:passiveLearnDisplaySeconds");
+      if (storedDisplaySeconds !== null && storedDisplaySeconds !== undefined) {
+        displaySeconds = storedDisplaySeconds;
+      } else {
+        displaySeconds = 20;
+      }
 
       const storedUnit = await storage.getItem<Unit>("local:passiveLearnIntervalUnit");
       const storedVal = await storage.getItem<number>("local:passiveLearnIntervalValue");
       const storedSecs = await storage.getItem<number>("local:passiveLearnIntervalSeconds");
+      const storedLegacyMin = await storage.getItem<number>("local:passiveLearnInterval");
 
       if (storedUnit && storedVal) {
         intervalUnit = storedUnit;
@@ -80,27 +78,109 @@
           intervalUnit = "s";
           intervalValue = storedSecs;
         }
+      } else if (storedLegacyMin) {
+        intervalUnit = "m";
+        intervalValue = storedLegacyMin;
       } else {
         intervalUnit = "m";
-        intervalValue = 20;
+        intervalValue = 10;
       }
 
-      recentKanjiStr = await getRecentKanji();
+      const storedSide = await storage.getItem<"left" | "right">("local:passiveLearnPositionSide");
+      if (storedSide === "left" || storedSide === "right") {
+        positionSide = storedSide;
+      } else {
+        positionSide = "right";
+      }
+
+      const storedSideOffset = await storage.getItem<number>("local:passiveLearnSideOffset");
+      if (typeof storedSideOffset === "number" && !Number.isNaN(storedSideOffset)) {
+        sideOffset = storedSideOffset;
+      } else {
+        sideOffset = 10;
+      }
+
+      const storedBottomOffset = await storage.getItem<number>("local:passiveLearnBottomOffset");
+      if (typeof storedBottomOffset === "number" && !Number.isNaN(storedBottomOffset)) {
+        bottomOffset = storedBottomOffset;
+      } else {
+        bottomOffset = 10;
+      }
+
+      if (modeFlashcard || modeQuiz) {
+        await ensureDefaultSettingsSaved({
+          storedDisplaySeconds,
+          storedUnit,
+          storedVal,
+          storedSide,
+          storedSideOffset,
+          storedBottomOffset,
+        });
+      }
     } catch (e) {
       console.error("Failed to load passive learn settings:", e);
     }
   });
 
+  async function ensureDefaultSettingsSaved(existing?: {
+    storedDisplaySeconds?: number | null;
+    storedUnit?: Unit | null;
+    storedVal?: number | null;
+    storedSide?: "left" | "right" | null;
+    storedSideOffset?: number | null;
+    storedBottomOffset?: number | null;
+  }) {
+    try {
+      const disp = existing?.storedDisplaySeconds ?? (await storage.getItem<number>("local:passiveLearnDisplaySeconds"));
+      if (disp === null || disp === undefined) {
+        await storage.setItem("local:passiveLearnDisplaySeconds", displaySeconds);
+      }
+
+      const unit = existing?.storedUnit ?? (await storage.getItem<Unit>("local:passiveLearnIntervalUnit"));
+      const val = existing?.storedVal ?? (await storage.getItem<number>("local:passiveLearnIntervalValue"));
+      if (!unit || !val) {
+        const totalSecs = getCalculatedSeconds(intervalValue, intervalUnit, displaySeconds);
+        await storage.setItem("local:passiveLearnIntervalSeconds", totalSecs);
+        await storage.setItem("local:passiveLearnIntervalValue", intervalValue);
+        await storage.setItem("local:passiveLearnIntervalUnit", intervalUnit);
+        await storage.setItem("local:passiveLearnInterval", Math.max(1, Math.round(totalSecs / 60)));
+      }
+
+      const side = existing?.storedSide ?? (await storage.getItem<"left" | "right">("local:passiveLearnPositionSide"));
+      if (!side) {
+        await storage.setItem("local:passiveLearnPositionSide", positionSide);
+      }
+
+      const sOffset = existing?.storedSideOffset ?? (await storage.getItem<number>("local:passiveLearnSideOffset"));
+      if (sOffset === null || sOffset === undefined) {
+        await storage.setItem("local:passiveLearnSideOffset", sideOffset);
+      }
+
+      const bOffset = existing?.storedBottomOffset ?? (await storage.getItem<number>("local:passiveLearnBottomOffset"));
+      if (bOffset === null || bOffset === undefined) {
+        await storage.setItem("local:passiveLearnBottomOffset", bottomOffset);
+      }
+    } catch (e) {
+      console.error("Failed to ensure default passive settings:", e);
+    }
+  }
+
   async function handleToggleFlashcard(checked: boolean) {
     modeFlashcard = checked;
     await storage.setItem("local:passiveLearnModeFlashcard", checked);
     await storage.setItem("local:passiveLearnEnabled", checked || modeQuiz);
+    if (checked) {
+      await ensureDefaultSettingsSaved();
+    }
   }
 
   async function handleToggleQuiz(checked: boolean) {
     modeQuiz = checked;
     await storage.setItem("local:passiveLearnModeQuiz", checked);
     await storage.setItem("local:passiveLearnEnabled", modeFlashcard || checked);
+    if (checked) {
+      await ensureDefaultSettingsSaved();
+    }
   }
 
   async function handleDisplaySecondsChange(e: Event) {
@@ -149,20 +229,31 @@
     await storage.setItem("local:passiveLearnInterval", Math.max(1, Math.round(totalSecs / 60)));
   }
 
-  async function handleLimitChange(e: Event) {
-    const target = e.target as HTMLInputElement;
-    let val = parseInt(target.value, 10);
-    if (Number.isNaN(val)) return;
-    val = Math.max(10, Math.min(100, val));
-    target.value = String(val);
-    recentLimit = await setRecentKanjiLimit(val);
-    recentKanjiStr = await getRecentKanji();
+  async function handlePositionSideChange(e: Event) {
+    const target = e.target as HTMLSelectElement;
+    const val = target.value as "left" | "right";
+    positionSide = val;
+    await storage.setItem("local:passiveLearnPositionSide", val);
   }
 
-  async function handleClearHistory() {
-    if (recentList.length === 0) return;
-    await clearRecentKanji();
-    recentKanjiStr = "";
+  async function handleSideOffsetChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    let val = parseInt(target.value, 10);
+    if (Number.isNaN(val)) val = 10;
+    val = Math.max(0, Math.min(500, val));
+    target.value = String(val);
+    sideOffset = val;
+    await storage.setItem("local:passiveLearnSideOffset", val);
+  }
+
+  async function handleBottomOffsetChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    let val = parseInt(target.value, 10);
+    if (Number.isNaN(val)) val = 10;
+    val = Math.max(0, Math.min(500, val));
+    target.value = String(val);
+    bottomOffset = val;
+    await storage.setItem("local:passiveLearnBottomOffset", val);
   }
 
   async function handleTestNow() {
@@ -196,6 +287,14 @@
 </script>
 
 <div class="settings-container">
+  <!-- Giải thích tính năng học thụ động -->
+  <div class="passive-intro-hint">
+    <span class="intro-bulb">💡</span>
+    <span>
+      Tự động hiển thị thẻ ôn tập hoặc câu đố trắc nghiệm từ các chữ Kanji bạn đã tra cứu theo chu kỳ, giúp ghi nhớ thụ động tự nhiên khi đang lướt web.
+    </span>
+  </div>
+
   <!-- Cài đặt chính -->
   <div class="setting-item">
     <div class="setting-controls">
@@ -228,17 +327,6 @@
           </span>
         </span>
       </label>
-
-      {#if modeFlashcard && modeQuiz}
-        <span class="field-sub-hint mode-hint">
-          * Đang bật cả 2: Thẻ học sẽ xuất hiện ngẫu nhiên giữa Thẻ ghi nhớ và Trắc nghiệm
-        </span>
-      {:else if !enabled}
-        <span class="field-sub-hint mode-hint">
-          * Hãy bật ít nhất 1 chế độ để bắt đầu học Kanji thụ động
-        </span>
-      {/if}
-
       {#if enabled}
 
         <!-- Tần suất xuất hiện -->
@@ -293,23 +381,60 @@
           </div>
         </div>
 
-        <!-- Số lượng Kanji lưu tối đa -->
-        <div class="passive-field-row">
-          <div class="field-label-col">
-            <strong>Số lượng Kanji lưu</strong>
-            <span class="field-sub-hint">* Từ 10 đến 100 chữ</span>
+        <!-- Cấu hình vị trí và khoảng cách (gộp 1 hàng) -->
+        <div class="passive-field-row position-row-group">
+          <!-- Vị trí -->
+          <div class="pos-config-item">
+            <span class="pos-config-label">Vị trí</span>
+            <div class="field-controls">
+              <select
+                class="passive-unit-select"
+                value={positionSide}
+                onchange={handlePositionSideChange}
+                aria-label="Vị trí hiển thị"
+              >
+                <option value="right">Bên phải</option>
+                <option value="left">Bên trái</option>
+              </select>
+            </div>
           </div>
-          <div class="field-controls">
-            <input
-              type="number"
-              min="10"
-              max="100"
-              step="1"
-              value={recentLimit}
-              onchange={handleLimitChange}
-              class="passive-num-input"
-            />
-            <span class="field-unit">chữ</span>
+
+          <div class="pos-divider"></div>
+
+          <!-- Cách lề -->
+          <div class="pos-config-item">
+            <span class="pos-config-label">Cách lề</span>
+            <div class="field-controls">
+              <input
+                type="number"
+                min="0"
+                max="500"
+                step="1"
+                value={sideOffset}
+                onchange={handleSideOffsetChange}
+                class="passive-num-input pos-num-input"
+              />
+              <span class="field-unit">px</span>
+            </div>
+          </div>
+
+          <div class="pos-divider"></div>
+
+          <!-- Cách đáy -->
+          <div class="pos-config-item">
+            <span class="pos-config-label">Cách đáy</span>
+            <div class="field-controls">
+              <input
+                type="number"
+                min="0"
+                max="500"
+                step="1"
+                value={bottomOffset}
+                onchange={handleBottomOffsetChange}
+                class="passive-num-input pos-num-input"
+              />
+              <span class="field-unit">px</span>
+            </div>
           </div>
         </div>
 
@@ -339,42 +464,32 @@
       {/if}
     </div>
   </div>
-
-  <!-- Lịch sử Kanji gần đây -->
-  <div class="setting-item">
-    <div class="history-title-bar">
-      <h3>Lịch sử Kanji gần đây ({recentList.length}/{recentLimit})</h3>
-      {#if recentList.length > 0}
-        <button
-          type="button"
-          class="clear-history-btn"
-          onclick={handleClearHistory}
-          title="Xóa toàn bộ lịch sử Kanji đã lưu"
-        >
-          Xóa lịch sử
-        </button>
-      {/if}
-    </div>
-
-    <div class="setting-controls">
-      {#if recentList.length > 0}
-        <div class="kanji-list-box">
-          {#each recentList as kanji}
-            <span class="kanji-chip">{kanji}</span>
-          {/each}
-        </div>
-      {:else}
-        <div class="blacklist-empty">
-          Chưa có chữ Kanji nào trong danh sách. Tiện ích sẽ tự động ghi nhớ các chữ bạn tra cứu khi bôi đen hoặc rê chuột trên trang web.
-        </div>
-      {/if}
-    </div>
-  </div>
 </div>
 
 <style>
-  .mode-hint {
-    padding-left: 0.25rem;
+  .passive-intro-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #475569;
+  }
+
+  .intro-bulb {
+    font-size: 0.95rem;
+    line-height: 1.1;
+    flex-shrink: 0;
+  }
+
+  :global(main.dark-mode) .passive-intro-hint {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
   }
 
   .passive-field-row {
@@ -402,6 +517,48 @@
   :global(main.dark-mode) .passive-field-row:hover {
     border-color: #6b7280;
     background-color: #374151;
+  }
+
+  .position-row-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .pos-config-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pos-config-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+  }
+
+  :global(main.dark-mode) .pos-config-label {
+    color: #f3f4f6;
+  }
+
+  .pos-num-input {
+    width: 52px;
+  }
+
+  .pos-divider {
+    width: 1px;
+    height: 22px;
+    background-color: #e5e7eb;
+    flex-shrink: 0;
+  }
+
+  :global(main.dark-mode) .pos-divider {
+    background-color: #4b5563;
   }
 
   .field-label-col {
@@ -530,89 +687,5 @@
 
   :global(main.dark-mode) .test-error-hint {
     color: #f87171;
-  }
-
-  .history-title-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .history-title-bar h3 {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #374151;
-  }
-
-  :global(main.dark-mode) .history-title-bar h3 {
-    color: #e5e7eb;
-  }
-
-  .clear-history-btn {
-    border: none;
-    background: transparent;
-    color: #f87171;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.15s ease;
-  }
-
-  .clear-history-btn:hover {
-    color: #ef4444;
-    text-decoration: underline;
-  }
-
-  .kanji-list-box {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 0.65rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 6px;
-    background: #ffffff;
-    max-height: 160px;
-    overflow-y: auto;
-  }
-
-  :global(main.dark-mode) .kanji-list-box {
-    border-color: #4b5563;
-    background: #1f2937;
-  }
-
-  .kanji-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: #f3f4f6;
-    color: #111827;
-    font-weight: 700;
-    font-size: 1rem;
-    font-family: "Noto Sans JP", sans-serif;
-    border: 1px solid #e5e7eb;
-    transition: all 0.15s ease;
-  }
-
-  .kanji-chip:hover {
-    background: #fee2e2;
-    color: #dc2626;
-    border-color: #fca5a5;
-  }
-
-  :global(main.dark-mode) .kanji-chip {
-    background: #111827;
-    color: #f3f4f6;
-    border-color: #374151;
-  }
-
-  :global(main.dark-mode) .kanji-chip:hover {
-    background: #450a0a;
-    color: #f87171;
-    border-color: #7f1d1d;
   }
 </style>

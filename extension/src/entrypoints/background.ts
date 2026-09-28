@@ -357,6 +357,17 @@ export default defineBackground(() => {
       sendResponse({ ok: true });
       return true;
     }
+
+    if (message.type === "RESET_EXTENSION_STATE") {
+      if (passiveShortTimer) {
+        clearTimeout(passiveShortTimer);
+        passiveShortTimer = null;
+      }
+      void browser.alarms.clearAll().then(() => {
+        sendResponse({ ok: true });
+      });
+      return true;
+    }
   });
 
   // --- Chế độ tự học thụ động (Passive Learning Engine) ---
@@ -387,11 +398,15 @@ export default defineBackground(() => {
       const storedSecs = await storage.getItem<number>(
         "local:passiveLearnIntervalSeconds",
       );
+      const storedLegacyMin = await storage.getItem<number>(
+        "local:passiveLearnInterval",
+      );
       const intervalSec =
         storedSecs !== null && storedSecs !== undefined
           ? storedSecs
-          : ((await storage.getItem<number>("local:passiveLearnInterval")) ||
-              20) * 60;
+          : storedLegacyMin !== null && storedLegacyMin !== undefined
+            ? storedLegacyMin * 60
+            : 10 * 60;
 
       if (intervalSec <= 30) {
         // Chế độ test ngắn (ví dụ: 10 giây): dùng setTimeout trực tiếp để đảm bảo kích hoạt chuẩn xác
@@ -509,9 +524,9 @@ export default defineBackground(() => {
 
       const modeFlashcard =
         (await storage.getItem<boolean>("local:passiveLearnModeFlashcard")) ??
-        true;
+        false;
       const modeQuiz =
-        (await storage.getItem<boolean>("local:passiveLearnModeQuiz")) ?? true;
+        (await storage.getItem<boolean>("local:passiveLearnModeQuiz")) ?? false;
 
       let currentMode: "flashcard" | "quiz" = "flashcard";
       if (modeFlashcard && modeQuiz) {
@@ -537,6 +552,15 @@ export default defineBackground(() => {
         };
       }
 
+      const positionSide =
+        (await storage.getItem<"left" | "right">(
+          "local:passiveLearnPositionSide",
+        )) || "right";
+      const sideOffset =
+        (await storage.getItem<number>("local:passiveLearnSideOffset")) ?? 10;
+      const bottomOffset =
+        (await storage.getItem<number>("local:passiveLearnBottomOffset")) ?? 10;
+
       if (tabId) {
         try {
           await browser.tabs.sendMessage(tabId, {
@@ -551,6 +575,9 @@ export default defineBackground(() => {
               level: entry.level?.[0] || "",
               example: sampleExample,
               displaySeconds,
+              positionSide,
+              sideOffset,
+              bottomOffset,
               quiz: quizPayload,
             },
           });

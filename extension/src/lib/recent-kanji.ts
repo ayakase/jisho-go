@@ -14,7 +14,10 @@ export async function getRecentKanjiLimit(): Promise<number> {
   try {
     const val = await storage.getItem<number>("local:recentKanjiLimit");
     if (typeof val === "number" && !Number.isNaN(val)) {
-      return Math.max(MIN_RECENT_LIMIT, Math.min(MAX_RECENT_LIMIT, Math.round(val)));
+      return Math.max(
+        MIN_RECENT_LIMIT,
+        Math.min(MAX_RECENT_LIMIT, Math.round(val)),
+      );
     }
   } catch (e) {
     console.error("Failed to read recentKanjiLimit:", e);
@@ -23,7 +26,10 @@ export async function getRecentKanjiLimit(): Promise<number> {
 }
 
 export async function setRecentKanjiLimit(limit: number): Promise<number> {
-  const safe = Math.max(MIN_RECENT_LIMIT, Math.min(MAX_RECENT_LIMIT, Math.round(limit)));
+  const safe = Math.max(
+    MIN_RECENT_LIMIT,
+    Math.min(MAX_RECENT_LIMIT, Math.round(limit)),
+  );
   try {
     await storage.setItem("local:recentKanjiLimit", safe);
     // Trim existing if needed
@@ -55,6 +61,20 @@ export async function clearRecentKanji(): Promise<void> {
   }
 }
 
+export async function removeRecentKanji(char: string): Promise<string> {
+  try {
+    const current = await getRecentKanji();
+    const next = Array.from(current)
+      .filter((c) => c !== char)
+      .join("");
+    await storage.setItem("local:recentKanji", next);
+    return next;
+  } catch (e) {
+    console.error("Failed to remove recentKanji:", e);
+    return "";
+  }
+}
+
 /**
  * Adds one or more kanji characters to the front of recent history (LRU).
  * Removes duplicates and enforces capacity limit.
@@ -73,10 +93,15 @@ export async function addRecentKanji(chars: string[]): Promise<string> {
     return await getRecentKanji();
   }
 
-  const [current, limit] = await Promise.all([getRecentKanji(), getRecentKanjiLimit()]);
+  const [current, limit] = await Promise.all([
+    getRecentKanji(),
+    getRecentKanjiLimit(),
+  ]);
 
   // LRU: New characters at front, followed by current characters that are not in validKanji
-  const existingChars = Array.from(current).filter((c) => !validKanji.includes(c));
+  const existingChars = Array.from(current).filter(
+    (c) => !validKanji.includes(c),
+  );
   const combined = [...validKanji, ...existingChars].slice(0, limit).join("");
 
   try {
@@ -87,4 +112,3 @@ export async function addRecentKanji(chars: string[]): Promise<string> {
 
   return combined;
 }
-

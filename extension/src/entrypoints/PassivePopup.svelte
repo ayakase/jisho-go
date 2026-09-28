@@ -25,6 +25,9 @@
     level?: string;
     example?: { w: string; p: string; m: string } | null;
     displaySeconds?: number;
+    positionSide?: "left" | "right";
+    sideOffset?: number;
+    bottomOffset?: number;
     quiz?: {
       questionKanji: string;
       options: QuizOption[];
@@ -37,6 +40,14 @@
   }
 
   let { payload, onClose }: Props = $props();
+
+  let customSide = $state<"left" | "right" | null>(null);
+  let customSideOffset = $state<number | null>(null);
+  let customBottomOffset = $state<number | null>(null);
+
+  let positionSide = $derived<"left" | "right">(customSide ?? payload.positionSide ?? "right");
+  let sideOffset = $derived<number>(customSideOffset ?? payload.sideOffset ?? 10);
+  let bottomOffset = $derived<number>(customBottomOffset ?? payload.bottomOffset ?? 10);
 
   let totalDurationMs = $state(20000);
   let remainingMs = $state(20000);
@@ -313,6 +324,25 @@
         storedQuizRate = "";
       }
 
+      if (!payload.positionSide) {
+        try {
+          const s = await storage.getItem<"left" | "right">("local:passiveLearnPositionSide");
+          if (s === "left" || s === "right") customSide = s;
+        } catch {}
+      }
+      if (payload.sideOffset === undefined) {
+        try {
+          const o = await storage.getItem<number>("local:passiveLearnSideOffset");
+          if (typeof o === "number" && !Number.isNaN(o)) customSideOffset = o;
+        } catch {}
+      }
+      if (payload.bottomOffset === undefined) {
+        try {
+          const b = await storage.getItem<number>("local:passiveLearnBottomOffset");
+          if (typeof b === "number" && !Number.isNaN(b)) customBottomOffset = b;
+        } catch {}
+      }
+
       let durSec = payload.displaySeconds;
       if (!durSec) {
         try {
@@ -350,6 +380,12 @@
 <div
   class="wrap"
   class:dark-mode={darkMode}
+  class:pos-left={positionSide === "left"}
+  class:pos-right={positionSide !== "left"}
+  style="
+    {positionSide === 'left' ? `left: ${sideOffset}px; right: auto;` : `right: ${sideOffset}px; left: auto;`}
+    bottom: {bottomOffset}px;
+  "
   onmouseenter={() => (isPaused = true)}
   onmouseleave={() => (isPaused = false)}
 >
@@ -370,7 +406,7 @@
           <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
         </svg>
         <span>
-          {payload.mode === "quiz" ? "Jisho Go • Trắc nghiệm Kanji" : "Jisho Go • Ôn tập"}
+          {payload.mode === "quiz" ? "Jisho Go • Đố chút nào" : "Jisho Go • Ôn tập đi bạn ơi"}
         </span>
       </div>
 
@@ -502,7 +538,6 @@
                   {/if}
                 </span>
               {:else}
-                <span class="result-icon">💡</span>
                 <span class="result-text">
                   <strong>{feedbackMessage}</strong>
                   {#if currentAccuracy !== null}
@@ -552,7 +587,7 @@
 
           {#if payload.example}
             <div class="example-box">
-              <div class="example-title">Ví dụ gợi nhớ:</div>
+              <div class="example-title">Ví dụ ngẫu nhiên:</div>
               <div class="example-content">
                 <span class="example-word">{payload.example.w}</span>
                 {#if payload.example.p}
@@ -618,6 +653,39 @@
     z-index: 2147483646;
     pointer-events: none;    /* để không chặn click ngoài card */
     box-sizing: border-box;
+  }
+
+  .wrap.pos-left {
+    right: auto;
+    left: 24px;
+  }
+
+  /* Định vị đuôi và mascot cho vị trí bên phải (mặc định) */
+  .wrap.pos-right .card {
+    transform-origin: 240px bottom;
+  }
+
+  .wrap.pos-right .tail {
+    left: 240px;
+  }
+
+  .wrap.pos-right .mascot {
+    margin-left: auto;
+    margin-right: 0;
+  }
+
+  /* Định vị đuôi và mascot cho vị trí bên trái */
+  .wrap.pos-left .card {
+    transform-origin: 58px bottom;
+  }
+
+  .wrap.pos-left .tail {
+    left: 36px;
+  }
+
+  .wrap.pos-left .mascot {
+    margin-left: 0;
+    margin-right: auto;
   }
 
   .card {

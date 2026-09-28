@@ -42,7 +42,14 @@ main {
   box-shadow: none;
 }
 
-.theme-toggle {
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.theme-toggle,
+.history-toggle {
   width: 34px;
   height: 34px;
   border: 1px solid #e5e7eb;
@@ -52,15 +59,29 @@ main {
   font-size: 1.15rem;
   line-height: 1;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s ease;
 }
 
-.theme-toggle:hover {
+.theme-toggle:hover,
+.history-toggle:hover {
   background: #f3f4f6;
+  color: #111827;
 }
 
-.theme-toggle svg {
-  width: 1.35rem;
-  height: 1.35rem;
+.history-toggle.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+.theme-toggle svg,
+.history-toggle svg {
+  width: 1.25rem;
+  height: 1.25rem;
   display: block;
   margin: auto;
 }
@@ -81,14 +102,27 @@ body.dark-mode {
   background: #111827 !important;
 }
 
-main.dark-mode .theme-toggle {
+main.dark-mode .theme-toggle,
+main.dark-mode .history-toggle {
   border-color: #4b5563;
   background: #1f2937;
+  color: #9ca3af;
+}
+
+main.dark-mode .theme-toggle {
   color: #fbbf24;
 }
 
-main.dark-mode .theme-toggle:hover {
+main.dark-mode .theme-toggle:hover,
+main.dark-mode .history-toggle:hover {
   background: #374151;
+  color: #f3f4f6;
+}
+
+main.dark-mode .history-toggle.active {
+  background: #1e3a5f;
+  border-color: #60a5fa;
+  color: #93c5fd;
 }
 
 main.dark-mode h1,
