@@ -1,25 +1,31 @@
-import { defineConfig } from 'wxt';
+import { defineConfig } from "wxt";
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
-  srcDir: 'src',
-  modules: ['@wxt-dev/module-svelte'],
+  srcDir: "src",
+  modules: ["@wxt-dev/module-svelte"],
   vite: () => ({
-    plugins: [{
-      name: 'fix-svelte-hmr-accept-exports',
-      enforce: 'post' as const,
-      transform(code: string) {
-        if (code.includes('.hot.acceptExports(')) {
-          return code.replace(/\.hot\.acceptExports\(/g, '.hot.acceptExports?.(');
-        }
-      }
-    }]
+    plugins: [
+      {
+        name: "fix-svelte-hmr-accept-exports",
+        enforce: "post" as const,
+        transform(code: string) {
+          if (code.includes(".hot.acceptExports(")) {
+            return code.replace(
+              /\.hot\.acceptExports\(/g,
+              ".hot.acceptExports?.(",
+            );
+          }
+        },
+      },
+    ],
   }),
   manifest: {
-    name: 'Jisho Go - Tra tiếng Nhật siêu tốc',
-    description: 'Công cụ tra từ điển và Kanji tiếng Nhật tức thì: hỗ trợ bôi đen tra nhanh, hover chữ Hán và nhận diện chữ trong ảnh (OCR).',
+    name: "Jisho Go - Tra tiếng Nhật siêu tốc",
+    description:
+      "Công cụ tra từ điển và Kanji tiếng Nhật tức thì: hỗ trợ bôi đen tra nhanh, hover chữ Hán và nhận diện chữ trong ảnh (OCR).",
     action: {
-      default_title: 'Jisho Go - Tra tiếng Nhật siêu tốc',
+      default_title: "Jisho Go - Tra tiếng Nhật siêu tốc",
     },
     permissions: [
       "activeTab",
@@ -27,6 +33,7 @@ export default defineConfig({
       "scripting",
       "storage",
       "contextMenus",
+      "alarms",
       // "identity", // LLM/AI: đăng nhập Google cho ví AI (đã ẩn trên UI)
     ],
     host_permissions: [
@@ -55,6 +62,5 @@ export default defineConfig({
         matches: ["<all_urls>"],
       },
     ],
-
   },
 });

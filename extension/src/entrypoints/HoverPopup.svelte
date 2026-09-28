@@ -3,6 +3,7 @@
   import { findKanjiDictEntry } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
+  import { addRecentKanji } from "../lib/recent-kanji";
   interface Position {
     left: number;
     top: number;
@@ -126,6 +127,7 @@
       error = lookupError;
     } else if (found) {
       kanjiResult = normalizeKanjiEntry(found as DictEntry);
+      void addRecentKanji([kanjiResult.w]);
     } else {
       error = "Không tìm thấy chữ Kanji này";
     }

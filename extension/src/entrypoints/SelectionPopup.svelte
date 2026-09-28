@@ -4,6 +4,7 @@
   import { storage } from "#imports";
   // import { getStoredSession } from "../lib/auth";
   import { kanaToRomajiConvert } from "../lib/romaji";
+  import { addRecentKanji } from "../lib/recent-kanji";
   interface Position {
     left: number;
     top: number;
@@ -813,6 +814,9 @@
     }
 
     kanjiResults = bgKanji.map(normalizeKanjiEntry);
+    if (kanjiResults.length > 0) {
+      void addRecentKanji(kanjiResults.map((k) => k.w));
+    }
     vocabResults = bgVocab;
 
     // Choose default tab based on available results (kanji first)

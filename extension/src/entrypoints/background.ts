@@ -12,6 +12,7 @@ import {
   backgroundFindKanji,
   backgroundSearchSelection,
 } from "../lib/dict-background";
+import { storage } from "#imports";
 
 let workerPromise: ReturnType<typeof createWorker> | null = null;
 
@@ -60,7 +61,10 @@ export default defineBackground(() => {
       throw new Error(`Failed to start extension auth: ${startRes.status}`);
     }
 
-    const startData = (await startRes.json()) as { authUrl?: string; error?: string };
+    const startData = (await startRes.json()) as {
+      authUrl?: string;
+      error?: string;
+    };
     if (!startData.authUrl) {
       throw new Error(startData.error || "Missing auth URL");
     }
@@ -259,7 +263,10 @@ export default defineBackground(() => {
       // Capture the visible tab
       const captureCallback = async (dataUrl: string) => {
         if (browser.runtime.lastError) {
-          console.error("Background: Capture error:", browser.runtime.lastError);
+          console.error(
+            "Background: Capture error:",
+            browser.runtime.lastError,
+          );
           sendResponse({ error: browser.runtime.lastError.message });
           return;
         }
@@ -280,7 +287,7 @@ export default defineBackground(() => {
 
           const canvas = new OffscreenCanvas(
             bounds.width * bounds.devicePixelRatio,
-            bounds.height * bounds.devicePixelRatio
+            bounds.height * bounds.devicePixelRatio,
           );
           const ctx = canvas.getContext("2d");
 
@@ -295,10 +302,12 @@ export default defineBackground(() => {
               0,
               0,
               bounds.width * bounds.devicePixelRatio,
-              bounds.height * bounds.devicePixelRatio
+              bounds.height * bounds.devicePixelRatio,
             );
             // Convert canvas to blob and send the cropped image back to the content script
-            const resultBlob = await canvas.convertToBlob({ type: "image/png" });
+            const resultBlob = await canvas.convertToBlob({
+              type: "image/png",
+            });
             const reader = new FileReader();
             reader.onloadend = () => {
               sendResponse({ imageDataUrl: reader.result });
@@ -316,13 +325,224 @@ export default defineBackground(() => {
 
       // Call captureVisibleTab with or without windowId
       if (sender.tab?.windowId !== undefined) {
-        browser.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" }, captureCallback);
+        browser.tabs.captureVisibleTab(
+          sender.tab.windowId,
+          { format: "png" },
+          captureCallback,
+        );
       } else {
         browser.tabs.captureVisibleTab({ format: "png" }, captureCallback);
       }
 
       // Return true to indicate we'll send response asynchronously
       return true;
+    }
+
+    if (message.type === "TRIGGER_TEST_PASSIVE_LEARN") {
+      triggerPassiveLearnCard().then((res) => sendResponse(res));
+      return true;
+    }
+  });
+
+  // --- Chế độ tự học thụ động (Passive Learning Engine) ---
+  const PASSIVE_ALARM_NAME = "PASSIVE_LEARN_ALARM";
+  const DEFAULT_SAMPLE_KANJI = "日本語学習勉強時間私行見";
+  let passiveShortTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function scheduleNextPassiveLearn() {
+    try {
+      if (passiveShortTimer) {
+        clearTimeout(passiveShortTimer);
+        passiveShortTimer = null;
+      }
+      const enabled =
+        (await storage.getItem<boolean>("local:passiveLearnEnabled")) ?? false;
+      if (!enabled) {
+        await browser.alarms.clear(PASSIVE_ALARM_NAME);
+        return;
+      }
+
+      const storedSecs = await storage.getItem<number>(
+        "local:passiveLearnIntervalSeconds",
+      );
+      const intervalSec =
+        storedSecs !== null && storedSecs !== undefined
+          ? storedSecs
+          : ((await storage.getItem<number>("local:passiveLearnInterval")) ||
+              20) * 60;
+
+      if (intervalSec <= 30) {
+        // Chế độ test ngắn (ví dụ: 10 giây): dùng setTimeout trực tiếp để đảm bảo kích hoạt chuẩn xác
+        await browser.alarms.clear(PASSIVE_ALARM_NAME);
+        passiveShortTimer = setTimeout(async () => {
+          await triggerPassiveLearnCard();
+          void scheduleNextPassiveLearn();
+        }, intervalSec * 1000);
+        return;
+      }
+
+      const baseMinutes = intervalSec / 60;
+      // Thêm độ trễ ngẫu nhiên nhẹ (±20%) để tự nhiên hơn
+      const jitter = (Math.random() - 0.5) * 0.4 * baseMinutes;
+      const delay = Math.max(1, Math.round(baseMinutes + jitter));
+      await browser.alarms.create(PASSIVE_ALARM_NAME, {
+        delayInMinutes: delay,
+      });
+    } catch (e) {
+      console.error("Failed to schedule passive learn alarm:", e);
+    }
+  }
+
+  async function triggerPassiveLearnCard(
+    targetTabId?: number,
+  ): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const recent = (await storage.getItem<string>("local:recentKanji")) || "";
+      const kanjiPool =
+        recent && recent.length > 0 ? recent : DEFAULT_SAMPLE_KANJI;
+
+      // Chọn ngẫu nhiên 1 Kanji trong danh sách đã lưu hoặc fallback kanji mẫu
+      const randomChar =
+        kanjiPool[Math.floor(Math.random() * kanjiPool.length)];
+      const { entry } = await backgroundFindKanji(randomChar);
+      if (!entry) {
+        return {
+          ok: false,
+          error: "Không tìm thấy dữ liệu từ điển cho Kanji này.",
+        };
+      }
+
+      // Thu thập các ví dụ từ vựng
+      const allExamples: Array<{ w: string; p: string; m: string }> = [];
+      if (entry.examples) {
+        for (const ex of entry.examples) {
+          if (ex.w && ex.m)
+            allExamples.push({ w: ex.w, p: ex.p || "", m: ex.m });
+        }
+      }
+      if (entry.example_on) {
+        for (const list of Object.values(entry.example_on)) {
+          for (const ex of list) {
+            if (ex.w && ex.m)
+              allExamples.push({ w: ex.w, p: ex.p || "", m: ex.m });
+          }
+        }
+      }
+      if (entry.example_kun) {
+        for (const list of Object.values(entry.example_kun)) {
+          for (const ex of list) {
+            if (ex.w && ex.m)
+              allExamples.push({ w: ex.w, p: ex.p || "", m: ex.m });
+          }
+        }
+      }
+
+      const sampleExample =
+        allExamples.length > 0
+          ? allExamples[Math.floor(Math.random() * allExamples.length)]
+          : null;
+
+      let tabId = targetTabId;
+      if (!tabId) {
+        const tabs = await browser.tabs.query({
+          active: true,
+          lastFocusedWindow: true,
+        });
+        let candidateTab = tabs[0];
+        if (
+          !candidateTab?.url ||
+          candidateTab.url.startsWith("chrome://") ||
+          candidateTab.url.startsWith("edge://") ||
+          candidateTab.url.startsWith("about:") ||
+          candidateTab.url.startsWith("chrome-extension://")
+        ) {
+          const allTabs = await browser.tabs.query({ active: true });
+          candidateTab =
+            allTabs.find(
+              (t) =>
+                t.url &&
+                !t.url.startsWith("chrome://") &&
+                !t.url.startsWith("edge://") &&
+                !t.url.startsWith("about:") &&
+                !t.url.startsWith("chrome-extension://"),
+            ) || allTabs[0];
+        }
+
+        if (
+          candidateTab?.id &&
+          candidateTab.url &&
+          !candidateTab.url.startsWith("chrome://") &&
+          !candidateTab.url.startsWith("edge://") &&
+          !candidateTab.url.startsWith("about:") &&
+          !candidateTab.url.startsWith("chrome-extension://")
+        ) {
+          tabId = candidateTab.id;
+        }
+      }
+
+      if (tabId) {
+        try {
+          await browser.tabs.sendMessage(tabId, {
+            type: "SHOW_PASSIVE_LEARN",
+            payload: {
+              kanji: entry.w,
+              hanViet: entry.h,
+              on: entry.on,
+              kun: entry.kun,
+              level: entry.level?.[0] || "",
+              example: sampleExample,
+            },
+          });
+          return { ok: true };
+        } catch (e) {
+          return {
+            ok: false,
+            error:
+              "Tab này chưa tải phiên bản mới của extension. Hãy F5 tải lại trang web này rồi thử lại nhé!",
+          };
+        }
+      }
+      return {
+        ok: false,
+        error: "Hãy mở một tab trang web bất kỳ để hiển thị thẻ học.",
+      };
+    } catch (e) {
+      console.error("Error triggering passive learn card:", e);
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  browser.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === PASSIVE_ALARM_NAME) {
+      await triggerPassiveLearnCard();
+      await scheduleNextPassiveLearn();
+    }
+  });
+
+  storage.watch<boolean>("local:passiveLearnEnabled", (enabled) => {
+    if (enabled) {
+      void scheduleNextPassiveLearn();
+    } else {
+      if (passiveShortTimer) {
+        clearTimeout(passiveShortTimer);
+        passiveShortTimer = null;
+      }
+      void browser.alarms.clear(PASSIVE_ALARM_NAME);
+    }
+  });
+
+  storage.watch<number>("local:passiveLearnInterval", () => {
+    void scheduleNextPassiveLearn();
+  });
+
+  storage.watch<number>("local:passiveLearnIntervalSeconds", () => {
+    void scheduleNextPassiveLearn();
+  });
+
+  // Khởi động alarm nếu đã bật trước đó
+  browser.alarms.get(PASSIVE_ALARM_NAME).then((existing) => {
+    if (!existing) {
+      void scheduleNextPassiveLearn();
     }
   });
 });

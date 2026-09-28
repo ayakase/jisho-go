@@ -3,6 +3,7 @@
   import { searchSelectionDicts } from "../lib/dict-loaders";
   import { storage } from "#imports";
   import { kanaToRomajiConvert } from "../lib/romaji";
+  import { addRecentKanji } from "../lib/recent-kanji";
 
   interface Position {
     left: number;
@@ -244,6 +245,9 @@
 
     if (sections.kanji) {
       kanjiResults = foundKanji.map(normalizeKanjiEntry);
+      if (kanjiResults.length > 0) {
+        void addRecentKanji(kanjiResults.map((k) => k.w));
+      }
     }
     if (sections.vocab) {
       vocabResults = foundVocab;

@@ -4,9 +4,10 @@
   import HoverSetting from "./components/HoverSetting.svelte";
   import OcrSetting from "./components/OcrSetting.svelte";
   import CommonSetting from "./components/CommonSetting.svelte";
+  import PassiveSetting from "./components/PassiveSetting.svelte";
   // import Account from "./components/Account.svelte";
 
-  const VALID_TABS = ["highlight", "hover", "ocr", "common"] as const;
+  const VALID_TABS = ["highlight", "hover", "ocr", "passive", "common"] as const;
   type Tab = (typeof VALID_TABS)[number];
   const DEFAULT_TAB: Tab = "highlight";
 
@@ -189,6 +190,33 @@
     <button
       type="button"
       role="tab"
+      aria-selected={activeTab === "passive"}
+      class="tab-button {activeTab === 'passive' ? 'active' : ''}"
+      onclick={() => selectTab("passive")}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="tab-icon"
+        aria-hidden="true"
+      >
+        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        <path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" />
+        <path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" />
+        <path d="M3 6l0 13" />
+        <path d="M12 6l0 13" />
+        <path d="M21 6l0 13" />
+      </svg>
+      <span>Học Kanji</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
       aria-selected={activeTab === "common"}
       class="tab-button {activeTab === 'common' ? 'active' : ''}"
       onclick={() => selectTab("common")}
@@ -227,6 +255,8 @@
     <HoverSetting />
   {:else if activeTab === "ocr"}
     <OcrSetting />
+  {:else if activeTab === "passive"}
+    <PassiveSetting />
   {:else if activeTab === "common"}
     <CommonSetting />
   {:else}

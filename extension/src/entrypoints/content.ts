@@ -1,8 +1,9 @@
-import { mount } from 'svelte';
+import { mount, unmount } from 'svelte';
 import { storage } from '#imports';
 import SelectionPopup from './SelectionPopup.svelte';
 import HoverPopup from './HoverPopup.svelte';
 import HoverParagraphPopup from './HoverParagraphPopup.svelte';
+import PassivePopup, { type PassiveLearnPayload } from './PassivePopup.svelte';
 import { createWorker, PSM } from 'tesseract.js';
 import {
   matchesOcrShortcut,
@@ -28,6 +29,8 @@ const DEFAULT_HOVER_PARAGRAPH_SECTIONS: HoverParagraphSections = {
 
 let popupContainer: HTMLElement | null = null; // Click/selection popup
 let hoverPopupContainer: HTMLElement | null = null; // Hover popup (separate)
+let passivePopupContainer: HTMLElement | null = null; // Passive learning flashcard popup
+let passivePopupInstance: ReturnType<typeof mount> | null = null;
 let buttonContainer: HTMLElement | null = null;
 let popupText: string | null = null;
 let popupMode: PopupMode = 'immediate';
@@ -737,6 +740,7 @@ export default defineContentScript({
         buttonContainer !== null ||
         selectionOverlay !== null ||
         ocrLoadingEl !== null ||
+        passivePopupContainer !== null ||
         isOcrScanning;
 
       if (!hasOpenUi) return;
@@ -988,6 +992,39 @@ function removeSelectionOverlay() {
   }
 }
 
+function removePassivePopup() {
+  if (passivePopupInstance) {
+    try {
+      unmount(passivePopupInstance);
+    } catch {}
+    passivePopupInstance = null;
+  }
+  if (passivePopupContainer) {
+    passivePopupContainer.remove();
+    passivePopupContainer = null;
+  }
+}
+
+function showPassivePopup(payload: PassiveLearnPayload) {
+  if (document.fullscreenElement || isOcrActive()) return;
+
+  removePassivePopup();
+
+  passivePopupContainer = document.createElement('div');
+  passivePopupContainer.id = 'jisho-go-passive-container';
+  document.body.appendChild(passivePopupContainer);
+
+  passivePopupInstance = mount(PassivePopup, {
+    target: passivePopupContainer,
+    props: {
+      payload,
+      onClose: () => {
+        removePassivePopup();
+      },
+    },
+  });
+}
+
 function isHighlightPopupActive(): boolean {
   return (
     popupContainer !== null ||
@@ -1007,6 +1044,7 @@ function closeAllPopups() {
   removeHoverPopup();
   removeButton();
   removeSelectionOverlay();
+  removePassivePopup();
   if (hoverTimeout !== null) {
     clearTimeout(hoverTimeout);
     hoverTimeout = null;
@@ -2066,5 +2104,13 @@ window.addEventListener("message", (event) => {
 
   if (event.data.type === "START_SELECTION") {
     startSelectionOcr();
+  }
+});
+
+browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "SHOW_PASSIVE_LEARN") {
+    showPassivePopup(message.payload);
+    sendResponse({ ok: true });
+    return true;
   }
 });
