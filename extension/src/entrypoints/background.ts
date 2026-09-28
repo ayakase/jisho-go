@@ -10,7 +10,9 @@ import {
 } from "../lib/auth";
 import {
   backgroundFindKanji,
+  backgroundGetQuizOptions,
   backgroundSearchSelection,
+  type QuizOption,
 } from "../lib/dict-background";
 import { storage } from "#imports";
 
@@ -355,9 +357,16 @@ export default defineBackground(() => {
         clearTimeout(passiveShortTimer);
         passiveShortTimer = null;
       }
-      const enabled =
+      const modeFlashcard =
+        (await storage.getItem<boolean>("local:passiveLearnModeFlashcard")) ??
+        false;
+      const modeQuiz =
+        (await storage.getItem<boolean>("local:passiveLearnModeQuiz")) ?? false;
+      const legacyEnabled =
         (await storage.getItem<boolean>("local:passiveLearnEnabled")) ?? false;
-      if (!enabled) {
+
+      const isEnabled = modeFlashcard || modeQuiz || legacyEnabled;
+      if (!isEnabled) {
         await browser.alarms.clear(PASSIVE_ALARM_NAME);
         return;
       }
@@ -480,17 +489,54 @@ export default defineBackground(() => {
         }
       }
 
+      const displaySeconds =
+        (await storage.getItem<number>("local:passiveLearnDisplaySeconds")) ||
+        20;
+
+      const modeFlashcard =
+        (await storage.getItem<boolean>("local:passiveLearnModeFlashcard")) ??
+        true;
+      const modeQuiz =
+        (await storage.getItem<boolean>("local:passiveLearnModeQuiz")) ?? true;
+
+      let currentMode: "flashcard" | "quiz" = "flashcard";
+      if (modeFlashcard && modeQuiz) {
+        currentMode = Math.random() < 0.5 ? "flashcard" : "quiz";
+      } else if (modeQuiz) {
+        currentMode = "quiz";
+      } else {
+        currentMode = "flashcard";
+      }
+
+      let quizPayload:
+        | { questionKanji: string; options: QuizOption[] }
+        | undefined = undefined;
+      if (currentMode === "quiz") {
+        const options = await backgroundGetQuizOptions(
+          entry.w,
+          entry.h,
+          recent,
+        );
+        quizPayload = {
+          questionKanji: entry.w,
+          options,
+        };
+      }
+
       if (tabId) {
         try {
           await browser.tabs.sendMessage(tabId, {
             type: "SHOW_PASSIVE_LEARN",
             payload: {
+              mode: currentMode,
               kanji: entry.w,
               hanViet: entry.h,
               on: entry.on,
               kun: entry.kun,
               level: entry.level?.[0] || "",
               example: sampleExample,
+              displaySeconds,
+              quiz: quizPayload,
             },
           });
           return { ok: true };
@@ -531,11 +577,23 @@ export default defineBackground(() => {
     }
   });
 
+  storage.watch<boolean>("local:passiveLearnModeFlashcard", () => {
+    void scheduleNextPassiveLearn();
+  });
+
+  storage.watch<boolean>("local:passiveLearnModeQuiz", () => {
+    void scheduleNextPassiveLearn();
+  });
+
   storage.watch<number>("local:passiveLearnInterval", () => {
     void scheduleNextPassiveLearn();
   });
 
   storage.watch<number>("local:passiveLearnIntervalSeconds", () => {
+    void scheduleNextPassiveLearn();
+  });
+
+  storage.watch<number>("local:passiveLearnDisplaySeconds", () => {
     void scheduleNextPassiveLearn();
   });
 
