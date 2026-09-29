@@ -3,7 +3,7 @@
   "packageManager": "yarn@1.22.22",
   "description": "Jisho Go - Tra từ vựng tiếng Nhật siêu tốc",
   "private": true,
-  "version": "2.0",
+  "version": "2.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",

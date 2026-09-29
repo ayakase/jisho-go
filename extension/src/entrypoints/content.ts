@@ -57,6 +57,24 @@ function isOcrActive(): boolean {
   return isOcrScanning || selectionOverlay !== null || ocrLoadingEl !== null;
 }
 
+function isInsideAnyExtensionPopup(node: Node | null): boolean {
+  if (!node) return false;
+  if (popupContainer && popupContainer.contains(node)) return true;
+  if (hoverPopupContainer && hoverPopupContainer.contains(node)) return true;
+  if (buttonContainer && buttonContainer.contains(node)) return true;
+  if (passivePopupContainer && passivePopupContainer.contains(node))
+    return true;
+  const el = node instanceof Element ? node : node.parentElement;
+  if (
+    el?.closest?.(
+      "#jisho-go-passive-container, #jisho-go-selection-popup-container, #jisho-go-hover-popup-container, #jisho-go-hover-popup, #jisho-go-hover-paragraph-popup, #jisho-go-search-button, #jisho-go-notice",
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function showNotice(message: string) {
   const existing = document.getElementById("jisho-go-notice");
   if (existing) existing.remove();
@@ -639,12 +657,7 @@ export default defineContentScript({
           removeButton();
         }
 
-        if (
-          (popupContainer && popupContainer.contains(event.target as Node)) ||
-          (hoverPopupContainer &&
-            hoverPopupContainer.contains(event.target as Node)) ||
-          (buttonContainer && buttonContainer.contains(event.target as Node))
-        ) {
+        if (isInsideAnyExtensionPopup(event.target as Node)) {
           return;
         }
 
@@ -677,14 +690,11 @@ export default defineContentScript({
       if (Date.now() < suppressSelectionPopupUntil) {
         return;
       }
-      // Don't process if OCR is active, selection overlay is active, or clicking inside popups/button
+      // Don't process if OCR is active, selection overlay is active, or clicking inside popups/button/passive
       if (
         isOcrActive() ||
         selectionOverlay !== null ||
-        (popupContainer && popupContainer.contains(event.target as Node)) ||
-        (hoverPopupContainer &&
-          hoverPopupContainer.contains(event.target as Node)) ||
-        (buttonContainer && buttonContainer.contains(event.target as Node))
+        isInsideAnyExtensionPopup(event.target as Node)
       ) {
         return;
       }
@@ -711,6 +721,17 @@ export default defineContentScript({
         removePopup();
         removeButton();
         removeHoverPopup();
+        return;
+      }
+
+      // Đừng kích hoạt nếu bôi đen văn bản bên trong bất kỳ popup nào của tiện ích (như thẻ passive, selection, hover)
+      if (
+        isInsideAnyExtensionPopup(selection.anchorNode) ||
+        isInsideAnyExtensionPopup(selection.focusNode) ||
+        isInsideAnyExtensionPopup(
+          selection.getRangeAt(0).commonAncestorContainer,
+        )
+      ) {
         return;
       }
 
@@ -1061,6 +1082,10 @@ function showPassivePopup(payload: PassiveLearnPayload) {
   passivePopupContainer.id = "jisho-go-passive-container";
   document.body.appendChild(passivePopupContainer);
 
+  const stopPropagation = (ev: Event) => ev.stopPropagation();
+  passivePopupContainer.addEventListener("mousedown", stopPropagation, true);
+  passivePopupContainer.addEventListener("mouseup", stopPropagation, true);
+
   passivePopupInstance = mount(PassivePopup, {
     target: passivePopupContainer,
     props: {
@@ -1408,6 +1433,9 @@ function getCharAtPosition(
   }
 
   const container = range.startContainer;
+  if (isInsideAnyExtensionPopup(container)) {
+    return { char: "", rect: null };
+  }
   if (container.nodeType !== Node.TEXT_NODE) {
     return { char: "", rect: null };
   }
@@ -1555,6 +1583,9 @@ function getTextChunkFromTargetBoundedBlock(
 }
 
 function getTextChunkFromTarget(target: EventTarget | null): string {
+  if (isInsideAnyExtensionPopup(target as Node)) {
+    return "";
+  }
   switch (CURRENT_TEXT_CHUNK_CAPTURE_MODE) {
     case "semantic-only":
       return getTextChunkFromTargetSemanticOnly(target);
@@ -1611,8 +1642,18 @@ function setupHoverMode() {
       return;
     }
 
-    // Don't trigger if hovering over hover popup itself
-    if (hoverPopupContainer && hoverPopupContainer.contains(e.target as Node)) {
+    // Don't trigger if hovering over hover popup, passive popup, or any extension popup
+    if (isInsideAnyExtensionPopup(e.target as Node)) {
+      if (
+        passivePopupContainer &&
+        passivePopupContainer.contains(e.target as Node)
+      ) {
+        if (hoverTimeout !== null) {
+          clearTimeout(hoverTimeout);
+          hoverTimeout = null;
+        }
+        removeHoverPopup();
+      }
       return;
     }
 
@@ -1639,8 +1680,12 @@ function setupHoverMode() {
     hoverTimeout = window.setTimeout(() => {
       hoverTimeout = null;
 
-      // Double-check: if OCR or selection/highlight popup is active, abort immediately
-      if (isOcrActive() || isHighlightPopupActive()) {
+      // Double-check: if OCR, selection/highlight popup, or hovering inside any extension popup, abort immediately
+      if (
+        isOcrActive() ||
+        isHighlightPopupActive() ||
+        isInsideAnyExtensionPopup(e.target as Node)
+      ) {
         removeHoverPopup();
         return;
       }
