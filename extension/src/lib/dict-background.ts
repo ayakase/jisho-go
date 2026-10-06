@@ -106,47 +106,78 @@ export async function backgroundGetQuizOptions(
   targetHanViet: string,
   recentKanjiStr: string = "",
   count: number = 3,
+  targetLevel?: string,
+  targetStrokeCount?: string,
 ): Promise<QuizOption[]> {
   const kanjiDict = await ensureKanjiDict();
   const cleanTargetHV = targetHanViet.split(",")[0].trim().toUpperCase();
   const seenHanViet = new Set<string>([cleanTargetHV]);
   const distractors: Array<{ kanji: string; hanViet: string }> = [];
 
+  const primaryLevel = targetLevel ? targetLevel.trim().toUpperCase() : "";
+
   // 1. Thử lấy từ các kanji trong lịch sử gần đây của người dùng trước
   if (recentKanjiStr) {
     const chars = Array.from(recentKanjiStr).filter((c) => c !== targetKanji);
-    chars.sort(() => Math.random() - 0.5);
-    for (const char of chars) {
+    const candidates = chars
+      .map((c) => findKanjiEntry(c, kanjiDict))
+      .filter((e): e is DictEntry => !!e && !!e.w && !!e.h);
+
+    if (primaryLevel) {
+      candidates.sort((a, b) => {
+        const aMatches = a.level?.includes(primaryLevel) ? 1 : 0;
+        const bMatches = b.level?.includes(primaryLevel) ? 1 : 0;
+        return bMatches - aMatches || Math.random() - 0.5;
+      });
+    } else {
+      candidates.sort(() => Math.random() - 0.5);
+    }
+
+    for (const found of candidates) {
       if (distractors.length >= count) break;
-      const found = findKanjiEntry(char, kanjiDict);
-      if (found?.w && found?.h) {
-        const cleanH = found.h.split(",")[0].trim().toUpperCase();
-        if (cleanH && !seenHanViet.has(cleanH)) {
-          seenHanViet.add(cleanH);
-          distractors.push({ kanji: found.w, hanViet: cleanH });
-        }
+      const cleanH = found.h.split(",")[0].trim().toUpperCase();
+      if (cleanH && !seenHanViet.has(cleanH)) {
+        seenHanViet.add(cleanH);
+        distractors.push({ kanji: found.w, hanViet: cleanH });
       }
     }
   }
 
-  // 2. Nếu chưa đủ số đáp án sai, lấy thêm từ từ điển (ưu tiên các chữ có JLPT level)
-  const commonEntries = kanjiDict.filter(
-    (e) =>
-      (e.level && e.level.length > 0) ||
-      ((e as any).l && (e as any).l.length > 0),
-  );
-  const pool = commonEntries.length >= count * 10 ? commonEntries : kanjiDict;
+  // 2. Nếu chưa đủ số đáp án sai, lấy thêm từ từ điển
+  // Ưu tiên chọn chữ cùng level JLPT với câu hỏi
+  if (distractors.length < count) {
+    let levelPool: DictEntry[] = [];
+    if (primaryLevel) {
+      levelPool = kanjiDict.filter(
+        (e) => e.w !== targetKanji && e.level?.includes(primaryLevel),
+      );
+    }
 
-  let attempts = 0;
-  while (distractors.length < count && attempts < 1000) {
-    attempts++;
-    const idx = Math.floor(Math.random() * pool.length);
-    const item = pool[idx];
-    if (!item?.w || !item?.h || item.w === targetKanji) continue;
-    const cleanH = item.h.split(",")[0].trim().toUpperCase();
-    if (!cleanH || seenHanViet.has(cleanH)) continue;
-    seenHanViet.add(cleanH);
-    distractors.push({ kanji: item.w, hanViet: cleanH });
+    const commonEntries = kanjiDict.filter(
+      (e) =>
+        e.w !== targetKanji &&
+        ((e.level && e.level.length > 0) ||
+          ((e as any).l && (e as any).l.length > 0)),
+    );
+
+    const pool =
+      levelPool.length >= count * 3
+        ? levelPool
+        : commonEntries.length >= count * 10
+          ? commonEntries
+          : kanjiDict;
+
+    let attempts = 0;
+    while (distractors.length < count && attempts < 1000) {
+      attempts++;
+      const idx = Math.floor(Math.random() * pool.length);
+      const item = pool[idx];
+      if (!item?.w || !item?.h || item.w === targetKanji) continue;
+      const cleanH = item.h.split(",")[0].trim().toUpperCase();
+      if (!cleanH || seenHanViet.has(cleanH)) continue;
+      seenHanViet.add(cleanH);
+      distractors.push({ kanji: item.w, hanViet: cleanH });
+    }
   }
 
   const options: QuizOption[] = [

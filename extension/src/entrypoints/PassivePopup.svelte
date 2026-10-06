@@ -220,6 +220,32 @@
       console.error("Failed to save passive quiz rate:", err);
     });
 
+    // Cập nhật danh sách chữ hay làm sai (weakKanji)
+    const targetKanji = payload.quiz?.questionKanji || payload.kanji;
+    if (targetKanji) {
+      void (async () => {
+        try {
+          const currentWeak =
+            (await storage.getItem<string>("local:passiveWeakKanji")) || "";
+          if (!opt.isCorrect) {
+            // Trả lời SAI -> Đưa chữ này lên đầu danh sách ôn tập (tối đa 40 chữ)
+            const nextWeak = (
+              targetKanji + currentWeak.replace(targetKanji, "")
+            ).slice(0, 40);
+            await storage.setItem("local:passiveWeakKanji", nextWeak);
+          } else if (currentWeak.includes(targetKanji)) {
+            // Trả lời ĐÚNG -> Gỡ chữ này khỏi danh sách yếu
+            await storage.setItem(
+              "local:passiveWeakKanji",
+              currentWeak.replace(targetKanji, ""),
+            );
+          }
+        } catch (err) {
+          console.error("Failed to update weak kanji list:", err);
+        }
+      })();
+    }
+
     // Báo background hoãn và đặt lại lịch chạy tiếp theo, không được nhảy câu khi đang đọc đáp án
     void browser.runtime?.sendMessage({ type: "RESET_PASSIVE_TIMER" }).catch(() => {});
   }

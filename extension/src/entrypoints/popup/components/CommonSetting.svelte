@@ -116,16 +116,31 @@
         await browser.runtime.sendMessage({ type: "RESET_EXTENSION_STATE" });
       } catch {}
 
-      await storage.clear("local");
+      // Xóa toàn bộ WXT Storage layers
+      try {
+        await storage.clear("local");
+      } catch {}
       try {
         await storage.clear("sync");
       } catch {}
+
+      // Xóa toàn bộ Extension Storage gốc của trình duyệt
       try {
         await browser.storage?.local?.clear();
       } catch {}
       try {
         await browser.storage?.sync?.clear();
       } catch {}
+
+      // Xóa Web Storage nếu có
+      try {
+        window.localStorage?.clear();
+      } catch {}
+      try {
+        window.sessionStorage?.clear();
+      } catch {}
+
+      // Hủy mọi alarm chạy ngầm
       try {
         await browser.alarms?.clearAll();
       } catch {}

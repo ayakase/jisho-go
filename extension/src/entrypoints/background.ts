@@ -360,9 +360,20 @@ export default defineBackground(() => {
     }
 
     if (message.type === "RESET_EXTENSION_STATE") {
-      void browser.alarms.clearAll().then(() => {
-        sendResponse({ ok: true });
-      });
+      (async () => {
+        try {
+          await browser.alarms.clearAll();
+          try {
+            await browser.storage?.local?.clear();
+          } catch {}
+          try {
+            await browser.storage?.sync?.clear();
+          } catch {}
+          sendResponse({ ok: true });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+      })();
       return true;
     }
   });
@@ -441,12 +452,38 @@ export default defineBackground(() => {
       }
 
       const recent = (await storage.getItem<string>("local:recentKanji")) || "";
-      const kanjiPool =
-        recent && recent.length > 0 ? recent : DEFAULT_SAMPLE_KANJI;
+      const weak =
+        (await storage.getItem<string>("local:passiveWeakKanji")) || "";
+      const recentShown =
+        (await storage.getItem<string>("local:passiveRecentShown")) || "";
 
-      // Chọn ngẫu nhiên 1 Kanji trong danh sách đã lưu hoặc fallback kanji mẫu
+      // 1. Quyết định pool bốc thăm: 50% từ weak (chữ hay làm sai) nếu có, 50% từ recent/sample
+      let pool = "";
+      if (weak.length > 0 && Math.random() < 0.5) {
+        pool = weak;
+      } else {
+        pool = recent && recent.length > 0 ? recent : DEFAULT_SAMPLE_KANJI;
+      }
+
+      // 2. Chống lặp gần: loại trừ tối đa 8 chữ vừa hiện gần nhất khỏi pool
+      const maxCooldown = Math.max(0, pool.length - 1);
+      const cooldownChars = new Set(
+        recentShown.slice(0, Math.min(8, maxCooldown)),
+      );
+      let candidates = Array.from(pool).filter((c) => !cooldownChars.has(c));
+      if (candidates.length === 0) {
+        candidates = Array.from(pool);
+      }
+
       const randomChar =
-        kanjiPool[Math.floor(Math.random() * kanjiPool.length)];
+        candidates[Math.floor(Math.random() * candidates.length)];
+
+      // Lưu lại vào recentShown (tối đa 8 chữ)
+      const nextRecentShown = (
+        randomChar + recentShown.replace(randomChar, "")
+      ).slice(0, 8);
+      await storage.setItem("local:passiveRecentShown", nextRecentShown);
+
       const { entry } = await backgroundFindKanji(randomChar);
       if (!entry) {
         return {
@@ -546,10 +583,14 @@ export default defineBackground(() => {
         | { questionKanji: string; options: QuizOption[] }
         | undefined = undefined;
       if (currentMode === "quiz") {
+        const primaryLevel = entry.level?.[0] || "";
         const options = await backgroundGetQuizOptions(
           entry.w,
           entry.h,
           recent,
+          3,
+          primaryLevel,
+          entry.stroke_count,
         );
         quizPayload = {
           questionKanji: entry.w,
