@@ -52,6 +52,7 @@
   let totalDurationMs = $state(20000);
   let remainingMs = $state(20000);
   let isPaused = $state(false);
+  let isSnoozeOpen = $state(false);
   let darkMode = $state(false);
   let mascotNormalSrc = $state(
     typeof browser !== "undefined" && browser.runtime?.getURL
@@ -135,7 +136,7 @@
     w: ["Sai nhiều quá má!", "Yếu quá!", "Có học không vậy má?"]
   },
   "25-29": {
-    c: ["Ồ đúng luôn!", "Học hay khoanh bừa vậy? =))", "Bất ngờ thật!"],
+    c: ["Ồ đúng luôn!", "Học hay khoanh bừa vậy?", "Bất ngờ thật!"],
     w: ["Sai quá trời!", "Yếu vl thật!", "Học gì vậy má?"]
   },
   "20-24": {
@@ -151,7 +152,7 @@
     w: ["Bruh...", "Có học không vậy?", "Dude..."]
   },
   "5-9": {
-    c: ["Ồ đúng luôn!", "Chắc khoanh bừa :)))", "Bất ngờ thật!"],
+    c: ["Ồ đúng luôn!", "Chắc khoanh bừa rồi", "Bất ngờ thật!"],
     w: ["Lại sai!", "Có nghiêm túc học không má?", "Wtf?"]
   },
   "0-4": {
@@ -194,7 +195,7 @@
     }
     const TICK_INTERVAL = 100;
     intervalTimer = setInterval(() => {
-      if (!isPaused) {
+      if (!isPaused && !isSnoozeOpen) {
         remainingMs -= TICK_INTERVAL;
         if (remainingMs <= 0) {
           clearInterval(intervalTimer!);
@@ -268,35 +269,35 @@
     }
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      onClose();
-      return;
+  async function handleApplySnooze(
+    amount: number,
+    unit: "m" | "h" | "d" | "today"
+  ) {
+    let snoozeUntil = Date.now();
+    if (unit === "m") {
+      snoozeUntil += amount * 60 * 1000;
+    } else if (unit === "h") {
+      snoozeUntil += amount * 60 * 60 * 1000;
+    } else if (unit === "d") {
+      snoozeUntil += amount * 24 * 60 * 60 * 1000;
+    } else if (unit === "today") {
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      snoozeUntil = endOfDay.getTime();
     }
 
-    const activeEl = document.activeElement;
-    const isEditing =
-      activeEl &&
-      (activeEl.tagName === "INPUT" ||
-        activeEl.tagName === "TEXTAREA" ||
-        (activeEl as HTMLElement).isContentEditable);
-
-    if (isEditing) return;
-
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
-      void handleNext();
-      return;
-    }
-
-    if (payload.mode === "quiz" && payload.quiz && !hasAnswered) {
-      if (["1", "2", "3", "4"].includes(e.key)) {
-        const idx = parseInt(e.key, 10) - 1;
-        if (idx >= 0 && idx < payload.quiz.options.length) {
-          handleSelectAnswer(payload.quiz.options[idx], idx);
-        }
+    try {
+      await storage.setItem("local:passiveLearnSnoozeUntil", snoozeUntil);
+      if (typeof browser !== "undefined" && browser.runtime?.sendMessage) {
+        await browser.runtime.sendMessage({
+          type: "SET_PASSIVE_SNOOZE",
+          snoozeUntil,
+        });
       }
+    } catch (e) {
+      console.error("Failed to set passive snooze:", e);
     }
+    onClose();
   }
 
   onMount(() => {
@@ -356,7 +357,7 @@
 
       const TICK_INTERVAL = 100;
       intervalTimer = setInterval(() => {
-        if (!isPaused) {
+        if (!isPaused && !isSnoozeOpen) {
           remainingMs -= TICK_INTERVAL;
           if (remainingMs <= 0) {
             clearInterval(intervalTimer!);
@@ -365,13 +366,10 @@
         }
       }, TICK_INTERVAL);
     })();
-
-    window.addEventListener("keydown", handleKeydown);
   });
 
   onDestroy(() => {
     if (intervalTimer) clearInterval(intervalTimer);
-    window.removeEventListener("keydown", handleKeydown);
     void browser.runtime?.sendMessage({ type: "PASSIVE_CARD_CLOSED" }).catch(() => {});
   });
 </script>
@@ -389,7 +387,97 @@
   onmouseenter={() => (isPaused = true)}
   onmouseleave={() => (isPaused = false)}
 >
-  <article class="card">
+  <article class="card" class:has-snooze-open={isSnoozeOpen}>
+    {#if isSnoozeOpen}
+      <div class="snooze-overlay">
+        <div class="snooze-header">
+          <div class="snooze-title">
+            <svg
+              class="snooze-title-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="10" y1="15" x2="10" y2="9" />
+              <line x1="14" y1="15" x2="14" y2="9" />
+            </svg>
+            <span>Tạm dừng ôn tập</span>
+          </div>
+          <button
+            type="button"
+            class="snooze-close-btn"
+            onclick={() => (isSnoozeOpen = false)}
+            aria-label="Đóng bảng tạm dừng"
+            title="Quay lại"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="snooze-desc">Không nhắc nhở cho đến:</div>
+
+        <div class="snooze-options-grid">
+          <button
+            type="button"
+            class="snooze-opt-btn"
+            onclick={() => handleApplySnooze(30, "m")}
+          >
+            <span>30 phút</span>
+          </button>
+          <button
+            type="button"
+            class="snooze-opt-btn"
+            onclick={() => handleApplySnooze(1, "h")}
+          >
+            <span>1 giờ</span>
+          </button>
+          <button
+            type="button"
+            class="snooze-opt-btn"
+            onclick={() => handleApplySnooze(6, "h")}
+          >
+            <span>6 giờ</span>
+          </button>
+          <button
+            type="button"
+            class="snooze-opt-btn"
+            onclick={() => handleApplySnooze(12, "h")}
+          >
+            <span>12 giờ</span>
+          </button>
+          <button
+            type="button"
+            class="snooze-opt-btn"
+            onclick={() => handleApplySnooze(1, "d")}
+          >
+            <span>1 ngày</span>
+          </button>
+          <button
+            type="button"
+            class="snooze-opt-btn snooze-opt-today"
+            onclick={() => handleApplySnooze(0, "today")}
+          >
+            <span>Hết hôm nay</span>
+          </button>
+        </div>
+      </div>
+    {/if}
+
     <div class="passive-header">
       <div class="brand-tag">
         <svg
@@ -411,14 +499,38 @@
       </div>
 
       <div class="header-actions">
+        <!-- Nút tạm dừng -->
+        <button
+          type="button"
+          class="btn-snooze"
+          class:btn-snooze-active={isSnoozeOpen}
+          onclick={() => (isSnoozeOpen = !isSnoozeOpen)}
+          aria-label="Tạm dừng hiển thị"
+          title="Tạm dừng hiển thị"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.9"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="10" y1="15" x2="10" y2="9" />
+            <line x1="14" y1="15" x2="14" y2="9" />
+          </svg>
+        </button>
+
         <!-- Nút sang câu tiếp theo -->
         <button
           type="button"
           class="btn-next"
           onclick={handleNext}
           disabled={isNextLoading}
-          aria-label="Câu tiếp theo (→)"
-          title="Câu tiếp theo (→)"
+          aria-label="Câu tiếp theo"
+          title="Câu tiếp theo"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -440,8 +552,8 @@
           type="button"
           class="btn-close-circle"
           onclick={onClose}
-          aria-label="Đóng (Esc)"
-          title="Đóng (Esc)"
+          aria-label="Đóng"
+          title="Đóng"
         >
           <svg class="countdown-svg" viewBox="0 0 28 28" aria-hidden="true">
             <circle
@@ -455,7 +567,7 @@
               cx="14"
               cy="14"
               r="11.5"
-              style="stroke-dashoffset: {strokeOffset}; transition: {isPaused ? 'none' : 'stroke-dashoffset 0.1s linear'};"
+              style="stroke-dashoffset: {strokeOffset}; transition: {isPaused || isSnoozeOpen ? 'none' : 'stroke-dashoffset 0.1s linear'};"
             />
           </svg>
           <svg
@@ -513,9 +625,17 @@
 
                 {#if hasAnswered}
                   {#if opt.isCorrect}
-                    <span class="opt-status-icon status-correct">✓</span>
+                    <span class="opt-status-icon status-correct">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="opt-status-svg">
+                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+                      </svg>
+                    </span>
                   {:else if selectedAnswerIndex === i}
-                    <span class="opt-status-icon status-wrong">✗</span>
+                    <span class="opt-status-icon status-wrong">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="opt-status-svg">
+                        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                      </svg>
+                    </span>
                   {/if}
                 {/if}
               </button>
@@ -529,22 +649,23 @@
               class:result-correct={isUserCorrect}
               class:result-wrong={!isUserCorrect}
             >
-              {#if isUserCorrect}
-                <span class="result-icon">🎉</span>
-                <span class="result-text">
-                  <strong>{feedbackMessage}</strong>
-                  {#if currentAccuracy !== null}
-                    <span class="accuracy-tag">({currentAccuracy}%)</span>
-                  {/if}
-                </span>
-              {:else}
-                <span class="result-text">
-                  <strong>{feedbackMessage}</strong>
-                  {#if currentAccuracy !== null}
-                    <span class="accuracy-tag">({currentAccuracy}%)</span>
-                  {/if}
-                </span>
-              {/if}
+              <span class="result-icon">
+                {#if isUserCorrect}
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="result-status-svg">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />
+                  </svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="result-status-svg">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+                  </svg>
+                {/if}
+              </span>
+              <span class="result-text">
+                <strong>{feedbackMessage}</strong>
+                {#if currentAccuracy !== null}
+                  <span class="accuracy-tag">({currentAccuracy}%)</span>
+                {/if}
+              </span>
             </div>
           {/if}
         </div>
@@ -704,6 +825,10 @@
     transform-origin: 240px bottom;
     will-change: transform, opacity;
     animation: card-pop 0.38s calc(var(--pop-time) * 0.48) cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  }
+
+  .card.has-snooze-open {
+    min-height: 200px;
   }
 
   @keyframes card-pop {
@@ -966,6 +1091,217 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  /* Nút tạm dừng */
+  .btn-snooze {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 50%;
+    color: #607d8b;
+    outline: none;
+    transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-snooze:hover {
+    transform: scale(1.12);
+    color: #374151;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .btn-snooze:active {
+    transform: scale(0.95);
+  }
+
+  .btn-snooze svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+  }
+
+  .btn-snooze-active {
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+  }
+
+  .wrap.dark-mode .btn-snooze {
+    color: #90a4ae;
+  }
+
+  .wrap.dark-mode .btn-snooze:hover {
+    color: #f3f4f6;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .wrap.dark-mode .btn-snooze-active {
+    color: #f87171 !important;
+    background: rgba(248, 113, 113, 0.15) !important;
+  }
+
+  /* Overlay tạm dừng bao quanh bên trong popup */
+  .snooze-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(8px);
+    border-radius: 17px;
+    padding: 13px 14px 12px 14px;
+    display: flex;
+    flex-direction: column;
+    animation: snooze-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+    box-sizing: border-box;
+  }
+
+  .wrap.dark-mode .snooze-overlay {
+    background: rgba(24, 24, 27, 0.98);
+  }
+
+  @keyframes snooze-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .snooze-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  .snooze-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .wrap.dark-mode .snooze-title {
+    color: #f4f4f5;
+  }
+
+  .snooze-title-icon {
+    width: 16px;
+    height: 16px;
+    color: #ef4444;
+  }
+
+  .wrap.dark-mode .snooze-title-icon {
+    color: #f87171;
+  }
+
+  .snooze-close-btn {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.15s ease;
+  }
+
+  .snooze-close-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #111827;
+  }
+
+  .wrap.dark-mode .snooze-close-btn {
+    color: #9ca3af;
+  }
+
+  .wrap.dark-mode .snooze-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f3f4f6;
+  }
+
+  .snooze-close-btn svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .snooze-desc {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 9px;
+    font-weight: 500;
+  }
+
+  .wrap.dark-mode .snooze-desc {
+    color: #a1a1aa;
+  }
+
+  .snooze-options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    flex: 1;
+  }
+
+  .snooze-opt-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 9px;
+    background: #f9fafb;
+    color: #1f2937;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    outline: none;
+    user-select: none;
+  }
+
+  .snooze-opt-btn:hover {
+    border-color: #f87171;
+    background: #fff1f2;
+    color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.12);
+  }
+
+  .snooze-opt-btn:active {
+    transform: scale(0.97);
+  }
+
+  .wrap.dark-mode .snooze-opt-btn {
+    background: #27272a;
+    border-color: #3f3f46;
+    color: #f4f4f5;
+  }
+
+  .wrap.dark-mode .snooze-opt-btn:hover {
+    border-color: #f87171;
+    background: #381a1c;
+    color: #fca5a5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .snooze-opt-today {
+    font-weight: 700;
   }
 
   /* Nút sang câu tiếp theo */
@@ -1388,8 +1724,14 @@
     position: absolute;
     top: 3px;
     right: 5px;
-    font-size: 10px;
-    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .opt-status-svg {
+    width: 13px;
+    height: 13px;
   }
 
   .status-correct {
@@ -1398,6 +1740,18 @@
 
   .status-wrong {
     color: #dc2626;
+  }
+
+  .result-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .result-status-svg {
+    width: 15px;
+    height: 15px;
   }
 
   .quiz-result-banner {

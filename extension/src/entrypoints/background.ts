@@ -351,7 +351,8 @@ export default defineBackground(() => {
 
     if (
       message.type === "RESET_PASSIVE_TIMER" ||
-      message.type === "PASSIVE_CARD_CLOSED"
+      message.type === "PASSIVE_CARD_CLOSED" ||
+      message.type === "SET_PASSIVE_SNOOZE"
     ) {
       void scheduleNextPassiveLearn();
       sendResponse({ ok: true });
@@ -359,10 +360,6 @@ export default defineBackground(() => {
     }
 
     if (message.type === "RESET_EXTENSION_STATE") {
-      if (passiveShortTimer) {
-        clearTimeout(passiveShortTimer);
-        passiveShortTimer = null;
-      }
       void browser.alarms.clearAll().then(() => {
         sendResponse({ ok: true });
       });
@@ -373,14 +370,9 @@ export default defineBackground(() => {
   // --- Chế độ tự học thụ động (Passive Learning Engine) ---
   const PASSIVE_ALARM_NAME = "PASSIVE_LEARN_ALARM";
   const DEFAULT_SAMPLE_KANJI = "日本語学習勉強時間私行見";
-  let passiveShortTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function scheduleNextPassiveLearn() {
     try {
-      if (passiveShortTimer) {
-        clearTimeout(passiveShortTimer);
-        passiveShortTimer = null;
-      }
       const modeFlashcard =
         (await storage.getItem<boolean>("local:passiveLearnModeFlashcard")) ??
         false;
@@ -395,6 +387,20 @@ export default defineBackground(() => {
         return;
       }
 
+      const snoozeUntil =
+        (await storage.getItem<number>("local:passiveLearnSnoozeUntil")) ?? 0;
+      const now = Date.now();
+      if (snoozeUntil > now) {
+        const remainingMinutes = Math.max(
+          1,
+          Math.ceil((snoozeUntil - now) / 60000),
+        );
+        await browser.alarms.create(PASSIVE_ALARM_NAME, {
+          delayInMinutes: remainingMinutes,
+        });
+        return;
+      }
+
       const storedSecs = await storage.getItem<number>(
         "local:passiveLearnIntervalSeconds",
       );
@@ -403,23 +409,13 @@ export default defineBackground(() => {
       );
       const intervalSec =
         storedSecs !== null && storedSecs !== undefined
-          ? storedSecs
+          ? Math.max(60, storedSecs)
           : storedLegacyMin !== null && storedLegacyMin !== undefined
-            ? storedLegacyMin * 60
+            ? Math.max(1, storedLegacyMin) * 60
             : 10 * 60;
 
-      if (intervalSec <= 30) {
-        // Chế độ test ngắn (ví dụ: 10 giây): dùng setTimeout trực tiếp để đảm bảo kích hoạt chuẩn xác
-        await browser.alarms.clear(PASSIVE_ALARM_NAME);
-        passiveShortTimer = setTimeout(async () => {
-          await triggerPassiveLearnCard();
-          void scheduleNextPassiveLearn();
-        }, intervalSec * 1000);
-        return;
-      }
-
-      const baseMinutes = intervalSec / 60;
-      // Thêm độ trễ ngẫu nhiên nhẹ (±20%) để tự nhiên hơn
+      const baseMinutes = Math.max(1, intervalSec / 60);
+      // Thêm độ trễ ngẫu nhiên nhẹ (±20%) để tự nhiên hơn, tối thiểu 1 phút
       const jitter = (Math.random() - 0.5) * 0.4 * baseMinutes;
       const delay = Math.max(1, Math.round(baseMinutes + jitter));
       await browser.alarms.create(PASSIVE_ALARM_NAME, {
@@ -435,6 +431,15 @@ export default defineBackground(() => {
     isUserTriggered = false,
   ): Promise<{ ok: boolean; error?: string }> {
     try {
+      if (!isUserTriggered) {
+        const snoozeUntil =
+          (await storage.getItem<number>("local:passiveLearnSnoozeUntil")) ?? 0;
+        if (snoozeUntil > Date.now()) {
+          void scheduleNextPassiveLearn();
+          return { ok: true, error: "Đang trong thời gian tạm dừng." };
+        }
+      }
+
       const recent = (await storage.getItem<string>("local:recentKanji")) || "";
       const kanjiPool =
         recent && recent.length > 0 ? recent : DEFAULT_SAMPLE_KANJI;
@@ -611,10 +616,6 @@ export default defineBackground(() => {
     if (enabled) {
       void scheduleNextPassiveLearn();
     } else {
-      if (passiveShortTimer) {
-        clearTimeout(passiveShortTimer);
-        passiveShortTimer = null;
-      }
       void browser.alarms.clear(PASSIVE_ALARM_NAME);
     }
   });
@@ -636,6 +637,10 @@ export default defineBackground(() => {
   });
 
   storage.watch<number>("local:passiveLearnDisplaySeconds", () => {
+    void scheduleNextPassiveLearn();
+  });
+
+  storage.watch<number>("local:passiveLearnSnoozeUntil", () => {
     void scheduleNextPassiveLearn();
   });
 

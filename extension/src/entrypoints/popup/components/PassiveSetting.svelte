@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { storage } from "#imports";
-  type Unit = "s" | "m" | "h";
+  type Unit = "m" | "h";
 
   let modeFlashcard = $state(false);
   let modeQuiz = $state(false);
@@ -17,17 +17,68 @@
   let sideOffset = $state<number>(10);
   let bottomOffset = $state<number>(10);
 
-  function getCalculatedSeconds(val: number, unit: Unit, dispSec: number): number {
-    if (unit === "s") {
-      return Math.max(dispSec, val);
+  let snoozeUntil = $state<number>(0);
+  let now = $state<number>(Date.now());
+  let snoozeRemainingMs = $derived(Math.max(0, snoozeUntil - now));
+  let isSnoozed = $derived(snoozeRemainingMs > 0);
+
+  function formatCountdown(ms: number): string {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    if (h > 0) {
+      return `${h}:${pad(m)}:${pad(s)}`;
     }
-    if (unit === "m") {
-      return Math.max(1, val) * 60;
+    return `${pad(m)}:${pad(s)}`;
+  }
+
+  let countdownTimer: ReturnType<typeof setInterval> | null = null;
+  $effect(() => {
+    if (snoozeUntil > Date.now()) {
+      if (!countdownTimer) {
+        countdownTimer = setInterval(() => {
+          now = Date.now();
+          if (snoozeUntil <= Date.now() && countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+          }
+        }, 1000);
+      }
+    } else if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
     }
+    return () => {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    };
+  });
+
+  async function handleCancelSnooze() {
+    snoozeUntil = 0;
+    now = Date.now();
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+    await storage.setItem("local:passiveLearnSnoozeUntil", 0);
+    try {
+      await browser.runtime?.sendMessage({
+        type: "SET_PASSIVE_SNOOZE",
+        snoozeUntil: 0,
+      });
+    } catch {}
+  }
+
+  function getCalculatedSeconds(val: number, unit: Unit): number {
     if (unit === "h") {
       return Math.max(1, val) * 3600;
     }
-    return 10 * 60;
+    return Math.max(1, val) * 60;
   }
 
   onMount(async () => {
@@ -59,28 +110,28 @@
         displaySeconds = 20;
       }
 
-      const storedUnit = await storage.getItem<Unit>("local:passiveLearnIntervalUnit");
+      const storedUnit = await storage.getItem<string>("local:passiveLearnIntervalUnit");
       const storedVal = await storage.getItem<number>("local:passiveLearnIntervalValue");
       const storedSecs = await storage.getItem<number>("local:passiveLearnIntervalSeconds");
       const storedLegacyMin = await storage.getItem<number>("local:passiveLearnInterval");
 
-      if (storedUnit && storedVal) {
-        intervalUnit = storedUnit;
-        intervalValue = storedVal;
+      if (storedUnit === "h" && storedVal) {
+        intervalUnit = "h";
+        intervalValue = Math.max(1, storedVal);
+      } else if (storedUnit === "m" && storedVal) {
+        intervalUnit = "m";
+        intervalValue = Math.max(1, storedVal);
       } else if (storedSecs) {
         if (storedSecs % 3600 === 0 && storedSecs >= 3600) {
           intervalUnit = "h";
-          intervalValue = storedSecs / 3600;
-        } else if (storedSecs % 60 === 0 && storedSecs >= 60) {
-          intervalUnit = "m";
-          intervalValue = storedSecs / 60;
+          intervalValue = Math.max(1, Math.round(storedSecs / 3600));
         } else {
-          intervalUnit = "s";
-          intervalValue = storedSecs;
+          intervalUnit = "m";
+          intervalValue = Math.max(1, Math.round(storedSecs / 60));
         }
       } else if (storedLegacyMin) {
         intervalUnit = "m";
-        intervalValue = storedLegacyMin;
+        intervalValue = Math.max(1, storedLegacyMin);
       } else {
         intervalUnit = "m";
         intervalValue = 10;
@@ -117,6 +168,11 @@
           storedBottomOffset,
         });
       }
+
+      const storedSnooze = await storage.getItem<number>("local:passiveLearnSnoozeUntil");
+      if (typeof storedSnooze === "number") {
+        snoozeUntil = storedSnooze;
+      }
     } catch (e) {
       console.error("Failed to load passive learn settings:", e);
     }
@@ -139,7 +195,7 @@
       const unit = existing?.storedUnit ?? (await storage.getItem<Unit>("local:passiveLearnIntervalUnit"));
       const val = existing?.storedVal ?? (await storage.getItem<number>("local:passiveLearnIntervalValue"));
       if (!unit || !val) {
-        const totalSecs = getCalculatedSeconds(intervalValue, intervalUnit, displaySeconds);
+        const totalSecs = getCalculatedSeconds(intervalValue, intervalUnit);
         await storage.setItem("local:passiveLearnIntervalSeconds", totalSecs);
         await storage.setItem("local:passiveLearnIntervalValue", intervalValue);
         await storage.setItem("local:passiveLearnIntervalUnit", intervalUnit);
@@ -191,22 +247,13 @@
     target.value = String(val);
     displaySeconds = val;
     await storage.setItem("local:passiveLearnDisplaySeconds", val);
-
-    if (intervalUnit === "s" && intervalValue < displaySeconds) {
-      intervalValue = displaySeconds;
-      await saveInterval();
-    }
   }
 
   async function handleIntervalValueChange(e: Event) {
     const target = e.target as HTMLInputElement;
     let val = parseInt(target.value, 10);
     if (Number.isNaN(val)) val = 1;
-    if (intervalUnit === "s") {
-      val = Math.max(displaySeconds, val);
-    } else {
-      val = Math.max(1, val);
-    }
+    val = Math.max(1, val);
     target.value = String(val);
     intervalValue = val;
     await saveInterval();
@@ -215,14 +262,11 @@
   async function handleIntervalUnitChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     intervalUnit = target.value as Unit;
-    if (intervalUnit === "s" && intervalValue < displaySeconds) {
-      intervalValue = displaySeconds;
-    }
     await saveInterval();
   }
 
   async function saveInterval() {
-    const totalSecs = getCalculatedSeconds(intervalValue, intervalUnit, displaySeconds);
+    const totalSecs = getCalculatedSeconds(intervalValue, intervalUnit);
     await storage.setItem("local:passiveLearnIntervalSeconds", totalSecs);
     await storage.setItem("local:passiveLearnIntervalValue", intervalValue);
     await storage.setItem("local:passiveLearnIntervalUnit", intervalUnit);
@@ -287,14 +331,6 @@
 </script>
 
 <div class="settings-container">
-  <!-- Giải thích tính năng học thụ động -->
-  <div class="passive-intro-hint">
-    <span class="intro-bulb">💡</span>
-    <span>
-      Tự động hiển thị thẻ ôn tập hoặc câu đố trắc nghiệm từ các chữ Kanji bạn đã tra cứu theo chu kỳ, giúp ghi nhớ thụ động tự nhiên khi đang lướt web.
-    </span>
-  </div>
-
   <!-- Cài đặt chính -->
   <div class="setting-item">
     <div class="setting-controls">
@@ -333,16 +369,11 @@
         <div class="passive-field-row">
           <div class="field-label-col">
             <strong>Tần suất xuất hiện</strong>
-            {#if intervalUnit === "s"}
-              <span class="field-sub-hint">
-                * Không nhỏ hơn thời gian hiển thị ({displaySeconds}s)
-              </span>
-            {/if}
           </div>
           <div class="field-controls">
             <input
               type="number"
-              min={intervalUnit === "s" ? displaySeconds : 1}
+              min="1"
               step="1"
               value={intervalValue}
               onchange={handleIntervalValueChange}
@@ -354,7 +385,6 @@
               onchange={handleIntervalUnitChange}
               aria-label="Đơn vị tần suất"
             >
-              <option value="s">giây</option>
               <option value="m">phút</option>
               <option value="h">giờ</option>
             </select>
@@ -457,6 +487,76 @@
             </svg>
             <span>{isTesting ? "..." : "Test"}</span>
           </button>
+
+          <div class="hint-tooltip-wrap">
+            <button
+              type="button"
+              class="hint-icon-btn"
+              aria-label="Xem giải thích tính năng"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.8"
+                stroke="currentColor"
+                class="heroicon-bulb"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.516 0c.85.493 1.508 1.333 1.508 2.316V18"
+                />
+              </svg>
+            </button>
+            <div class="hint-tooltip-bubble" role="tooltip">
+              Tự động hiển thị thẻ ôn tập hoặc câu đố trắc nghiệm từ các chữ Kanji bạn đã tra cứu theo chu kỳ, giúp ghi nhớ thụ động tự nhiên khi đang lướt web.
+            </div>
+          </div>
+
+          {#if isSnoozed}
+            <div class="snooze-inline-badge" title="Thời gian tạm dừng còn lại">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.8"
+                stroke="currentColor"
+                class="snooze-inline-icon"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M14.25 9v6m-4.5-6v6M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                />
+              </svg>
+              <span class="snooze-inline-text">Đang tạm dừng</span>
+              <span class="snooze-inline-timer">{formatCountdown(snoozeRemainingMs)}</span>
+              <div class="snooze-btn-wrap">
+                <button
+                  type="button"
+                  class="snooze-play-btn"
+                  onclick={handleCancelSnooze}
+                  aria-label="Tiếp tục"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    class="snooze-play-icon"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <div class="snooze-tooltip" role="tooltip">Tiếp tục</div>
+              </div>
+            </div>
+          {/if}
+
           {#if testStatus}
             <span class="test-error-hint">{testStatus.text}</span>
           {/if}
@@ -467,29 +567,245 @@
 </div>
 
 <style>
-  .passive-intro-hint {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 7px;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    color: #475569;
+  .hint-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
   }
 
-  .intro-bulb {
-    font-size: 0.95rem;
-    line-height: 1.1;
+  .hint-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .hint-icon-btn:hover,
+  .hint-tooltip-wrap:focus-within .hint-icon-btn {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+  }
+
+  :global(main.dark-mode) .hint-icon-btn {
+    color: #6b7280;
+  }
+
+  :global(main.dark-mode) .hint-icon-btn:hover,
+  :global(main.dark-mode) .hint-tooltip-wrap:focus-within .hint-icon-btn {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.15);
+  }
+
+  .heroicon-bulb {
+    width: 17px;
+    height: 17px;
+  }
+
+  .hint-tooltip-bubble {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: 250px;
+    padding: 0.55rem 0.75rem;
+    background: #18181b;
+    color: #f4f4f5;
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 100;
+  }
+
+  .hint-tooltip-bubble::before {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 8px;
+    border: 5px solid transparent;
+    border-top-color: #3f3f46;
+  }
+
+  .hint-tooltip-bubble::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 9px;
+    border: 4px solid transparent;
+    border-top-color: #18181b;
+  }
+
+  .hint-tooltip-wrap:hover .hint-tooltip-bubble,
+  .hint-tooltip-wrap:focus-within .hint-tooltip-bubble {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  :global(main.dark-mode) .hint-tooltip-bubble {
+    background: #27272a;
+    border-color: #52525b;
+    color: #f4f4f5;
+  }
+
+  :global(main.dark-mode) .hint-tooltip-bubble::before {
+    border-top-color: #52525b;
+  }
+
+  :global(main.dark-mode) .hint-tooltip-bubble::after {
+    border-top-color: #27272a;
+  }
+
+  /* Trạng thái tạm dừng đặt cạnh nút Test */
+  .snooze-inline-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    box-sizing: border-box;
+    padding: 0 4px 0 8px;
+    background: #fff7ed;
+    border: 1.5px solid #fed7aa;
+    border-radius: 6px;
+    margin-left: auto;
+  }
+
+  :global(main.dark-mode) .snooze-inline-badge {
+    background: #431407;
+    border-color: #9a3412;
+  }
+
+  .snooze-inline-icon {
+    width: 14px;
+    height: 14px;
+    color: #ea580c;
     flex-shrink: 0;
   }
 
-  :global(main.dark-mode) .passive-intro-hint {
-    background: #1e293b;
-    border-color: #334155;
-    color: #94a3b8;
+  :global(main.dark-mode) .snooze-inline-icon {
+    color: #fb923c;
+  }
+
+  .snooze-inline-text {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #9a3412;
+    white-space: nowrap;
+  }
+
+  :global(main.dark-mode) .snooze-inline-text {
+    color: #fdba74;
+  }
+
+  .snooze-inline-timer {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #c2410c;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    min-width: 38px;
+  }
+
+  :global(main.dark-mode) .snooze-inline-timer {
+    color: #fed7aa;
+  }
+
+  .snooze-btn-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .snooze-tooltip {
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%) translateY(2px);
+    padding: 3px 7px;
+    background: #18181b;
+    color: #f4f4f5;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 100;
+  }
+
+  .snooze-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #18181b;
+  }
+
+  .snooze-btn-wrap:hover .snooze-tooltip,
+  .snooze-btn-wrap:focus-within .snooze-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  :global(main.dark-mode) .snooze-tooltip {
+    background: #27272a;
+    border: 1px solid #52525b;
+  }
+
+  :global(main.dark-mode) .snooze-tooltip::after {
+    border-top-color: #27272a;
+  }
+
+  .snooze-play-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: #ea580c;
+    color: #ffffff;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .snooze-play-btn:hover {
+    background: #c2410c;
+  }
+
+  :global(main.dark-mode) .snooze-play-btn {
+    background: #ea580c;
+  }
+
+  :global(main.dark-mode) .snooze-play-btn:hover {
+    background: #f97316;
+  }
+
+  .snooze-play-icon {
+    width: 12px;
+    height: 12px;
+    display: block;
   }
 
   .passive-field-row {
@@ -670,7 +986,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 0.45rem 1rem;
+    height: 34px;
+    box-sizing: border-box;
+    padding: 0 1rem;
     font-size: 0.85rem;
   }
 

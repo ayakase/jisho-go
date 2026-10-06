@@ -795,7 +795,6 @@ export default defineContentScript({
           buttonContainer !== null ||
           selectionOverlay !== null ||
           ocrLoadingEl !== null ||
-          passivePopupContainer !== null ||
           isOcrScanning;
 
         if (!hasOpenUi) return;
